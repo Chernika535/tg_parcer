@@ -1,0 +1,29 @@
+{
+  "$comment": "ONREZA: формат конфига принят по допущению — сверить с https://docs.onreza.ru/ (раздел onreza.json/onreza.config) и поправить ключи при необходимости.",
+  "build": {
+    "command": "npm run build",
+    "output": "dist"
+  },
+  "functions": {
+    "$comment": "ONREZA: файловая маршрутизация api/*.ts -> /api/*. Подтвердить entrypoint и сигнатуру (export default handler(Request): Response).",
+    "directory": "api",
+    "runtime": "node"
+  },
+  "env": [
+    "DATABASE_URL",
+    "TELEGRAM_BOT_TOKEN",
+    "CRON_SECRET",
+    "APP_USER_ID",
+    "APP_BASE_URL"
+  ],
+  "postDeploy": {
+    "$comment": "ONREZA: применить миграции после деплоя. Если build hook недоступен — запустить `npm run migrate` вручную один раз.",
+    "command": "npm run migrate"
+  },
+  "cron": {
+    "$comment": "ONREZA: если поддерживается нативный планировщик — раскомментировать и навесить на /api/cron (секрет всё равно проверяется). Иначе использовать внешний cron-job.org (см. README).",
+    "enabled": false,
+    "schedule": "*/15 * * * *",
+    "path": "/api/cron"
+  }
+}
