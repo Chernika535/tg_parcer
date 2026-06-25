@@ -1,0 +1,32 @@
+{
+  "name": "tg-feed-aggregator",
+  "version": "1.0.0",
+  "description": "Telegram Feed Aggregator PWA — reads public channels via t.me/s scraping, sends keyword digests via a Telegram bot. Deploys to Onreza.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "migrate": "tsx db/migrate.ts",
+    "test:scraper": "tsx scripts/test-scraper.ts",
+    "test:parse": "tsx scripts/test-parse.ts"
+  },
+  "dependencies": {
+    "node-html-parser": "6.1.13",
+    "postgres": "3.4.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.26.2"
+  },
+  "devDependencies": {
+    "@types/node": "20.16.11",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.3.3",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3",
+    "vite": "5.4.10",
+    "vite-plugin-pwa": "0.20.5"
+  }
+}
