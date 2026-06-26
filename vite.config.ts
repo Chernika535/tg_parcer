@@ -29,6 +29,10 @@ export default defineConfig({
     react(),
     spaFallback(),
     VitePWA({
+      // Самоуничтожающийся SW: сносит ранее закэшированную (старую) версию
+      // приложения и больше не кэширует app shell — обновления применяются сразу.
+      // PWA-установку временно отключаем ради надёжных обновлений.
+      selfDestroying: true,
       registerType: "autoUpdate",
       includeAssets: ["icon-192.png", "icon-512.png"],
       manifest: {
