@@ -62,9 +62,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loginWithTelegram(u: TelegramUser) {
     const { data, error } = await supabase().functions.invoke("telegram-auth", { body: u });
-    if (error) throw new Error(error.message);
-    const { email, otp } = data as { email: string; otp: string };
-    const { error: verr } = await supabase().auth.verifyOtp({ email, token: otp, type: "magiclink" });
+    if (error) {
+      // вытащить настоящий текст ошибки из тела ответа функции
+      let msg = error.message;
+      try {
+        const body = await (error as { context?: { json?: () => Promise<{ error?: string }> } }).context?.json?.();
+        if (body?.error) msg = body.error;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(msg);
+    }
+    const { token_hash } = data as { token_hash?: string };
+    if (!token_hash) throw new Error("сервер не вернул token_hash");
+    const { error: verr } = await supabase().auth.verifyOtp({ token_hash, type: "magiclink" });
     if (verr) throw new Error(verr.message);
   }
 

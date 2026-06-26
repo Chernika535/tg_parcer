@@ -110,16 +110,16 @@ Deno.serve(async (req: Request) => {
       { onConflict: "id" },
     );
 
-    // одноразовый OTP для входа на клиенте (verifyOtp)
+    // token_hash для входа на клиенте (verifyOtp) — присутствует всегда
     const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
       type: "magiclink",
       email,
     });
-    if (linkErr || !link?.properties?.email_otp) {
-      return jsonResponse({ error: "не удалось выдать сессию" }, 500);
+    if (linkErr || !link?.properties?.hashed_token) {
+      return jsonResponse({ error: `не удалось выдать сессию: ${linkErr?.message ?? "нет hashed_token"}` }, 500);
     }
 
-    return jsonResponse({ email, otp: link.properties.email_otp });
+    return jsonResponse({ email, token_hash: link.properties.hashed_token });
   } catch (e) {
     return jsonResponse({ error: (e as Error).message }, 500);
   }
