@@ -21,6 +21,8 @@ export default function FeedEdit() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("private");
+  const [official, setOfficialFlag] = useState(false);
+  const [byAdmin, setByAdmin] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(!isNew);
   const [err, setErr] = useState("");
@@ -39,6 +41,8 @@ export default function FeedEdit() {
         setChannels(f.channels);
         setTags(f.tags || []);
         setVisibility(f.visibility);
+        setOfficialFlag(f.official);
+        setByAdmin(f.by_admin);
       } catch (e) {
         setErr((e as Error).message);
       } finally {
@@ -83,6 +87,8 @@ export default function FeedEdit() {
         channels,
         visibility,
         tags,
+        official: isAdmin ? official : false,
+        by_admin: isAdmin ? byAdmin : false,
       };
       if (isNew) await createFeed(payload);
       else await updateFeed(feedId, payload);
@@ -195,6 +201,20 @@ export default function FeedEdit() {
               onChange={(e) => setAuthorName(e.target.value)}
               placeholder="например: Ника / Канал ХХХ"
             />
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="field">
+            <label>Бейджи (только админ)</label>
+            <label className="check">
+              <input type="checkbox" checked={byAdmin} onChange={(e) => setByAdmin(e.target.checked)} />
+              <span>Показать бейдж «от админа»</span>
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={official} onChange={(e) => setOfficialFlag(e.target.checked)} />
+              <span>Отметить «официальный источник»</span>
+            </label>
           </div>
         )}
 

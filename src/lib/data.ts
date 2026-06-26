@@ -95,6 +95,8 @@ export type FeedInput = {
   channels?: string[];
   visibility: Visibility;
   tags?: string[];
+  official?: boolean;
+  by_admin?: boolean;
 };
 
 export async function createFeed(input: FeedInput): Promise<Feed> {
@@ -111,6 +113,8 @@ export async function createFeed(input: FeedInput): Promise<Feed> {
       channels: input.channels ?? [],
       visibility: input.visibility,
       tags: cleanTags(input.tags),
+      official: !!input.official,
+      by_admin: !!input.by_admin,
     })
     .select("*")
     .single();
@@ -120,7 +124,7 @@ export async function createFeed(input: FeedInput): Promise<Feed> {
 
 export async function updateFeed(
   id: number,
-  fields: Partial<Pick<Feed, "title" | "description" | "cover_url" | "author_name" | "channels" | "visibility" | "tags">>,
+  fields: Partial<Pick<Feed, "title" | "description" | "cover_url" | "author_name" | "channels" | "visibility" | "tags" | "official" | "by_admin">>,
 ): Promise<void> {
   const patch: Record<string, unknown> = { ...fields };
   if (patch.tags) patch.tags = cleanTags(patch.tags as string[]);

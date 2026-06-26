@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFeedById, readChannels, setOfficial, type Feed, type Post } from "../lib/data.ts";
-import { useAuth } from "../lib/auth.tsx";
+import { getFeedById, readChannels, type Feed, type Post } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 
@@ -9,7 +8,6 @@ export default function FeedView() {
   const { id } = useParams();
   const feedId = Number(id);
   const nav = useNavigate();
-  const { isAdmin } = useAuth();
   const [feed, setFeed] = useState<Feed | null>(null);
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [unavailable, setUnavailable] = useState<string[]>([]);
@@ -53,20 +51,6 @@ export default function FeedView() {
           </button>
         </div>
 
-        {isAdmin && feed?.visibility === "public" && (
-          <div className="card row spread">
-            <span className="muted">Бейдж «официальный источник»</span>
-            <button
-              className={feed.official ? "btn danger sm" : "btn sm"}
-              onClick={async () => {
-                await setOfficial(feed.id, !feed.official);
-                setFeed({ ...feed, official: !feed.official });
-              }}
-            >
-              {feed.official ? "Снять" : "Отметить официальной"}
-            </button>
-          </div>
-        )}
 
         {unavailable.length > 0 && (
           <div className="card">
