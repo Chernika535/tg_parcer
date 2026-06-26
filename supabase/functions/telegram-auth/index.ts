@@ -4,7 +4,7 @@
 //
 // Секреты (Supabase → Project Settings → Edge Functions → Secrets):
 //   TELEGRAM_BOT_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.108.2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
 type TgUser = {

@@ -1,7 +1,7 @@
 # Конфиг проекта Supabase. project_id = ref вашего проекта
 # (его видно в адресе дашборда: supabase.com/dashboard/project/<REF>).
 # ВАЖНО: заменить REF на настоящий — пришлите его, я впишу.
-project_id = "REF"
+project_id = "kklxahjnptrgnwcrpauh"
 
 # Функции вызываются ДО входа (гостями), поэтому проверку JWT отключаем.
 [functions.telegram-auth]
