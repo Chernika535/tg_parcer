@@ -179,6 +179,41 @@ export async function moderateFeed(
   if (error) throw new Error(error.message);
 }
 
+// ---- Избранные посты ----
+export async function favoriteLinks(): Promise<string[]> {
+  const { data: u } = await db().auth.getUser();
+  if (!u.user) return [];
+  const { data } = await db().from("favorites").select("link").eq("user_id", u.user.id);
+  return (data ?? []).map((r: { link: string }) => r.link);
+}
+
+export async function listFavorites(): Promise<Post[]> {
+  const { data: u } = await db().auth.getUser();
+  if (!u.user) return [];
+  const { data, error } = await db()
+    .from("favorites")
+    .select("data")
+    .eq("user_id", u.user.id)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r: { data: Post }) => r.data);
+}
+
+export async function addFavorite(post: Post): Promise<void> {
+  const { data: u } = await db().auth.getUser();
+  if (!u.user) throw new Error("нужен вход");
+  const { error } = await db()
+    .from("favorites")
+    .upsert({ user_id: u.user.id, link: post.link, data: post });
+  if (error) throw new Error(error.message);
+}
+
+export async function removeFavorite(link: string): Promise<void> {
+  const { data: u } = await db().auth.getUser();
+  if (!u.user) return;
+  await db().from("favorites").delete().eq("user_id", u.user.id).eq("link", link);
+}
+
 // ---- MTProto: подключение читающего аккаунта (админ) ----
 export async function tgStatus(): Promise<boolean> {
   const { data, error } = await db().functions.invoke("tg-connect", { body: { action: "status" } });

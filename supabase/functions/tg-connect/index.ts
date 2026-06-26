@@ -41,7 +41,7 @@ async function makeClient(authStr?: string): Promise<Client> {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const body = (await req.json()) as { action: string; phone?: string; code?: string };
+    const body = (await req.json()) as { action: string; phone?: string; code?: string; password?: string };
     const db = svc();
 
     if (body.action === "status") {
@@ -83,11 +83,22 @@ Deno.serve(async (req: Request) => {
         );
       } catch (e) {
         const msg = (e as Error).message || String(e);
-        await client.disconnect();
         if (msg.includes("PASSWORD")) {
-          return json({ error: "На аккаунте включена 2FA. Отключите облачный пароль (Настройки → Конфиденциальность → Облачный пароль) и попробуйте снова." }, 400);
+          // включена 2FA — нужен облачный пароль
+          if (!body.password) {
+            await client.disconnect();
+            return json({ need_password: true });
+          }
+          try {
+            await (client as unknown as { checkPassword: (p: string) => Promise<unknown> }).checkPassword(body.password);
+          } catch (e2) {
+            await client.disconnect();
+            return json({ error: "Неверный облачный пароль (2FA): " + ((e2 as Error).message || String(e2)) }, 400);
+          }
+        } else {
+          await client.disconnect();
+          return json({ error: msg }, 400);
         }
-        return json({ error: msg }, 400);
       }
       const sess = await client.exportAuthString();
       await db.from("tg_session").update({ session: sess, tmp_session: null, phone_code_hash: null }).eq("id", "default");

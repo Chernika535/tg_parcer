@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, type Feed, type Post } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, favoriteLinks, addFavorite, removeFavorite, type Feed, type Post } from "../lib/data.ts";
+import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 
@@ -8,6 +9,8 @@ export default function FeedView() {
   const { id } = useParams();
   const feedId = Number(id);
   const nav = useNavigate();
+  const { session } = useAuth();
+  const [fav, setFav] = useState<Set<string>>(new Set());
   const [feed, setFeed] = useState<Feed | null>(null);
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [unavailable, setUnavailable] = useState<string[]>([]);
@@ -43,6 +46,23 @@ export default function FeedView() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (session) favoriteLinks().then((l) => setFav(new Set(l)));
+  }, [session]);
+
+  async function toggleFav(post: Post) {
+    const next = new Set(fav);
+    if (next.has(post.link)) {
+      next.delete(post.link);
+      setFav(next);
+      await removeFavorite(post.link);
+    } else {
+      next.add(post.link);
+      setFav(next);
+      await addFavorite(post);
+    }
+  }
 
   async function refresh() {
     setRefreshing(true);
@@ -81,7 +101,12 @@ export default function FeedView() {
         {!posts && !err && <Loading label="Читаю каналы…" />}
         {posts && posts.length === 0 && !err && <Empty>Постов пока нет.</Empty>}
         {posts?.map((p) => (
-          <PostCard key={`${p.channel}/${p.msgId}`} post={p} />
+          <PostCard
+            key={`${p.channel}/${p.msgId}`}
+            post={p}
+            isFav={fav.has(p.link)}
+            onToggleFav={session ? toggleFav : undefined}
+          />
         ))}
       </div>
     </>

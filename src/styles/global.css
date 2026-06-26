@@ -279,6 +279,10 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 
 /* Posts */
 .post-text { white-space: pre-wrap; word-break: break-word; line-height: 1.5; margin: 10px 0; font-size: 15px; }
+.fav-btn { background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px; flex: 0 0 auto; }
+.fav-btn.on { color: var(--accent-2); }
+.fav-btn.on svg { fill: var(--accent-2); }
+
 .ava { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; background: var(--surface-2); }
 .ava-ph { display: flex; align-items: center; justify-content: center; color: var(--muted); font-weight: 800; border: 1px solid var(--border); }
 

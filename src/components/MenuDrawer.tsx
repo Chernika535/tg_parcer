@@ -37,6 +37,7 @@ export default function MenuDrawer() {
               <Item icon="feed" label="Лента" onClick={() => go("/")} />
               <Item icon="folder" label="Мои ленты" onClick={() => go("/my")} />
               <Item icon="cloud" label="Теги" onClick={() => go("/tags")} />
+              {session && <Item icon="heart" label="Избранное" onClick={() => go("/favorites")} />}
               {isAdmin && <Item icon="shield" label="Модерация" onClick={() => go("/admin")} />}
               <Item
                 icon={session ? "user" : "login"}

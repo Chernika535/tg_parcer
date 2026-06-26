@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Post, Media } from "../lib/data.ts";
+import Icon from "./Icon.tsx";
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -15,7 +16,15 @@ function relativeTime(iso: string): string {
 
 const LIMIT = 360;
 
-export default function PostCard({ post }: { post: Post }) {
+export default function PostCard({
+  post,
+  isFav,
+  onToggleFav,
+}: {
+  post: Post;
+  isFav?: boolean;
+  onToggleFav?: (post: Post) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const long = post.text.length > LIMIT;
   const shown = expanded || !long ? post.text : post.text.slice(0, LIMIT) + "…";
@@ -36,9 +45,18 @@ export default function PostCard({ post }: { post: Post }) {
           </a>
           <div className="muted" style={{ fontSize: 12 }}>
             @{post.channel} · {relativeTime(post.postedAt)}
-            {post.views ? ` · 👁 ${post.views}` : ""}
+            {post.views ? ` · ${post.views}` : ""}
           </div>
         </div>
+        {onToggleFav && (
+          <button
+            className={`fav-btn ${isFav ? "on" : ""}`}
+            onClick={() => onToggleFav(post)}
+            aria-label="В избранное"
+          >
+            <Icon name="heart" size={20} />
+          </button>
+        )}
       </div>
 
       {post.text && <div className="post-text">{shown}</div>}

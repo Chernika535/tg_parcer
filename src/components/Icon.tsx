@@ -3,7 +3,7 @@ type Props = { name: IconName; size?: number; className?: string };
 export type IconName =
   | "feed" | "folder" | "shield" | "user" | "login" | "plus" | "search"
   | "refresh" | "back" | "trash" | "edit" | "check" | "doc" | "mail"
-  | "play" | "image" | "logout" | "eye" | "close" | "cloud" | "menu" | "tag";
+  | "play" | "image" | "logout" | "eye" | "close" | "cloud" | "menu" | "tag" | "heart";
 
 const P: Record<IconName, JSX.Element> = {
   feed: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18" /></>,
@@ -28,6 +28,7 @@ const P: Record<IconName, JSX.Element> = {
   cloud: <path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 0 1 18 18z" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   tag: <><path d="M3 11l8-8 10 10-8 8z" /><circle cx="8" cy="8" r="1.6" /></>,
+  heart: <path d="M12 20s-7-4.3-9.3-8.5C1 8.5 2.5 5.5 5.5 5.5c1.9 0 3.2 1.1 3.9 2.2C10 6.6 11.4 5.5 13.3 5.5c3 0 4.5 3 2.8 6C19 15.7 12 20 12 20z" />,
 };
 
 export default function Icon({ name, size = 22, className }: Props) {
