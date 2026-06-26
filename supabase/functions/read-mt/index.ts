@@ -1,8 +1,6 @@
-// Чтение каналов по MTProto под подключённым аккаунтом — для каналов с
-// выключенным превью (которые недоступны через t.me/s). Возвращает текст,
-// флаг медиа и ссылку. Если аккаунт не подключён — noAccount:true.
-import { TelegramClient } from "npm:telegram@2.22.2";
-import { StringSession } from "npm:telegram@2.22.2/sessions";
+// Чтение каналов по MTProto (MTKruto) под подключённым аккаунтом — для каналов
+// с выключенным превью. Возвращает текст, флаг медиа и ссылку.
+import { Client, StorageMemory } from "https://deno.land/x/mtkruto/mod.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.108.2";
 
 const API_ID = 2040;
@@ -37,34 +35,40 @@ Deno.serve(async (req: Request) => {
     const channels = [...new Set((body.channels ?? []).map(norm).filter(Boolean) as string[])];
     if (channels.length === 0) return json({ posts: [], unavailable: [] });
 
-    const client = new TelegramClient(new StringSession(row.session), API_ID, API_HASH, {
-      connectionRetries: 3,
-      useWSS: true,
-    });
+    const client = new Client({ storage: new StorageMemory(), apiId: API_ID, apiHash: API_HASH });
+    await client.importAuthString(row.session);
     await client.connect();
 
     const posts: Record<string, unknown>[] = [];
     const unavailable: string[] = [];
     for (const ch of channels) {
       try {
-        const entity = await client.getEntity(ch);
-        const msgs = await client.getMessages(entity, { limit: LIMIT });
-        if (!msgs.length) {
+        const msgs = await client.getHistory("@" + ch, { limit: LIMIT });
+        if (!msgs?.length) {
           unavailable.push(ch);
           continue;
         }
         for (const m of msgs) {
-          const text = (m as { message?: string }).message ?? "";
-          if (!text && !(m as { media?: unknown }).media) continue;
-          const date = (m as { date: number }).date;
+          const mm = m as unknown as {
+            id: number;
+            text?: string;
+            caption?: string;
+            date?: Date;
+            photo?: unknown;
+            video?: unknown;
+            document?: unknown;
+          };
+          const text = mm.text ?? mm.caption ?? "";
+          const hasMedia = !!(mm.photo || mm.video || mm.document);
+          if (!text && !hasMedia) continue;
           posts.push({
             channel: ch,
-            msgId: (m as { id: number }).id,
-            postedAt: new Date(date * 1000).toISOString(),
+            msgId: mm.id,
+            postedAt: (mm.date ? new Date(mm.date) : new Date()).toISOString(),
             text,
-            hasMedia: !!(m as { media?: unknown }).media,
+            hasMedia,
             media: [],
-            link: `https://t.me/${ch}/${(m as { id: number }).id}`,
+            link: `https://t.me/${ch}/${mm.id}`,
           });
         }
       } catch (_e) {
