@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createFeed, updateFeed, getFeedById, cleanTags, type Visibility } from "../lib/data.ts";
+import { createFeed, updateFeed, getFeedById, cleanTags, uploadCover, type Visibility } from "../lib/data.ts";
+import CoverArt from "../components/CoverArt.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, TopBar } from "../components/States.tsx";
 import ChannelInput from "../components/ChannelInput.tsx";
@@ -13,10 +14,14 @@ export default function FeedEdit() {
   const { isAdmin } = useAuth();
 
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [authorName, setAuthorName] = useState("");
   const [channels, setChannels] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("private");
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(!isNew);
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
@@ -28,6 +33,9 @@ export default function FeedEdit() {
         const f = await getFeedById(feedId);
         if (!f) throw new Error("лента не найдена");
         setTitle(f.title);
+        setDescription(f.description || "");
+        setCoverUrl(f.cover_url);
+        setAuthorName(f.author_name || "");
         setChannels(f.channels);
         setTags(f.tags || []);
         setVisibility(f.visibility);
@@ -38,6 +46,20 @@ export default function FeedEdit() {
       }
     })();
   }, [isNew, feedId]);
+
+  async function onPickCover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setErr("");
+    try {
+      setCoverUrl(await uploadCover(file));
+    } catch (e) {
+      setErr("Не удалось загрузить фото: " + (e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function addTag() {
     const next = cleanTags([...tags, tagInput]);
@@ -53,8 +75,17 @@ export default function FeedEdit() {
     setSaving(true);
     setErr("");
     try {
-      if (isNew) await createFeed({ title, channels, visibility, tags });
-      else await updateFeed(feedId, { title: title.trim(), channels, visibility, tags });
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || null,
+        cover_url: coverUrl,
+        author_name: visibility === "public" ? authorName.trim() || null : null,
+        channels,
+        visibility,
+        tags,
+      };
+      if (isNew) await createFeed(payload);
+      else await updateFeed(feedId, payload);
       nav("/my");
     } catch (e) {
       setErr((e as Error).message);
@@ -70,8 +101,37 @@ export default function FeedEdit() {
       <div className="content">
         {err && <ErrorState message={err} />}
         <div className="field">
+          <label>Обложка</label>
+          <div className="cover-edit">
+            <CoverArt seed={`${title}${feedId}`} src={coverUrl} className="cover-edit-art" />
+            <div className="cover-edit-actions">
+              <label className="btn secondary sm" style={{ cursor: "pointer" }}>
+                {uploading ? "Загрузка…" : coverUrl ? "Заменить фото" : "Загрузить фото"}
+                <input type="file" accept="image/*" hidden onChange={onPickCover} disabled={uploading} />
+              </label>
+              {coverUrl && (
+                <button type="button" className="btn ghost sm" onClick={() => setCoverUrl(null)}>
+                  Убрать (будет авто-узор)
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="field">
           <label>Название</label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+
+        <div className="field">
+          <label>Описание (до 300 символов)</label>
+          <textarea
+            value={description}
+            maxLength={300}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="О чём эта подборка"
+          />
+          <div className="muted" style={{ textAlign: "right" }}>{description.length}/300</div>
         </div>
 
         <div className="field">
@@ -125,6 +185,18 @@ export default function FeedEdit() {
             <p className="muted">Как админ, вы публикуете ленту сразу, без модерации.</p>
           )}
         </div>
+
+        {visibility === "public" && (
+          <div className="field">
+            <label>Имя автора подборки (необязательно)</label>
+            <input
+              type="text"
+              value={authorName}
+              onChange={(e) => setAuthorName(e.target.value)}
+              placeholder="например: Ника / Канал ХХХ"
+            />
+          </div>
+        )}
 
         <button className="btn" onClick={save} disabled={saving}>
           {saving ? "Сохранение…" : "Сохранить"}

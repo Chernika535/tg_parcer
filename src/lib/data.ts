@@ -7,10 +7,15 @@ export type Feed = {
   id: number;
   owner_id: string;
   title: string;
+  description: string | null;
+  cover_url: string | null;
+  author_name: string | null;
   channels: string[];
   tags: string[];
   visibility: Visibility;
   status: FeedStatus;
+  official: boolean;
+  by_admin: boolean;
   reject_reason: string | null;
   created_at: string;
   owner?: { display_name: string | null; username: string | null } | null;
@@ -82,12 +87,17 @@ export async function getFeedById(id: number): Promise<Feed | null> {
   return (data as Feed) ?? null;
 }
 
-export async function createFeed(input: {
+export type FeedInput = {
   title: string;
+  description?: string | null;
+  cover_url?: string | null;
+  author_name?: string | null;
   channels?: string[];
   visibility: Visibility;
   tags?: string[];
-}): Promise<Feed> {
+};
+
+export async function createFeed(input: FeedInput): Promise<Feed> {
   const { data: u } = await db().auth.getUser();
   if (!u.user) throw new Error("нужен вход");
   const { data, error } = await db()
@@ -95,6 +105,9 @@ export async function createFeed(input: {
     .insert({
       owner_id: u.user.id,
       title: input.title.trim(),
+      description: input.description?.slice(0, 300) || null,
+      cover_url: input.cover_url || null,
+      author_name: input.author_name?.trim() || null,
       channels: input.channels ?? [],
       visibility: input.visibility,
       tags: cleanTags(input.tags),
@@ -107,11 +120,29 @@ export async function createFeed(input: {
 
 export async function updateFeed(
   id: number,
-  fields: Partial<Pick<Feed, "title" | "channels" | "visibility" | "tags">>,
+  fields: Partial<Pick<Feed, "title" | "description" | "cover_url" | "author_name" | "channels" | "visibility" | "tags">>,
 ): Promise<void> {
-  const patch = { ...fields };
-  if (patch.tags) patch.tags = cleanTags(patch.tags);
+  const patch: Record<string, unknown> = { ...fields };
+  if (patch.tags) patch.tags = cleanTags(patch.tags as string[]);
+  if (typeof patch.description === "string") patch.description = (patch.description as string).slice(0, 300) || null;
   const { error } = await db().from("feeds").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// Загрузка обложки в Supabase Storage (bucket "covers"), возвращает публичный URL.
+export async function uploadCover(file: File): Promise<string> {
+  const { data: u } = await db().auth.getUser();
+  if (!u.user) throw new Error("нужен вход");
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `${u.user.id}/${Date.now()}.${ext}`;
+  const { error } = await db().storage.from("covers").upload(path, file, { upsert: true });
+  if (error) throw new Error(error.message);
+  return db().storage.from("covers").getPublicUrl(path).data.publicUrl;
+}
+
+// Админ: пометить/снять «официальный источник».
+export async function setOfficial(id: number, value: boolean): Promise<void> {
+  const { error } = await db().from("feeds").update({ official: value }).eq("id", id);
   if (error) throw new Error(error.message);
 }
 

@@ -1,6 +1,7 @@
 import { Routes, Route, NavLink, Navigate } from "react-router-dom";
 import { useAuth } from "./lib/auth.tsx";
 import { Loading } from "./components/States.tsx";
+import Icon from "./components/Icon.tsx";
 import PublicFeeds from "./pages/PublicFeeds.tsx";
 import MyFeeds from "./pages/MyFeeds.tsx";
 import FeedView from "./pages/FeedView.tsx";
@@ -8,6 +9,8 @@ import FeedEdit from "./pages/FeedEdit.tsx";
 import Admin from "./pages/Admin.tsx";
 import Login from "./pages/Login.tsx";
 import Account from "./pages/Account.tsx";
+import Privacy from "./pages/Privacy.tsx";
+import DataPolicy from "./pages/DataPolicy.tsx";
 import type { ReactElement } from "react";
 
 export default function App() {
@@ -20,6 +23,8 @@ export default function App() {
         <Route path="/" element={<PublicFeeds />} />
         <Route path="/feed/:id" element={<FeedView />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/data-policy" element={<DataPolicy />} />
         <Route path="/my" element={<RequireAuth><MyFeeds /></RequireAuth>} />
         <Route path="/my/new" element={<RequireAuth><FeedEdit /></RequireAuth>} />
         <Route path="/my/:id/edit" element={<RequireAuth><FeedEdit /></RequireAuth>} />
@@ -47,20 +52,12 @@ function TabBar() {
   const { session, isAdmin } = useAuth();
   return (
     <nav className="tabbar">
-      <NavLink to="/" end>
-        <span className="ico">🌐</span>Лента
-      </NavLink>
-      <NavLink to="/my">
-        <span className="ico">📁</span>Мои
-      </NavLink>
-      {isAdmin && (
-        <NavLink to="/admin">
-          <span className="ico">🛡️</span>Модерация
-        </NavLink>
-      )}
+      <NavLink to="/" end><Icon name="feed" /><span>Лента</span></NavLink>
+      <NavLink to="/my"><Icon name="folder" /><span>Мои</span></NavLink>
+      {isAdmin && <NavLink to="/admin"><Icon name="shield" /><span>Модерация</span></NavLink>}
       <NavLink to={session ? "/account" : "/login"}>
-        <span className="ico">{session ? "👤" : "🔑"}</span>
-        {session ? "Аккаунт" : "Вход"}
+        <Icon name={session ? "user" : "login"} />
+        <span>{session ? "Аккаунт" : "Вход"}</span>
       </NavLink>
     </nav>
   );

@@ -4,6 +4,7 @@ import { publicFeeds, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import FeedCard from "../components/FeedCard.tsx";
 import FeedFilter, { filterFeeds, allTagsOf } from "../components/FeedFilter.tsx";
+import Footer from "../components/Footer.tsx";
 
 export default function PublicFeeds() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
@@ -48,14 +49,10 @@ export default function PublicFeeds() {
         {feeds && feeds.length > 0 && shown.length === 0 && <Empty>Ничего не найдено.</Empty>}
         <div className="feed-grid">
           {shown.map((f) => (
-            <FeedCard
-              key={f.id}
-              feed={f}
-              onOpen={() => nav(`/feed/${f.id}`)}
-              ownerName={f.owner?.display_name}
-            />
+            <FeedCard key={f.id} feed={f} onOpen={() => nav(`/feed/${f.id}`)} />
           ))}
         </div>
+        <Footer />
       </div>
     </>
   );
