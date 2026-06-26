@@ -8,12 +8,18 @@ export type Feed = {
   owner_id: string;
   title: string;
   channels: string[];
+  tags: string[];
   visibility: Visibility;
   status: FeedStatus;
   reject_reason: string | null;
   created_at: string;
   owner?: { display_name: string | null; username: string | null } | null;
 };
+
+export function cleanTags(tags: string[] | undefined): string[] {
+  if (!tags) return [];
+  return [...new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean))].slice(0, 12);
+}
 
 export type Media =
   | { type: "photo"; url: string }
@@ -80,6 +86,7 @@ export async function createFeed(input: {
   title: string;
   channels?: string[];
   visibility: Visibility;
+  tags?: string[];
 }): Promise<Feed> {
   const { data: u } = await db().auth.getUser();
   if (!u.user) throw new Error("нужен вход");
@@ -90,6 +97,7 @@ export async function createFeed(input: {
       title: input.title.trim(),
       channels: input.channels ?? [],
       visibility: input.visibility,
+      tags: cleanTags(input.tags),
     })
     .select("*")
     .single();
@@ -99,9 +107,11 @@ export async function createFeed(input: {
 
 export async function updateFeed(
   id: number,
-  fields: Partial<Pick<Feed, "title" | "channels" | "visibility">>,
+  fields: Partial<Pick<Feed, "title" | "channels" | "visibility" | "tags">>,
 ): Promise<void> {
-  const { error } = await db().from("feeds").update(fields).eq("id", id);
+  const patch = { ...fields };
+  if (patch.tags) patch.tags = cleanTags(patch.tags);
+  const { error } = await db().from("feeds").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
 }
 

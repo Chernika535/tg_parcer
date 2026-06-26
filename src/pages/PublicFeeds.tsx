@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { publicFeeds, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
+import FeedCard from "../components/FeedCard.tsx";
+import FeedFilter, { filterFeeds, allTagsOf } from "../components/FeedFilter.tsx";
 
 export default function PublicFeeds() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [err, setErr] = useState("");
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState<string[]>([]);
   const nav = useNavigate();
 
   async function load() {
@@ -20,22 +24,38 @@ export default function PublicFeeds() {
     load();
   }, []);
 
+  const allTags = useMemo(() => allTagsOf(feeds ?? []), [feeds]);
+  const shown = useMemo(() => filterFeeds(feeds ?? [], query, active), [feeds, query, active]);
+  const toggleTag = (t: string) =>
+    setActive((a) => (a.includes(t) ? a.filter((x) => x !== t) : [...a, t]));
+
   return (
     <>
-      <TopBar title="Общедоступные ленты" />
+      <TopBar title="Лента" subtitle="Общедоступные подборки каналов" />
       <div className="content">
+        {feeds && feeds.length > 0 && (
+          <FeedFilter
+            query={query}
+            setQuery={setQuery}
+            allTags={allTags}
+            active={active}
+            toggleTag={toggleTag}
+          />
+        )}
         {err && <ErrorState message={err} onRetry={load} />}
         {!feeds && !err && <Loading />}
         {feeds && feeds.length === 0 && <Empty>Пока нет опубликованных лент.</Empty>}
-        {feeds?.map((f) => (
-          <div key={f.id} className="card" onClick={() => nav(`/feed/${f.id}`)}>
-            <div style={{ fontWeight: 600 }}>{f.title}</div>
-            <div className="muted">
-              {f.channels.length} каналов
-              {f.owner?.display_name ? ` · ${f.owner.display_name}` : ""}
-            </div>
-          </div>
-        ))}
+        {feeds && feeds.length > 0 && shown.length === 0 && <Empty>Ничего не найдено.</Empty>}
+        <div className="feed-grid">
+          {shown.map((f) => (
+            <FeedCard
+              key={f.id}
+              feed={f}
+              onOpen={() => nav(`/feed/${f.id}`)}
+              ownerName={f.owner?.display_name}
+            />
+          ))}
+        </div>
       </div>
     </>
   );

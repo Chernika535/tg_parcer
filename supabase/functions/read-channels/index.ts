@@ -67,11 +67,16 @@ function extractMedia(el: Element): Media[] {
     }
     for (const vp of el.querySelectorAll(".tgme_widget_message_video_player")) {
       const e = vp as Element;
-      const isRound = e.getAttribute("class")?.includes("roundvideo");
-      const video = e.querySelector("video");
-      const url = video?.getAttribute("src") ?? undefined;
+      const url = e.querySelector("video")?.getAttribute("src") ?? undefined;
       const thumb = bgUrl(e.querySelector(".tgme_widget_message_video_thumb")?.getAttribute("style") ?? null);
-      media.push({ type: isRound ? "roundvideo" : "video", url, thumb });
+      media.push({ type: "video", url, thumb });
+    }
+    // кружочки (video note) — отдельная разметка
+    for (const rv of el.querySelectorAll(".tgme_widget_message_roundvideo_player")) {
+      const e = rv as Element;
+      const url = e.querySelector("video")?.getAttribute("src") ?? undefined;
+      const thumb = bgUrl(e.querySelector(".tgme_widget_message_roundvideo_thumb")?.getAttribute("style") ?? null);
+      media.push({ type: "roundvideo", url, thumb });
     }
     for (const v of el.querySelectorAll("audio.tgme_widget_message_voice")) {
       media.push({ type: "voice", url: (v as Element).getAttribute("src") ?? undefined });

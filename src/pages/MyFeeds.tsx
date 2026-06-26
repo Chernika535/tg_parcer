@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { myFeeds, deleteFeed, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
+import FeedCard from "../components/FeedCard.tsx";
+import FeedFilter, { filterFeeds, allTagsOf } from "../components/FeedFilter.tsx";
 
 function statusBadge(f: Feed) {
-  if (f.visibility === "private") return <span className="badge">приватная</span>;
+  if (f.visibility === "private") return null;
   if (f.status === "approved") return <span className="badge ok">опубликована</span>;
   if (f.status === "pending") return <span className="badge">на модерации</span>;
   return <span className="badge warn">отклонена</span>;
@@ -13,6 +15,8 @@ function statusBadge(f: Feed) {
 export default function MyFeeds() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [err, setErr] = useState("");
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState<string[]>([]);
   const nav = useNavigate();
 
   async function load() {
@@ -33,37 +37,48 @@ export default function MyFeeds() {
     load();
   }
 
+  const allTags = useMemo(() => allTagsOf(feeds ?? []), [feeds]);
+  const shown = useMemo(() => filterFeeds(feeds ?? [], query, active), [feeds, query, active]);
+  const toggleTag = (t: string) =>
+    setActive((a) => (a.includes(t) ? a.filter((x) => x !== t) : [...a, t]));
+
   return (
     <>
-      <TopBar title="Мои ленты" />
+      <TopBar title="Мои ленты" subtitle="Приватные и общедоступные подборки" />
       <div className="content">
+        {feeds && feeds.length > 0 && (
+          <FeedFilter
+            query={query}
+            setQuery={setQuery}
+            allTags={allTags}
+            active={active}
+            toggleTag={toggleTag}
+          />
+        )}
         {err && <ErrorState message={err} onRetry={load} />}
         {!feeds && !err && <Loading />}
         {feeds && feeds.length === 0 && <Empty>У вас пока нет лент. Создайте первую.</Empty>}
-        {feeds?.map((f) => (
-          <div key={f.id} className="card row spread">
-            <div className="grow" onClick={() => nav(`/feed/${f.id}`)}>
-              <div className="row" style={{ gap: 8 }}>
-                <span style={{ fontWeight: 600 }}>{f.title}</span>
-                {statusBadge(f)}
-              </div>
-              <div className="muted">{f.channels.length} каналов</div>
-              {f.status === "rejected" && f.reject_reason && (
-                <div className="muted" style={{ color: "var(--accent-2)" }}>
-                  Причина: {f.reject_reason}
-                </div>
-              )}
-            </div>
-            <div className="row" style={{ gap: 4 }}>
-              <button className="btn ghost" onClick={() => nav(`/my/${f.id}/edit`)}>
-                ✎
-              </button>
-              <button className="btn ghost" onClick={() => remove(f.id, f.title)}>
-                🗑
-              </button>
-            </div>
-          </div>
-        ))}
+        {feeds && feeds.length > 0 && shown.length === 0 && <Empty>Ничего не найдено.</Empty>}
+        <div className="feed-grid">
+          {shown.map((f) => (
+            <FeedCard
+              key={f.id}
+              feed={f}
+              onOpen={() => nav(`/feed/${f.id}`)}
+              statusBadge={statusBadge(f)}
+              actions={
+                <>
+                  <button className="btn secondary sm" onClick={() => nav(`/my/${f.id}/edit`)}>
+                    ✎ Изменить
+                  </button>
+                  <button className="btn ghost sm" onClick={() => remove(f.id, f.title)}>
+                    🗑
+                  </button>
+                </>
+              }
+            />
+          ))}
+        </div>
       </div>
       <button className="fab" onClick={() => nav("/my/new")}>
         + Лента

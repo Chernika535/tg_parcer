@@ -24,7 +24,15 @@ export function Empty({ children }: { children: React.ReactNode }) {
   return <div className="state">{children}</div>;
 }
 
-export function TopBar({ title, onBack }: { title: string; onBack?: () => void }) {
+export function TopBar({
+  title,
+  subtitle,
+  onBack,
+}: {
+  title: string;
+  subtitle?: string;
+  onBack?: () => void;
+}) {
   return (
     <header className="topbar">
       {onBack && (
@@ -32,7 +40,10 @@ export function TopBar({ title, onBack }: { title: string; onBack?: () => void }
           ‹
         </button>
       )}
-      <h1>{title}</h1>
+      <div className="grow">
+        <h1>{title}</h1>
+        {subtitle && <div className="topbar-sub">{subtitle}</div>}
+      </div>
     </header>
   );
 }
