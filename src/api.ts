@@ -1,63 +1,80 @@
-// Тонкий клиент к /api. Никаких секретов на фронте.
+// Клиентский «API»: всё работает в браузере, без бэкенда.
+// Данные — в localStorage, чтение каналов — через CORS-прокси, отправка — Bot API.
+import { feeds, digests, settings } from "./lib/storage.ts";
+import { fetchManyChannels, type Post } from "./lib/scraper.ts";
+import { buildDigest } from "./lib/digest.ts";
+import { sendMessage, getLastChatId } from "./lib/telegram.ts";
 
-export type Post = {
-  channel: string;
-  msgId: number;
-  postedAt: string;
-  text: string;
-  hasMedia: boolean;
-  link: string;
-};
+export type { Post } from "./lib/scraper.ts";
+export type { Digest, Settings } from "./lib/storage.ts";
 
 export type FeedListItem = { id: number; title: string; channelCount: number };
 export type FeedDetail = { feed: { id: number; title: string; channels: string[] }; posts: Post[] };
 
-export type Digest = {
-  id: number;
-  title: string;
-  keywords: string[];
-  channels: string[];
-  send_hour: number;
-  send_minute: number;
-  enabled: boolean;
-  last_sent_at: string | null;
-};
-
-export type Settings = { tg_chat_id: number | null; timezone: string };
-
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api/${path}`, {
-    headers: { "content-type": "application/json" },
-    ...init,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
-  return data as T;
-}
-
 export const api = {
-  listFeeds: () => req<FeedListItem[]>("feeds"),
-  createFeed: (title: string) =>
-    req<{ id: number; title: string }>("feeds", { method: "POST", body: JSON.stringify({ title }) }),
-  updateFeed: (id: number, fields: { title?: string; channels?: string[] }) =>
-    req<{ ok: true }>("feeds", { method: "PATCH", body: JSON.stringify({ id, ...fields }) }),
-  deleteFeed: (id: number) => req<{ ok: true }>(`feeds?id=${id}`, { method: "DELETE" }),
-  getFeed: (id: number, limit = 50) => req<FeedDetail>(`feed?id=${id}&limit=${limit}`),
+  async listFeeds(): Promise<FeedListItem[]> {
+    return feeds.all().map((f) => ({ id: f.id, title: f.title, channelCount: f.channels.length }));
+  },
+  async createFeed(title: string) {
+    const f = feeds.create(title);
+    return { id: f.id, title: f.title };
+  },
+  async updateFeed(id: number, fields: { title?: string; channels?: string[] }) {
+    feeds.update(id, fields);
+    return { ok: true as const };
+  },
+  async deleteFeed(id: number) {
+    feeds.remove(id);
+    return { ok: true as const };
+  },
+  async getFeed(id: number, limit = 50): Promise<FeedDetail> {
+    const f = feeds.get(id);
+    if (!f) throw new Error("лента не найдена");
+    const posts = await fetchManyChannels(f.channels);
+    posts.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
+    return { feed: { id: f.id, title: f.title, channels: f.channels }, posts: posts.slice(0, limit) };
+  },
 
-  listDigests: () => req<Digest[]>("digests"),
-  createDigest: (d: Partial<Digest>) =>
-    req<Digest>("digests", { method: "POST", body: JSON.stringify(d) }),
-  updateDigest: (id: number, fields: Partial<Digest>) =>
-    req<{ ok: true }>("digests", { method: "PATCH", body: JSON.stringify({ id, ...fields }) }),
-  deleteDigest: (id: number) => req<{ ok: true }>(`digests?id=${id}`, { method: "DELETE" }),
-  runDigest: (id: number) =>
-    req<{ ok: boolean; sent: boolean }>("digests/run", {
-      method: "POST",
-      body: JSON.stringify({ id }),
-    }),
+  async listDigests() {
+    return digests.all();
+  },
+  async createDigest(d: Parameters<typeof digests.create>[0]) {
+    return digests.create(d);
+  },
+  async updateDigest(id: number, fields: Parameters<typeof digests.update>[1]) {
+    digests.update(id, fields);
+    return { ok: true as const };
+  },
+  async deleteDigest(id: number) {
+    digests.remove(id);
+    return { ok: true as const };
+  },
+  async runDigest(id: number) {
+    const d = digests.get(id);
+    if (!d) throw new Error("парсинг не найден");
+    const s = settings.get();
+    if (!s.tg_chat_id) throw new Error("не подключён Telegram (chat_id)");
+    if (!s.bot_token) throw new Error("не задан токен бота (Настройки)");
+    const text = await buildDigest(d);
+    if (!text) return { ok: true as const, sent: false };
+    await sendMessage(s.bot_token, s.tg_chat_id, text);
+    digests.update(id, { last_sent_at: new Date().toISOString() });
+    return { ok: true as const, sent: true };
+  },
 
-  getSettings: () => req<Settings>("settings"),
-  updateSettings: (fields: Partial<Settings>) =>
-    req<{ ok: true }>("settings", { method: "PATCH", body: JSON.stringify(fields) }),
-  telegramConnect: () => req<{ chat_id: number }>("telegram-connect", { method: "POST" }),
+  async getSettings() {
+    return settings.get();
+  },
+  async updateSettings(fields: Partial<ReturnType<typeof settings.get>>) {
+    settings.update(fields);
+    return { ok: true as const };
+  },
+  async telegramConnect() {
+    const s = settings.get();
+    const chatId = await getLastChatId(s.bot_token);
+    if (chatId == null)
+      throw new Error("не нашёл сообщений. Откройте бота, отправьте /start и повторите.");
+    settings.update({ tg_chat_id: chatId });
+    return { chat_id: chatId };
+  },
 };

@@ -20,6 +20,7 @@ export default function Settings() {
   const [err, setErr] = useState("");
   const [toast, setToast] = useState("");
   const [manualId, setManualId] = useState("");
+  const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -28,6 +29,7 @@ export default function Settings() {
       const data = await api.getSettings();
       setS(data);
       setManualId(data.tg_chat_id ? String(data.tg_chat_id) : "");
+      setToken(data.bot_token || "");
     } catch (e) {
       setErr((e as Error).message);
     }
@@ -41,7 +43,18 @@ export default function Settings() {
     setTimeout(() => setToast(""), 4000);
   }
 
+  async function saveToken() {
+    await api.updateSettings({ bot_token: token.trim() });
+    flash("Токен сохранён");
+    load();
+  }
+
   async function connect() {
+    if (!token.trim()) {
+      flash("Сначала введите и сохраните токен бота");
+      return;
+    }
+    await api.updateSettings({ bot_token: token.trim() });
     setBusy(true);
     try {
       const r = await api.telegramConnect();
@@ -78,6 +91,23 @@ export default function Settings() {
 
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Telegram</h3>
+          <div className="field">
+            <label>Токен бота (от @BotFather)</label>
+            <div className="row">
+              <input
+                type="text"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="123456:ABC-..."
+              />
+              <button className="btn sm" onClick={saveToken}>
+                ОК
+              </button>
+            </div>
+            <p className="muted" style={{ marginBottom: 0 }}>
+              Хранится только в этом браузере. Нужен для отправки сводок.
+            </p>
+          </div>
           <p className="muted">
             Текущий chat_id: <strong>{s.tg_chat_id ?? "не подключён"}</strong>
           </p>

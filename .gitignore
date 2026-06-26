@@ -1,7 +1,9 @@
 node_modules
-dist
 dev-dist
+# dist/ НЕ игнорируем: Onreza не запускает сборку и берёт готовую папку dist/ как есть.
+# После любого изменения исходников пересобрать: npm run build (и закоммитить dist/).
 .env
 .env.local
 *.log
 .DS_Store
+tsconfig.tsbuildinfo

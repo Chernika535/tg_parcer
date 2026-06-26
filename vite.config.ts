@@ -1,12 +1,33 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { copyFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-// ONREZA: output dir assumed "dist" (Vite default). Build command "npm run build".
-//         Adjust in onreza.json if docs require a different output dir.
+// Статический хостинг без серверного роутинга: чтобы прямой заход на /feeds,
+// /digests и т.п. не давал 404, кладём SPA-фоллбэк — 404.html (копия index.html)
+// и Netlify-style _redirects. Один из вариантов подхватит любой статик-хост.
+function spaFallback(): Plugin {
+  return {
+    name: "spa-fallback",
+    apply: "build",
+    closeBundle() {
+      const dist = resolve(__dirname, "dist");
+      try {
+        copyFileSync(resolve(dist, "index.html"), resolve(dist, "404.html"));
+        writeFileSync(resolve(dist, "_redirects"), "/*    /index.html   200\n");
+      } catch (e) {
+        console.warn("[spa-fallback]", (e as Error).message);
+      }
+    },
+  };
+}
+
 export default defineConfig({
+  base: "/",
   plugins: [
     react(),
+    spaFallback(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icon-192.png", "icon-512.png"],
@@ -26,23 +47,14 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
+        navigateFallback: "/index.html",
         runtimeCaching: [
           {
-            // App static — CacheFirst.
+            // Статика приложения — CacheFirst.
             urlPattern: ({ request }) =>
               ["style", "script", "image", "font"].includes(request.destination),
             handler: "CacheFirst",
             options: { cacheName: "static-assets", expiration: { maxEntries: 60 } },
-          },
-          {
-            // /api/* — NetworkFirst so feeds open offline from the last response.
-            urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-            },
           },
         ],
       },
