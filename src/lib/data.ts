@@ -15,13 +15,26 @@ export type Feed = {
   owner?: { display_name: string | null; username: string | null } | null;
 };
 
+export type Media =
+  | { type: "photo"; url: string }
+  | { type: "video"; url?: string; thumb?: string }
+  | { type: "roundvideo"; url?: string; thumb?: string }
+  | { type: "voice"; url?: string }
+  | { type: "sticker"; url: string }
+  | { type: "document"; title: string; extra?: string }
+  | { type: "link"; href?: string; site?: string; title?: string; description?: string; image?: string };
+
 export type Post = {
   channel: string;
   msgId: number;
   postedAt: string;
   text: string;
   hasMedia: boolean;
+  media: Media[];
   link: string;
+  views?: string;
+  channelTitle?: string;
+  channelAvatar?: string;
 };
 
 function db() {
