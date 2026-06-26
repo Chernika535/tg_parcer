@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth.tsx";
 import { TopBar } from "../components/States.tsx";
-import Footer from "../components/Footer.tsx";
 
 export default function Account() {
   const { profile, signOut, isAdmin } = useAuth();
@@ -37,7 +36,6 @@ export default function Account() {
         <button className="btn danger" onClick={logout}>
           Выйти
         </button>
-        <Footer />
       </div>
     </>
   );

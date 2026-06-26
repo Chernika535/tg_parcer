@@ -11,6 +11,8 @@ import Login from "./pages/Login.tsx";
 import Account from "./pages/Account.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import DataPolicy from "./pages/DataPolicy.tsx";
+import Tags from "./pages/Tags.tsx";
+import MenuDrawer from "./components/MenuDrawer.tsx";
 import type { ReactElement } from "react";
 
 export default function App() {
@@ -19,10 +21,12 @@ export default function App() {
 
   return (
     <div className="app">
+      <MenuDrawer />
       <Routes>
         <Route path="/" element={<PublicFeeds />} />
         <Route path="/feed/:id" element={<FeedView />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/tags" element={<Tags />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/data-policy" element={<DataPolicy />} />
         <Route path="/my" element={<RequireAuth><MyFeeds /></RequireAuth>} />
@@ -49,16 +53,13 @@ function RequireAdmin({ children }: { children: ReactElement }) {
 }
 
 function TabBar() {
-  const { session, isAdmin } = useAuth();
   return (
     <nav className="tabbar">
       <NavLink to="/" end><Icon name="feed" /><span>Лента</span></NavLink>
-      <NavLink to="/my"><Icon name="folder" /><span>Мои</span></NavLink>
-      {isAdmin && <NavLink to="/admin"><Icon name="shield" /><span>Модерация</span></NavLink>}
-      <NavLink to={session ? "/account" : "/login"}>
-        <Icon name={session ? "user" : "login"} />
-        <span>{session ? "Аккаунт" : "Вход"}</span>
+      <NavLink to="/tags" className="tab-cloud" aria-label="Теги">
+        <Icon name="cloud" size={24} />
       </NavLink>
+      <NavLink to="/my"><Icon name="folder" /><span>Мои</span></NavLink>
     </nav>
   );
 }

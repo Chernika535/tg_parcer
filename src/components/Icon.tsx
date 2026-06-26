@@ -3,7 +3,7 @@ type Props = { name: IconName; size?: number; className?: string };
 export type IconName =
   | "feed" | "folder" | "shield" | "user" | "login" | "plus" | "search"
   | "refresh" | "back" | "trash" | "edit" | "check" | "doc" | "mail"
-  | "play" | "image" | "logout" | "eye" | "close";
+  | "play" | "image" | "logout" | "eye" | "close" | "cloud" | "menu" | "tag";
 
 const P: Record<IconName, JSX.Element> = {
   feed: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18" /></>,
@@ -25,6 +25,9 @@ const P: Record<IconName, JSX.Element> = {
   image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="9" r="2" /><path d="M21 16l-5-5L5 21" /></>,
   eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  cloud: <path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 0 1 18 18z" />,
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  tag: <><path d="M3 11l8-8 10 10-8 8z" /><circle cx="8" cy="8" r="1.6" /></>,
 };
 
 export default function Icon({ name, size = 22, className }: Props) {

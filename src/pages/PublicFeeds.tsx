@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { publicFeeds, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import FeedCard from "../components/FeedCard.tsx";
 import FeedFilter, { filterFeeds, allTagsOf } from "../components/FeedFilter.tsx";
-import Footer from "../components/Footer.tsx";
 
 export default function PublicFeeds() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [err, setErr] = useState("");
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState<string[]>([]);
+  const [params] = useSearchParams();
+  const [active, setActive] = useState<string[]>(() => {
+    const t = params.get("tag");
+    return t ? [t.toLowerCase()] : [];
+  });
   const nav = useNavigate();
 
   async function load() {
@@ -32,7 +35,7 @@ export default function PublicFeeds() {
 
   return (
     <>
-      <TopBar title="ТелеФид" subtitle="Общедоступные подборки каналов" />
+      <TopBar title="ТелеФид" />
       <div className="content">
         {feeds && feeds.length > 0 && (
           <FeedFilter
@@ -52,7 +55,6 @@ export default function PublicFeeds() {
             <FeedCard key={f.id} feed={f} onOpen={() => nav(`/feed/${f.id}`)} />
           ))}
         </div>
-        <Footer />
       </div>
     </>
   );
