@@ -32,7 +32,7 @@ export default function PublicFeeds() {
 
   return (
     <>
-      <TopBar title="Лента" subtitle="Общедоступные подборки каналов" />
+      <TopBar title="ТелеФид" subtitle="Общедоступные подборки каналов" />
       <div className="content">
         {feeds && feeds.length > 0 && (
           <FeedFilter

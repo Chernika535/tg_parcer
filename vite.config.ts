@@ -36,11 +36,11 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icon-192.png", "icon-512.png"],
       manifest: {
-        name: "Telegram Feed Aggregator",
-        short_name: "TG Feeds",
-        description: "Ленты публичных Telegram-каналов и сводки по ключевым словам",
-        theme_color: "#0e1320",
-        background_color: "#f5f7fa",
+        name: "ТелеФид",
+        short_name: "ТелеФид",
+        description: "Ленты публичных Telegram-каналов: подборки, темы, поиск",
+        theme_color: "#221a52",
+        background_color: "#221a52",
         display: "standalone",
         start_url: "/",
         icons: [
