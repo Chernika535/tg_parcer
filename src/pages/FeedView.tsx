@@ -1,26 +1,28 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api, type FeedDetail } from "../api.ts";
+import { getFeedById, readChannels, type Feed, type Post } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
-import ChannelInput from "../components/ChannelInput.tsx";
 
 export default function FeedView() {
   const { id } = useParams();
   const feedId = Number(id);
   const nav = useNavigate();
-  const [data, setData] = useState<FeedDetail | null>(null);
+  const [feed, setFeed] = useState<Feed | null>(null);
+  const [posts, setPosts] = useState<Post[] | null>(null);
+  const [unavailable, setUnavailable] = useState<string[]>([]);
   const [err, setErr] = useState("");
-  const [editing, setEditing] = useState(false);
-  const [channels, setChannels] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setErr("");
     try {
-      const d = await api.getFeed(feedId);
-      setData(d);
-      setChannels(d.feed.channels);
+      const f = await getFeedById(feedId);
+      if (!f) throw new Error("лента не найдена или недоступна");
+      setFeed(f);
+      const { posts, unavailable } = await readChannels(f.channels);
+      setPosts(posts);
+      setUnavailable(unavailable);
     } catch (e) {
       setErr((e as Error).message);
     }
@@ -36,39 +38,18 @@ export default function FeedView() {
     setRefreshing(false);
   }
 
-  async function saveChannels() {
-    await api.updateFeed(feedId, { channels });
-    setEditing(false);
-    refresh();
-  }
-
-  const unavailable =
-    data && channels.filter((c) => !data.posts.some((p) => p.channel === c));
-
   return (
     <>
-      <TopBar title={data?.feed.title || "Лента"} onBack={() => nav("/feeds")} />
+      <TopBar title={feed?.title || "Лента"} onBack={() => nav(-1)} />
       <div className="content">
         <div className="row spread">
-          <button className="btn secondary sm" onClick={() => setEditing((v) => !v)}>
-            {editing ? "Отмена" : "✎ Каналы"}
-          </button>
+          <span className="muted">{feed ? `${feed.channels.length} каналов` : ""}</span>
           <button className="btn ghost sm" onClick={refresh} disabled={refreshing}>
             {refreshing ? "Обновление…" : "↻ Обновить"}
           </button>
         </div>
 
-        {editing && (
-          <div className="card">
-            <label>Каналы ленты</label>
-            <ChannelInput channels={channels} onChange={setChannels} />
-            <button className="btn" style={{ marginTop: 12 }} onClick={saveChannels}>
-              Сохранить
-            </button>
-          </div>
-        )}
-
-        {!editing && unavailable && unavailable.length > 0 && (
+        {unavailable.length > 0 && (
           <div className="card">
             <div className="muted">Недоступны (превью отключено / приватный / удалён):</div>
             <div className="tags">
@@ -82,14 +63,9 @@ export default function FeedView() {
         )}
 
         {err && <ErrorState message={err} onRetry={load} />}
-        {!data && !err && <Loading label="Читаю каналы…" />}
-        {data && data.posts.length === 0 && channels.length > 0 && !err && (
-          <Empty>Постов пока нет. Попробуйте обновить.</Empty>
-        )}
-        {data && channels.length === 0 && !editing && (
-          <Empty>Добавьте каналы через «✎ Каналы».</Empty>
-        )}
-        {data?.posts.map((p) => (
+        {!posts && !err && <Loading label="Читаю каналы…" />}
+        {posts && posts.length === 0 && !err && <Empty>Постов пока нет.</Empty>}
+        {posts?.map((p) => (
           <PostCard key={`${p.channel}/${p.msgId}`} post={p} />
         ))}
       </div>

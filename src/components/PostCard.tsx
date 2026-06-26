@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Post } from "../api.ts";
+import type { Post } from "../lib/data.ts";
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
