@@ -9,3 +9,9 @@ verify_jwt = false
 
 [functions.read-channels]
 verify_jwt = false
+
+[functions.tg-connect]
+verify_jwt = false
+
+[functions.read-mt]
+verify_jwt = false

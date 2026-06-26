@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth.tsx";
 import { TopBar } from "../components/States.tsx";
+import TgConnect from "../components/TgConnect.tsx";
 
 export default function Account() {
   const { profile, signOut, isAdmin } = useAuth();
@@ -33,6 +34,8 @@ export default function Account() {
             </div>
           </div>
         </div>
+        {isAdmin && <TgConnect />}
+
         <button className="btn danger" onClick={logout}>
           Выйти
         </button>

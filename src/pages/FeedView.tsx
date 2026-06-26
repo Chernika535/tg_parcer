@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFeedById, readChannels, type Feed, type Post } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, type Feed, type Post } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 
@@ -23,6 +23,18 @@ export default function FeedView() {
       const { posts, unavailable } = await readChannels(f.channels);
       setPosts(posts);
       setUnavailable(unavailable);
+      // Для каналов без превью пробуем дочитать под подключённым аккаунтом (MTProto).
+      if (unavailable.length > 0) {
+        const mt = await readChannelsMT(unavailable);
+        if (mt.posts.length > 0) {
+          setPosts((prev) => {
+            const merged = [...(prev ?? []), ...mt.posts];
+            merged.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
+            return merged;
+          });
+          setUnavailable(mt.unavailable);
+        }
+      }
     } catch (e) {
       setErr((e as Error).message);
     }

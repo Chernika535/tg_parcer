@@ -179,6 +179,53 @@ export async function moderateFeed(
   if (error) throw new Error(error.message);
 }
 
+// ---- MTProto: подключение читающего аккаунта (админ) ----
+export async function tgStatus(): Promise<boolean> {
+  const { data, error } = await db().functions.invoke("tg-connect", { body: { action: "status" } });
+  if (error) return false;
+  return !!(data as { connected?: boolean }).connected;
+}
+export async function tgSendCode(phone: string): Promise<void> {
+  const { data, error } = await db().functions.invoke("tg-connect", { body: { action: "send_code", phone } });
+  if (error) throw new Error(await fnError(error));
+  if ((data as { error?: string }).error) throw new Error((data as { error: string }).error);
+}
+export async function tgSignIn(
+  phone: string,
+  code: string,
+  password?: string,
+): Promise<{ ok?: boolean; need_password?: boolean }> {
+  const { data, error } = await db().functions.invoke("tg-connect", {
+    body: { action: "sign_in", phone, code, password },
+  });
+  if (error) throw new Error(await fnError(error));
+  const d = data as { ok?: boolean; need_password?: boolean; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d;
+}
+export async function tgDisconnect(): Promise<void> {
+  await db().functions.invoke("tg-connect", { body: { action: "disconnect" } });
+}
+
+async function fnError(error: unknown): Promise<string> {
+  try {
+    const body = await (error as { context?: { json?: () => Promise<{ error?: string }> } }).context?.json?.();
+    if (body?.error) return body.error;
+  } catch {
+    /* ignore */
+  }
+  return (error as Error).message;
+}
+
+export async function readChannelsMT(
+  channels: string[],
+): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean }> {
+  if (channels.length === 0) return { posts: [], unavailable: [] };
+  const { data, error } = await db().functions.invoke("read-mt", { body: { channels } });
+  if (error) return { posts: [], unavailable: channels };
+  return data as { posts: Post[]; unavailable: string[]; noAccount?: boolean };
+}
+
 // ---- Чтение каналов через серверную edge-функцию ----
 export async function readChannels(
   channels: string[],
