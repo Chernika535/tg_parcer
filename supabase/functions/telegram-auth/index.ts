@@ -5,7 +5,18 @@
 // Секреты (Supabase → Project Settings → Edge Functions → Secrets):
 //   TELEGRAM_BOT_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.108.2";
-import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+}
 
 type TgUser = {
   id: number;

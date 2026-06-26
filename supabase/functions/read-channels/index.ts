@@ -1,7 +1,18 @@
 // Supabase Edge Function: серверное чтение публичных Telegram-каналов
 // через https://t.me/s/<channel> (без CORS-проблем браузера).
 import { DOMParser, type Element } from "https://deno.land/x/deno_dom@v0.1.45/deno-dom-wasm.ts";
-import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+}
 
 type Post = {
   channel: string;
