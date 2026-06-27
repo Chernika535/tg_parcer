@@ -1,5 +1,6 @@
-// Чтение каналов по MTProto (MTKruto) под подключённым аккаунтом — для каналов
-// с выключенным превью. MTKruto грузится ЛЕНИВО (иначе 503 на старте).
+// Чтение каналов по MTProto (GramJS) под подключённым аккаунтом — для каналов
+// с выключенным превью. Сессия (StringSession) создаётся входом в браузере.
+// GramJS грузится лениво (иначе 503 на старте). Транспорт — WebSocket (useWSS).
 import { createClient } from "npm:@supabase/supabase-js@2.108.2";
 
 const API_ID = 2040;
@@ -34,33 +35,33 @@ Deno.serve(async (req: Request) => {
     const channels = [...new Set((body.channels ?? []).map(norm).filter(Boolean) as string[])];
     if (channels.length === 0) return json({ posts: [], unavailable: [] });
 
-    // ленивый импорт MTKruto
-    const { Client, StorageMemory } = await import("https://deno.land/x/mtkruto/mod.ts");
-    const client = new Client({ storage: new StorageMemory(), apiId: API_ID, apiHash: API_HASH });
-    await client.importAuthString(row.session);
+    const { TelegramClient } = await import("npm:telegram@2.26.22");
+    const { StringSession } = await import("npm:telegram@2.26.22/sessions");
+    const client = new TelegramClient(new StringSession(row.session), API_ID, API_HASH, {
+      connectionRetries: 3,
+      useWSS: true,
+    });
     await client.connect();
 
     const posts: Record<string, unknown>[] = [];
     const unavailable: string[] = [];
     for (const ch of channels) {
       try {
-        const msgs = await client.getHistory("@" + ch, { limit: LIMIT });
+        // deno-lint-ignore no-explicit-any
+        const msgs = await client.getMessages(ch, { limit: LIMIT } as any);
         if (!msgs?.length) {
           unavailable.push(ch);
           continue;
         }
         for (const m of msgs) {
-          const mm = m as unknown as {
-            id: number; text?: string; caption?: string; date?: Date;
-            photo?: unknown; video?: unknown; document?: unknown;
-          };
-          const text = mm.text ?? mm.caption ?? "";
-          const hasMedia = !!(mm.photo || mm.video || mm.document);
+          const mm = m as unknown as { id: number; message?: string; date?: number; media?: unknown };
+          const text = mm.message ?? "";
+          const hasMedia = !!mm.media;
           if (!text && !hasMedia) continue;
           posts.push({
             channel: ch,
             msgId: mm.id,
-            postedAt: (mm.date ? new Date(mm.date) : new Date()).toISOString(),
+            postedAt: new Date((mm.date ?? 0) * 1000).toISOString(),
             text,
             hasMedia,
             media: [],
@@ -71,7 +72,11 @@ Deno.serve(async (req: Request) => {
         unavailable.push(ch);
       }
     }
-    await client.disconnect();
+    try {
+      await client.disconnect();
+    } catch {
+      /* ignore */
+    }
     posts.sort((a, b) => String(b.postedAt).localeCompare(String(a.postedAt)));
     return json({ posts, unavailable });
   } catch (e) {

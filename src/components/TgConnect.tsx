@@ -5,35 +5,6 @@ import { tgStatus, tgDisconnect, tgSetSession } from "../lib/data.ts";
 const API_ID = 2040;
 const API_HASH = "b18441a1ff607e10a989891a5462e627";
 
-// MTKruto умеет работать в браузере. Грузим его в рантайме (без сборки),
-// пробуя несколько источников.
-const MT_URLS = [
-  "https://cdn.jsdelivr.net/npm/mtkruto/+esm",
-  "https://esm.sh/mtkruto",
-  "https://esm.sh/mtkruto@0.1.0",
-  "https://esm.sh/jsr/@mtkruto/mtkruto",
-];
-// Возвращает РАБОЧИЙ сконструированный клиент: перебирает источники и
-// проверяет, что класс реально конструируется в браузере.
-// deno-lint-ignore no-explicit-any
-async function makeBrowserClient(): Promise<any> {
-  let lastErr = "";
-  for (const url of MT_URLS) {
-    try {
-      const mod = await import(/* @vite-ignore */ url);
-      if (!mod?.Client || !mod?.StorageMemory) {
-        lastErr = "нет Client в " + url;
-        continue;
-      }
-      const client = new mod.Client({ storage: new mod.StorageMemory(), apiId: API_ID, apiHash: API_HASH });
-      return client;
-    } catch (e) {
-      lastErr = url.replace("https://", "") + " → " + (e as Error).message;
-    }
-  }
-  throw new Error("MTKruto не запустился ни из одного источника (" + lastErr + ")");
-}
-
 export default function TgConnect() {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [phase, setPhase] = useState<"idle" | "code" | "password" | "working">("idle");
@@ -59,10 +30,14 @@ export default function TgConnect() {
     setMsg("Подключаюсь к Telegram…");
     setPhase("working");
     try {
-      const client = await makeBrowserClient();
+      const { TelegramClient } = await import("telegram");
+      const { StringSession } = await import("telegram/sessions");
+      const client = new TelegramClient(new StringSession(""), API_ID, API_HASH, {
+        connectionRetries: 5,
+      });
       await client.start({
-        phone: () => phone.trim(),
-        code: () =>
+        phoneNumber: async () => phone.trim(),
+        phoneCode: () =>
           new Promise<string>((res) => {
             codeResolve.current = res;
             setPhase("code");
@@ -74,8 +49,11 @@ export default function TgConnect() {
             setPhase("password");
             setMsg("Включена 2FA — введите облачный пароль.");
           }),
+        onError: (e: Error) => {
+          throw e;
+        },
       });
-      const session = await client.exportAuthString();
+      const session = client.session.save() as unknown as string;
       await tgSetSession(session);
       try {
         await client.disconnect();
@@ -116,7 +94,7 @@ export default function TgConnect() {
     <div className="card">
       <h3 style={{ marginTop: 0 }}>Чтение каналов без превью (MTProto)</h3>
       <p className="muted">
-        Вход выполняется прямо здесь, в браузере. Используйте отдельный (запасной) аккаунт —
+        Вход выполняется здесь, в браузере. Используйте отдельный (запасной) аккаунт —
         есть риск блокировки. Подключается один раз, читать смогут все.
       </p>
 
@@ -141,9 +119,7 @@ export default function TgConnect() {
             />
           </div>
 
-          {phase === "idle" && (
-            <button className="btn" onClick={startLogin}>Получить код</button>
-          )}
+          {phase === "idle" && <button className="btn" onClick={startLogin}>Получить код</button>}
 
           {phase === "code" && (
             <div className="field">
