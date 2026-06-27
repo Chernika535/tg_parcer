@@ -64,6 +64,13 @@ Deno.serve(async (req: Request) => {
     if (body.action === "send_code") {
       if (!body.phone) return json({ error: "нет номера" }, 400);
       const client = await makeClient();
+      {
+        const names = Object.getOwnPropertyNames(Object.getPrototypeOf(client));
+        return json({
+          error: "CLIENT_METHODS: " +
+            names.filter((n) => /code|sign|auth|start|history|message|getchat|getme/i.test(n)).join(", "),
+        }, 500);
+      }
       const sent = (await client.invoke({
         _: "auth.sendCode",
         phone_number: body.phone,
