@@ -1,4 +1,27 @@
-import { supabase } from "./supabase.ts";
+import { supabase, appConfig } from "./supabase.ts";
+
+// Вызов MTProto-операции: если задан mtBaseUrl (Deno Deploy) — идём туда,
+// иначе пробуем edge-функцию Supabase того же имени.
+async function mtCall(name: "tg-connect" | "read-mt", body: Record<string, unknown>): Promise<unknown> {
+  const base = appConfig().mtBaseUrl?.replace(/\/$/, "");
+  if (base) {
+    const { data: s } = await supabase().auth.getSession();
+    const res = await fetch(`${base}/${name}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(s.session ? { authorization: `Bearer ${s.session.access_token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+    return data;
+  }
+  const { data, error } = await supabase().functions.invoke(name, { body });
+  if (error) throw new Error(await fnError(error));
+  return data;
+}
 
 export type Visibility = "private" | "public";
 export type FeedStatus = "pending" | "approved" | "rejected";
@@ -216,30 +239,32 @@ export async function removeFavorite(link: string): Promise<void> {
 
 // ---- MTProto: подключение читающего аккаунта (админ) ----
 export async function tgStatus(): Promise<boolean> {
-  const { data, error } = await db().functions.invoke("tg-connect", { body: { action: "status" } });
-  if (error) return false;
-  return !!(data as { connected?: boolean }).connected;
+  try {
+    const d = (await mtCall("tg-connect", { action: "status" })) as { connected?: boolean };
+    return !!d.connected;
+  } catch {
+    return false;
+  }
 }
 export async function tgSendCode(phone: string): Promise<void> {
-  const { data, error } = await db().functions.invoke("tg-connect", { body: { action: "send_code", phone } });
-  if (error) throw new Error(await fnError(error));
-  if ((data as { error?: string }).error) throw new Error((data as { error: string }).error);
+  const d = (await mtCall("tg-connect", { action: "send_code", phone })) as { error?: string };
+  if (d.error) throw new Error(d.error);
 }
 export async function tgSignIn(
   phone: string,
   code: string,
   password?: string,
 ): Promise<{ ok?: boolean; need_password?: boolean }> {
-  const { data, error } = await db().functions.invoke("tg-connect", {
-    body: { action: "sign_in", phone, code, password },
-  });
-  if (error) throw new Error(await fnError(error));
-  const d = data as { ok?: boolean; need_password?: boolean; error?: string };
+  const d = (await mtCall("tg-connect", { action: "sign_in", phone, code, password })) as {
+    ok?: boolean;
+    need_password?: boolean;
+    error?: string;
+  };
   if (d.error) throw new Error(d.error);
   return d;
 }
 export async function tgDisconnect(): Promise<void> {
-  await db().functions.invoke("tg-connect", { body: { action: "disconnect" } });
+  await mtCall("tg-connect", { action: "disconnect" }).catch(() => {});
 }
 
 async function fnError(error: unknown): Promise<string> {
@@ -256,9 +281,15 @@ export async function readChannelsMT(
   channels: string[],
 ): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
-  const { data, error } = await db().functions.invoke("read-mt", { body: { channels } });
-  if (error) return { posts: [], unavailable: channels };
-  return data as { posts: Post[]; unavailable: string[]; noAccount?: boolean };
+  try {
+    return (await mtCall("read-mt", { channels })) as {
+      posts: Post[];
+      unavailable: string[];
+      noAccount?: boolean;
+    };
+  } catch {
+    return { posts: [], unavailable: channels };
+  }
 }
 
 // ---- Чтение каналов через серверную edge-функцию ----

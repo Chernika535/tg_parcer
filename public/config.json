@@ -1,5 +1,6 @@
 {
   "supabaseUrl": "https://kklxahjnptrgnwcrpauh.supabase.co",
   "supabaseAnonKey": "sb_publishable_s8SkZsL6KqMiJhejibhdYQ_6DNjVhJ8",
-  "botUsername": "tgparsertgfeed_bot"
+  "botUsername": "tgparsertgfeed_bot",
+  "mtBaseUrl": ""
 }

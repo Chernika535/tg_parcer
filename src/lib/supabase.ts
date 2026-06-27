@@ -6,6 +6,7 @@ export type AppConfig = {
   supabaseUrl: string;
   supabaseAnonKey: string;
   botUsername: string;
+  mtBaseUrl?: string; // адрес MTProto-воркера на Deno Deploy (для закрытых каналов)
 };
 
 let _client: SupabaseClient | null = null;
