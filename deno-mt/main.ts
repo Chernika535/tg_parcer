@@ -169,7 +169,9 @@ async function handleRead(req: Request): Promise<Response> {
   return json({ posts, unavailable });
 }
 
-Deno.serve(async (req: Request) => {
+const PORT = Number(Deno.env.get("PORT") ?? 8000);
+
+Deno.serve({ port: PORT, hostname: "0.0.0.0" }, async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   try {
