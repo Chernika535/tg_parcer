@@ -29,8 +29,8 @@ export default function Tags() {
   const max = counts[0]?.[1] || 1;
   const shown = counts.filter(([t]) => !q.trim() || t.includes(q.trim().toLowerCase()));
 
-  function sizeFor(n: number) {
-    return 14 + Math.round((n / max) * 30); // 14..44px
+  function diaFor(n: number) {
+    return 64 + Math.round((n / max) * 84); // диаметр кружка 64..148px
   }
 
   return (
@@ -39,17 +39,21 @@ export default function Tags() {
         {!feeds && <Loading />}
         {feeds && counts.length === 0 && <Empty>Пока нет тегов. Добавьте теги к лентам.</Empty>}
         <div className="tags-cloud">
-          {shown.map(([t, n]) => (
-            <button
-              key={t}
-              className="cloud-tag"
-              style={{ fontSize: sizeFor(n), opacity: 0.55 + (n / max) * 0.45 }}
-              onClick={() => nav(`/?tag=${encodeURIComponent(t)}`)}
-            >
-              #{t}
-              <sup>{n}</sup>
-            </button>
-          ))}
+          {shown.map(([t, n]) => {
+            const d = diaFor(n);
+            return (
+              <button
+                key={t}
+                className="cloud-tag"
+                style={{ width: d, height: d, fontSize: Math.max(12, Math.round(d * 0.16)) }}
+                onClick={() => nav(`/?tag=${encodeURIComponent(t)}`)}
+                title={`${t} · ${n}`}
+              >
+                <span className="cloud-tag-name">#{t}</span>
+                <span className="cloud-tag-count">{n}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

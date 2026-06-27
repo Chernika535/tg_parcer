@@ -11,11 +11,14 @@
   --accent-ink: #1a1d12;     /* текст на лайме */
   --accent-2: #ff6fae;       /* розовый — второстепенный акцент */
   --accent-700: #15161b;
-  --border: #e9eaef;
-  --r: 6px;
-  --r-sm: 6px;
-  --shadow: 0 10px 30px rgba(13, 10, 40, 0.22);
-  --shadow-sm: 0 3px 12px rgba(13, 10, 40, 0.16);
+  --border: rgba(255, 255, 255, 0.55);
+  --border-ink: #e9eaef;
+  --r: 20px;
+  --r-sm: 14px;
+  --pill: 999px;
+  --glass: rgba(255, 255, 255, 0.74);
+  --shadow: 0 16px 40px rgba(13, 10, 40, 0.28);
+  --shadow-sm: 0 6px 18px rgba(13, 10, 40, 0.16);
   --grad: var(--ink);
 }
 
@@ -37,12 +40,12 @@ body {
 a { color: var(--accent-700); text-decoration: none; }
 
 .app {
-  max-width: 620px;
+  max-width: 1120px;
   margin: 0 auto;
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding-bottom: 96px;
+  padding-bottom: 100px;
 }
 
 /* Topbar */
@@ -64,14 +67,23 @@ a { color: var(--accent-700); text-decoration: none; }
 }
 
 .content { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+/* Узкие страницы (политики, формы) — читабельная ширина по центру */
+.content.narrow { max-width: 760px; margin: 0 auto; width: 100%; }
+/* Списки постов на десктопе не растягиваем на всю ширину */
+.content > article.card { max-width: 720px; width: 100%; margin-left: auto; margin-right: auto; }
+@media (min-width: 900px) {
+  .content { padding: 24px 32px; gap: 18px; }
+}
 
-/* Cards */
+/* Cards — стекломорфизм */
 .card {
-  background: var(--surface);
+  background: var(--glass);
   border: 1px solid var(--border);
   border-radius: var(--r);
   box-shadow: var(--shadow);
-  padding: 16px;
+  padding: 18px;
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
 }
 
 .row { display: flex; align-items: center; gap: 10px; }
@@ -81,8 +93,8 @@ a { color: var(--accent-700); text-decoration: none; }
 
 /* Buttons */
 .btn {
-  border: none; border-radius: 6px;
-  padding: 12px 20px; font-size: 15px; font-weight: 700; cursor: pointer;
+  border: none; border-radius: var(--pill);
+  padding: 12px 22px; font-size: 15px; font-weight: 700; cursor: pointer;
   background: var(--ink); color: #fff; box-shadow: var(--shadow-sm);
   transition: transform 0.12s ease, filter 0.12s ease;
 }
@@ -111,11 +123,11 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
   width: calc(100% - 28px); max-width: 560px;
   display: flex; gap: 4px; padding: 6px;
   background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border); border-radius: 6px;
+  border: 1px solid var(--border); border-radius: var(--pill);
   box-shadow: var(--shadow); z-index: 15;
 }
 .tabbar a {
-  flex: 1; text-align: center; padding: 9px 0; border-radius: 6px;
+  flex: 1; text-align: center; padding: 9px 0; border-radius: var(--pill);
   color: var(--muted); font-size: 11px; font-weight: 700; transition: background 0.15s, color 0.15s;
 }
 .tabbar a svg { display: block; margin: 0 auto 1px; }
@@ -124,7 +136,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 
 /* Центральная кнопка-облако */
 .tabbar a.tab-cloud {
-  flex: 0 0 auto; width: 52px; height: 52px; margin: -16px 6px 0; border-radius: 6px;
+  flex: 0 0 auto; width: 56px; height: 56px; margin: -18px 6px 0; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: var(--accent); color: var(--accent-ink);
   box-shadow: 0 8px 20px rgba(20, 22, 28, 0.22); border: 3px solid var(--surface);
@@ -134,8 +146,8 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 
 /* Гамбургер */
 .burger {
-  position: fixed; top: 13px; right: max(14px, calc((100vw - 620px) / 2 + 14px));
-  z-index: 30; width: 40px; height: 40px; border-radius: 6px;
+  position: fixed; top: 13px; right: max(14px, calc((100vw - 1120px) / 2 + 14px));
+  z-index: 30; width: 40px; height: 40px; border-radius: var(--pill);
   display: flex; align-items: center; justify-content: center;
   background: rgba(255, 255, 255, 0.16); color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.22); backdrop-filter: blur(10px); cursor: pointer;
@@ -152,7 +164,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .drawer-nav { display: flex; flex-direction: column; }
 .drawer-item {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
-  padding: 12px 10px; border: none; background: none; cursor: pointer; border-radius: 6px;
+  padding: 12px 10px; border: none; background: none; cursor: pointer; border-radius: var(--pill);
   font-size: 15px; font-weight: 600; color: var(--text);
 }
 .drawer-item:hover { background: var(--surface-2); }
@@ -161,13 +173,21 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 /* Страница тегов */
 .tags-page { position: relative; min-height: 100vh; padding-bottom: 150px; }
 .tags-cloud-wrap { padding: 70px 18px 18px; }
-.tags-cloud { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: center; }
+.tags-cloud { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; }
 .cloud-tag {
-  background: rgba(255, 255, 255, 0.92); color: var(--ink); border: none; border-radius: 6px;
-  padding: 6px 12px; font-weight: 800; cursor: pointer; line-height: 1.1;
-  box-shadow: var(--shadow-sm);
+  border: none; border-radius: 50%; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: var(--accent-ink);
+  background: radial-gradient(circle at 32% 28%, #ffffff, var(--accent) 78%);
+  box-shadow: 0 10px 24px rgba(13, 10, 40, 0.28), inset 0 0 0 1px rgba(255,255,255,0.5);
+  font-weight: 800; line-height: 1.05; padding: 6px; text-align: center;
+  transition: transform 0.12s ease;
 }
-.cloud-tag sup { font-size: 0.5em; opacity: 0.6; margin-left: 3px; }
+.cloud-tag:nth-child(3n) { background: radial-gradient(circle at 32% 28%, #ffffff, #ff6fae 80%); color: #fff; }
+.cloud-tag:nth-child(3n+1) { background: radial-gradient(circle at 32% 28%, #ffffff, #7c5cff 82%); color: #fff; }
+.cloud-tag:active { transform: scale(0.95); }
+.cloud-tag-name { word-break: break-word; max-width: 90%; }
+.cloud-tag-count { font-size: 0.62em; opacity: 0.75; font-weight: 700; }
 .tags-search { position: fixed; left: 50%; transform: translateX(-50%); bottom: 84px; width: calc(100% - 28px); max-width: 560px; z-index: 16; }
 .search.glass input {
   background: rgba(255, 255, 255, 0.18); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3);
@@ -177,8 +197,8 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .search.glass .search-clear { color: #fff; }
 
 .fab {
-  position: fixed; bottom: 84px; right: max(18px, calc((100vw - 620px) / 2 + 18px));
-  background: var(--accent); color: var(--accent-ink); border: none; border-radius: 6px;
+  position: fixed; bottom: 84px; right: max(18px, calc((100vw - 1120px) / 2 + 18px));
+  background: var(--accent); color: var(--accent-ink); border: none; border-radius: var(--pill);
   padding: 14px 22px; font-size: 15px; font-weight: 800;
   box-shadow: 0 10px 24px rgba(20, 22, 28, 0.18); cursor: pointer; z-index: 20;
 }
@@ -188,7 +208,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .chip {
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 6px; padding: 4px 11px; font-size: 12.5px; font-weight: 600; color: var(--text);
+  border-radius: var(--pill); padding: 4px 11px; font-size: 12.5px; font-weight: 600; color: var(--text);
 }
 .chip-btn { cursor: pointer; }
 .chip-active { background: var(--ink); color: #fff; border-color: transparent; }
@@ -207,7 +227,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .tag {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 6px; padding: 5px 11px; font-size: 13px; font-weight: 600;
+  border-radius: var(--pill); padding: 5px 11px; font-size: 13px; font-weight: 600;
 }
 .tag button { background: none; border: none; color: var(--accent-2); cursor: pointer; font-size: 13px; padding: 0; }
 
@@ -215,15 +235,16 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .filter { display: flex; flex-direction: column; gap: 10px; }
 .search { position: relative; display: flex; align-items: center; }
 .search-ico { position: absolute; left: 13px; font-size: 15px; opacity: 0.6; }
-.search input { padding-left: 38px; border-radius: 6px; }
+.search input { padding-left: 38px; border-radius: var(--pill); }
 .search-clear { position: absolute; right: 10px; background: none; border: none; color: var(--muted); font-size: 15px; cursor: pointer; }
 
 /* Feed grid & cards */
-.feed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 460px) { .feed-grid { grid-template-columns: 1fr; } }
+.feed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+@media (max-width: 420px) { .feed-grid { grid-template-columns: 1fr; } }
 .feed-card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
-  box-shadow: var(--shadow-sm); overflow: hidden; transition: transform 0.15s, box-shadow 0.15s;
+  background: var(--glass); border: 1px solid var(--border); border-radius: var(--r);
+  box-shadow: var(--shadow); overflow: hidden; transition: transform 0.15s, box-shadow 0.15s;
+  backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3);
 }
 .feed-card:active { transform: scale(0.99); }
 .feed-cover { position: relative; height: 104px; cursor: pointer; overflow: hidden; }
@@ -232,7 +253,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .feed-cover-status { position: absolute; right: 8px; top: 8px; }
 .tag-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;
+  padding: 3px 8px; border-radius: var(--pill); font-size: 11px; font-weight: 800;
   backdrop-filter: blur(6px); color: #fff;
 }
 .tag-badge.official { background: var(--accent); color: var(--accent-ink); }
@@ -260,7 +281,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .feed-card-body { padding: 12px 14px 14px; }
 .feed-card-title { font-weight: 700; font-size: 15.5px; cursor: pointer; letter-spacing: -0.01em; }
 
-.badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.9); color: var(--muted); font-weight: 700; }
+.badge { font-size: 11px; padding: 3px 8px; border-radius: var(--pill); background: rgba(255,255,255,0.9); color: var(--muted); font-weight: 700; }
 .badge.warn { background: rgba(255, 107, 107, 0.16); color: var(--accent-2); }
 .badge.ok { background: rgba(0, 184, 169, 0.16); color: var(--accent-700); }
 
@@ -272,7 +293,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 /* Switch */
 .switch { position: relative; width: 46px; height: 28px; flex: 0 0 auto; }
 .switch input { display: none; }
-.switch span { position: absolute; inset: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; transition: background 0.2s; }
+.switch span { position: absolute; inset: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--pill); transition: background 0.2s; }
 .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-sm); transition: transform 0.2s; }
 .switch input:checked + span { background: var(--grad); border-color: transparent; }
 .switch input:checked + span::after { transform: translateX(18px); }
@@ -283,7 +304,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .fav-btn.on { color: var(--accent-2); }
 .fav-btn.on svg { fill: var(--accent-2); }
 
-.ava { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; background: var(--surface-2); }
+.ava { width: 44px; height: 44px; border-radius: var(--pill); object-fit: cover; flex: 0 0 auto; background: var(--surface-2); }
 .ava-ph { display: flex; align-items: center; justify-content: center; color: var(--muted); font-weight: 800; border: 1px solid var(--border); }
 
 .media-grid { display: grid; gap: 4px; margin: 10px 0; border-radius: var(--r-sm); overflow: hidden; }

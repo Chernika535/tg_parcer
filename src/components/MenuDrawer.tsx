@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth.tsx";
 import Icon, { type IconName } from "./Icon.tsx";
 
-const AUTHOR_EMAIL = "author@example.com"; // TODO: реальный e-mail
-const ADD_CHANNEL_URL = "#"; // TODO: анкета «добавить канал»
-const ADD_FEED_URL = "#"; // TODO: анкета «добавить подборку»
+const AUTHOR_EMAIL = "neiromantra@ya.ru";
+const ADD_CHANNEL_URL = "https://forms.yandex.ru/u/6a401bffe010db1391853844";
+const ADD_FEED_URL = "https://forms.yandex.ru/u/6a401c3395add55677591691";
 
 export default function MenuDrawer() {
   const [open, setOpen] = useState(false);

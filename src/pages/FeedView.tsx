@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, favoriteLinks, addFavorite, removeFavorite, type Feed, type Post } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, favoriteLinks, addFavorite, removeFavorite, reactToPost, type Feed, type Post } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -57,10 +57,12 @@ export default function FeedView() {
       next.delete(post.link);
       setFav(next);
       await removeFavorite(post.link);
+      reactToPost(post.channel, post.msgId, true); // снять реакцию в канале (best-effort)
     } else {
       next.add(post.link);
       setFav(next);
       await addFavorite(post);
+      reactToPost(post.channel, post.msgId); // лайк улетает в канал (best-effort)
     }
   }
 

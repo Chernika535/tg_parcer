@@ -2,7 +2,7 @@ import { supabase, appConfig } from "./supabase.ts";
 
 // Вызов MTProto-операции: если задан mtBaseUrl (Deno Deploy) — идём туда,
 // иначе пробуем edge-функцию Supabase того же имени.
-async function mtCall(name: "tg-connect" | "read-mt", body: Record<string, unknown>): Promise<unknown> {
+async function mtCall(name: "tg-connect" | "read-mt" | "react", body: Record<string, unknown>): Promise<unknown> {
   const base = appConfig().mtBaseUrl?.replace(/\/$/, "");
   if (base) {
     const { data: s } = await supabase().auth.getSession();
@@ -279,6 +279,15 @@ async function fnError(error: unknown): Promise<string> {
     /* ignore */
   }
   return (error as Error).message;
+}
+
+// Реакция (лайк) на пост канала в Telegram под подключённым аккаунтом (best-effort).
+export async function reactToPost(channel: string, msgId: number, remove = false): Promise<void> {
+  try {
+    await mtCall("react", { channel, msgId, emoji: "❤", remove });
+  } catch {
+    /* реакция не критична — молча игнорируем */
+  }
 }
 
 export async function readChannelsMT(
