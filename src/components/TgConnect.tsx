@@ -8,22 +8,30 @@ const API_HASH = "b18441a1ff607e10a989891a5462e627";
 // MTKruto умеет работать в браузере. Грузим его в рантайме (без сборки),
 // пробуя несколько источников.
 const MT_URLS = [
-  "https://esm.sh/jsr/@mtkruto/mtkruto",
-  "https://esm.sh/mtkruto",
   "https://cdn.jsdelivr.net/npm/mtkruto/+esm",
+  "https://esm.sh/mtkruto",
+  "https://esm.sh/mtkruto@0.1.0",
+  "https://esm.sh/jsr/@mtkruto/mtkruto",
 ];
+// Возвращает РАБОЧИЙ сконструированный клиент: перебирает источники и
+// проверяет, что класс реально конструируется в браузере.
 // deno-lint-ignore no-explicit-any
-async function loadMtkruto(): Promise<any> {
+async function makeBrowserClient(): Promise<any> {
   let lastErr = "";
   for (const url of MT_URLS) {
     try {
       const mod = await import(/* @vite-ignore */ url);
-      if (mod?.Client) return mod;
+      if (!mod?.Client || !mod?.StorageMemory) {
+        lastErr = "нет Client в " + url;
+        continue;
+      }
+      const client = new mod.Client({ storage: new mod.StorageMemory(), apiId: API_ID, apiHash: API_HASH });
+      return client;
     } catch (e) {
-      lastErr = (e as Error).message;
+      lastErr = url.replace("https://", "") + " → " + (e as Error).message;
     }
   }
-  throw new Error("не удалось загрузить MTKruto: " + lastErr);
+  throw new Error("MTKruto не запустился ни из одного источника (" + lastErr + ")");
 }
 
 export default function TgConnect() {
@@ -51,8 +59,7 @@ export default function TgConnect() {
     setMsg("Подключаюсь к Telegram…");
     setPhase("working");
     try {
-      const { Client, StorageMemory } = await loadMtkruto();
-      const client = new Client({ storage: new StorageMemory(), apiId: API_ID, apiHash: API_HASH });
+      const client = await makeBrowserClient();
       await client.start({
         phone: () => phone.trim(),
         code: () =>
