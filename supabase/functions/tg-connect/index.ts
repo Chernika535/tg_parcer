@@ -1,7 +1,6 @@
-// Подключение читающего Telegram-аккаунта по MTProto (MTKruto — Deno-native).
-// send_code → sign_in. 2FA: попросим отключить (для запасного аккаунта это ок).
+// Подключение читающего Telegram-аккаунта (MTKruto). Тяжёлая библиотека грузится
+// ЛЕНИВО внутри обработчиков, иначе функция падает на старте (503 boot error).
 // Публичные api_id/api_hash официального клиента (по запросу пользователя).
-import { Client, StorageMemory, functions, types } from "https://deno.land/x/mtkruto/mod.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.108.2";
 
 const API_ID = 2040;
@@ -15,13 +14,20 @@ const cors = {
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...cors, "content-type": "application/json" } });
 
+// deno-lint-ignore no-explicit-any
+let _mt: any;
+async function mt() {
+  if (!_mt) _mt = await import("https://deno.land/x/mtkruto/mod.ts");
+  return _mt;
+}
+
 function svc() {
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
 }
 
-async function requireAdmin(req: Request): Promise<boolean> {
+async function isAdmin(req: Request): Promise<boolean> {
   const auth = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!auth) return false;
   const db = svc();
@@ -31,7 +37,9 @@ async function requireAdmin(req: Request): Promise<boolean> {
   return prof?.role === "admin";
 }
 
-async function makeClient(authStr?: string): Promise<Client> {
+// deno-lint-ignore no-explicit-any
+async function makeClient(authStr?: string): Promise<any> {
+  const { Client, StorageMemory } = await mt();
   const client = new Client({ storage: new StorageMemory(), apiId: API_ID, apiHash: API_HASH });
   if (authStr) await client.importAuthString(authStr);
   await client.connect();
@@ -49,7 +57,9 @@ Deno.serve(async (req: Request) => {
       return json({ connected: !!data?.session });
     }
 
-    if (!(await requireAdmin(req))) return json({ error: "только администратор" }, 403);
+    if (!(await isAdmin(req))) return json({ error: "только администратор" }, 403);
+
+    const { functions, types } = await mt();
 
     if (body.action === "send_code") {
       if (!body.phone) return json({ error: "нет номера" }, 400);
@@ -62,7 +72,7 @@ Deno.serve(async (req: Request) => {
           settings: new types.CodeSettings({}),
         }),
       );
-      const phoneCodeHash = (sent as unknown as { phoneCodeHash: string }).phoneCodeHash;
+      const phoneCodeHash = (sent as { phoneCodeHash: string }).phoneCodeHash;
       const authStr = await client.exportAuthString();
       await db.from("tg_session").upsert({ id: "default", tmp_session: authStr, phone_code_hash: phoneCodeHash, session: null });
       await client.disconnect();
@@ -84,13 +94,12 @@ Deno.serve(async (req: Request) => {
       } catch (e) {
         const msg = (e as Error).message || String(e);
         if (msg.includes("PASSWORD")) {
-          // включена 2FA — нужен облачный пароль
           if (!body.password) {
             await client.disconnect();
             return json({ need_password: true });
           }
           try {
-            await (client as unknown as { checkPassword: (p: string) => Promise<unknown> }).checkPassword(body.password);
+            await client.checkPassword(body.password);
           } catch (e2) {
             await client.disconnect();
             return json({ error: "Неверный облачный пароль (2FA): " + ((e2 as Error).message || String(e2)) }, 400);
@@ -110,7 +119,6 @@ Deno.serve(async (req: Request) => {
       await db.from("tg_session").update({ session: null, tmp_session: null, phone_code_hash: null }).eq("id", "default");
       return json({ ok: true });
     }
-
     return json({ error: "unknown action" }, 400);
   } catch (e) {
     return json({ error: (e as Error).message || String(e) }, 500);

@@ -1,6 +1,5 @@
 // Чтение каналов по MTProto (MTKruto) под подключённым аккаунтом — для каналов
-// с выключенным превью. Возвращает текст, флаг медиа и ссылку.
-import { Client, StorageMemory } from "https://deno.land/x/mtkruto/mod.ts";
+// с выключенным превью. MTKruto грузится ЛЕНИВО (иначе 503 на старте).
 import { createClient } from "npm:@supabase/supabase-js@2.108.2";
 
 const API_ID = 2040;
@@ -35,6 +34,8 @@ Deno.serve(async (req: Request) => {
     const channels = [...new Set((body.channels ?? []).map(norm).filter(Boolean) as string[])];
     if (channels.length === 0) return json({ posts: [], unavailable: [] });
 
+    // ленивый импорт MTKruto
+    const { Client, StorageMemory } = await import("https://deno.land/x/mtkruto/mod.ts");
     const client = new Client({ storage: new StorageMemory(), apiId: API_ID, apiHash: API_HASH });
     await client.importAuthString(row.session);
     await client.connect();
@@ -50,13 +51,8 @@ Deno.serve(async (req: Request) => {
         }
         for (const m of msgs) {
           const mm = m as unknown as {
-            id: number;
-            text?: string;
-            caption?: string;
-            date?: Date;
-            photo?: unknown;
-            video?: unknown;
-            document?: unknown;
+            id: number; text?: string; caption?: string; date?: Date;
+            photo?: unknown; video?: unknown; document?: unknown;
           };
           const text = mm.text ?? mm.caption ?? "";
           const hasMedia = !!(mm.photo || mm.video || mm.document);
