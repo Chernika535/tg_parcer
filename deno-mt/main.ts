@@ -6,7 +6,7 @@
 //
 // ENV (задать в Deno Deploy → Settings → Environment Variables):
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8?target=denonext";
 
 // Ленивая загрузка MTKruto — чтобы НЕ блокировать старт сервера (иначе Deno Deploy
 // вечно висит на «Прогреве»). Грузим библиотеку при первом обращении.
