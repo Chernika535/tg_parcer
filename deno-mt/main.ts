@@ -6,8 +6,16 @@
 //
 // ENV (задать в Deno Deploy → Settings → Environment Variables):
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-import { Client, StorageMemory, functions, types } from "https://deno.land/x/mtkruto/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.108.2";
+
+// Ленивая загрузка MTKruto — чтобы НЕ блокировать старт сервера (иначе Deno Deploy
+// вечно висит на «Прогреве»). Грузим библиотеку при первом обращении.
+// deno-lint-ignore no-explicit-any
+let _mt: any;
+async function mt() {
+  if (!_mt) _mt = await import("https://deno.land/x/mtkruto/mod.ts");
+  return _mt;
+}
 
 const API_ID = 2040;
 const API_HASH = "b18441a1ff607e10a989891a5462e627";
@@ -37,7 +45,9 @@ async function isAdmin(req: Request): Promise<boolean> {
   return prof?.role === "admin";
 }
 
-async function makeClient(authStr?: string): Promise<Client> {
+// deno-lint-ignore no-explicit-any
+async function makeClient(authStr?: string): Promise<any> {
+  const { Client, StorageMemory } = await mt();
   const client = new Client({ storage: new StorageMemory(), apiId: API_ID, apiHash: API_HASH });
   if (authStr) await client.importAuthString(authStr);
   await client.connect();
@@ -54,6 +64,8 @@ async function handleConnect(req: Request): Promise<Response> {
   }
 
   if (!(await isAdmin(req))) return json({ error: "только администратор" }, 403);
+
+  const { functions, types } = await mt();
 
   if (body.action === "send_code") {
     if (!body.phone) return json({ error: "нет номера" }, 400);
