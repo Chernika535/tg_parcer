@@ -49,7 +49,7 @@ async function makeClient(authStr?: string): Promise<any> {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const body = (await req.json()) as { action: string; phone?: string; code?: string; password?: string };
+    const body = (await req.json()) as { action: string; phone?: string; code?: string; password?: string; session?: string };
     const db = svc();
 
     if (body.action === "status") {
@@ -61,12 +61,35 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "send_code") {
       if (!body.phone) return json({ error: "нет номера" }, 400);
-      const client = await makeClient();
-      await client.sendCode(body.phone);
-      const authStr = await client.exportAuthString();
-      await db.from("tg_session").upsert({ id: "default", tmp_session: authStr, phone_code_hash: null, session: null });
-      await client.disconnect();
-      return json({ ok: true });
+      const { Client, StorageMemory } = await mt();
+      const phone = body.phone;
+      // deno-lint-ignore no-explicit-any
+      const store = async (c: any) => {
+        const authStr = await c.exportAuthString();
+        await db.from("tg_session").upsert({ id: "default", tmp_session: authStr, phone_code_hash: null, session: null });
+        await c.disconnect();
+      };
+      const errs: string[] = [];
+      // A: sendCode без ручного connect (MTKruto коннектится сам)
+      try {
+        const c = new Client({ storage: new StorageMemory(), apiId: API_ID, apiHash: API_HASH });
+        await c.sendCode(phone);
+        await store(c);
+        return json({ ok: true });
+      } catch (e) {
+        errs.push("A:" + ((e as Error).message || String(e)) + "/" + ((e as { constructor?: { name?: string } }).constructor?.name));
+      }
+      // B: connect, затем sendCode
+      try {
+        const c = new Client({ storage: new StorageMemory(), apiId: API_ID, apiHash: API_HASH });
+        await c.connect();
+        await c.sendCode(phone);
+        await store(c);
+        return json({ ok: true });
+      } catch (e) {
+        errs.push("B:" + ((e as Error).message || String(e)) + "/" + ((e as { constructor?: { name?: string } }).constructor?.name));
+      }
+      return json({ error: "DIAG " + errs.join("  ||  ") }, 500);
     }
 
     if (body.action === "sign_in") {
@@ -86,6 +109,12 @@ Deno.serve(async (req: Request) => {
       const sess = await client.exportAuthString();
       await db.from("tg_session").update({ session: sess, tmp_session: null, phone_code_hash: null }).eq("id", "default");
       await client.disconnect();
+      return json({ ok: true, connected: true });
+    }
+
+    if (body.action === "set_session") {
+      if (!body.session || body.session.length < 10) return json({ error: "пустая строка сессии" }, 400);
+      await db.from("tg_session").update({ session: body.session.trim(), tmp_session: null, phone_code_hash: null }).eq("id", "default");
       return json({ ok: true, connected: true });
     }
 

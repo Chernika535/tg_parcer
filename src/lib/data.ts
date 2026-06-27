@@ -266,6 +266,10 @@ export async function tgSignIn(
 export async function tgDisconnect(): Promise<void> {
   await mtCall("tg-connect", { action: "disconnect" }).catch(() => {});
 }
+export async function tgSetSession(session: string): Promise<void> {
+  const d = (await mtCall("tg-connect", { action: "set_session", session })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
 
 async function fnError(error: unknown): Promise<string> {
   try {
