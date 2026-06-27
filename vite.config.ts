@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 import { copyFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -26,6 +27,7 @@ function spaFallback(): Plugin {
 export default defineConfig({
   base: "/",
   plugins: [
+    nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
     react(),
     spaFallback(),
     VitePWA({
