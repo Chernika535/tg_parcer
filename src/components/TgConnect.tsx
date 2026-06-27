@@ -1,15 +1,40 @@
-import { useEffect, useState } from "react";
-import { tgStatus, tgSendCode, tgSignIn, tgDisconnect } from "../lib/data.ts";
+import { useEffect, useRef, useState } from "react";
+import { tgStatus, tgDisconnect, tgSetSession } from "../lib/data.ts";
 
-// Подключение читающего аккаунта (MTProto) — только для админа.
+// Публичные api_id/api_hash официального клиента (по запросу пользователя).
+const API_ID = 2040;
+const API_HASH = "b18441a1ff607e10a989891a5462e627";
+
+// MTKruto умеет работать в браузере. Грузим его в рантайме (без сборки),
+// пробуя несколько источников.
+const MT_URLS = [
+  "https://esm.sh/jsr/@mtkruto/mtkruto",
+  "https://esm.sh/mtkruto",
+  "https://cdn.jsdelivr.net/npm/mtkruto/+esm",
+];
+// deno-lint-ignore no-explicit-any
+async function loadMtkruto(): Promise<any> {
+  let lastErr = "";
+  for (const url of MT_URLS) {
+    try {
+      const mod = await import(/* @vite-ignore */ url);
+      if (mod?.Client) return mod;
+    } catch (e) {
+      lastErr = (e as Error).message;
+    }
+  }
+  throw new Error("не удалось загрузить MTKruto: " + lastErr);
+}
+
 export default function TgConnect() {
   const [connected, setConnected] = useState<boolean | null>(null);
-  const [step, setStep] = useState<"phone" | "code" | "password">("phone");
+  const [phase, setPhase] = useState<"idle" | "code" | "password" | "working">("idle");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const codeResolve = useRef<((v: string) => void) | null>(null);
+  const passResolve = useRef<((v: string) => void) | null>(null);
 
   async function refresh() {
     setConnected(await tgStatus());
@@ -18,40 +43,60 @@ export default function TgConnect() {
     refresh();
   }, []);
 
-  async function send() {
-    setBusy(true);
-    setMsg("");
-    try {
-      await tgSendCode(phone.trim());
-      setStep("code");
-      setMsg("Код отправлен в Telegram.");
-    } catch (e) {
-      setMsg((e as Error).message);
-    } finally {
-      setBusy(false);
+  async function startLogin() {
+    if (!phone.trim()) {
+      setMsg("Введите номер");
+      return;
     }
-  }
-
-  async function signIn() {
-    setBusy(true);
-    setMsg("");
+    setMsg("Подключаюсь к Telegram…");
+    setPhase("working");
     try {
-      const r = await tgSignIn(phone.trim(), code.trim(), step === "password" ? password : undefined);
-      if (r.need_password) {
-        setStep("password");
-        setMsg("Включена 2FA — введите облачный пароль.");
-        return;
+      const { Client, StorageMemory } = await loadMtkruto();
+      const client = new Client({ storage: new StorageMemory(), apiId: API_ID, apiHash: API_HASH });
+      await client.start({
+        phone: () => phone.trim(),
+        code: () =>
+          new Promise<string>((res) => {
+            codeResolve.current = res;
+            setPhase("code");
+            setMsg("Код отправлен — введите его.");
+          }),
+        password: () =>
+          new Promise<string>((res) => {
+            passResolve.current = res;
+            setPhase("password");
+            setMsg("Включена 2FA — введите облачный пароль.");
+          }),
+      });
+      const session = await client.exportAuthString();
+      await tgSetSession(session);
+      try {
+        await client.disconnect();
+      } catch {
+        /* ignore */
       }
+      setPhase("idle");
       setMsg("Аккаунт подключён ✓");
-      setStep("phone");
       setCode("");
       setPassword("");
       refresh();
     } catch (e) {
-      setMsg((e as Error).message);
-    } finally {
-      setBusy(false);
+      setPhase("idle");
+      setMsg("Ошибка: " + (e as Error).message);
     }
+  }
+
+  function submitCode() {
+    if (!code.trim() || !codeResolve.current) return;
+    setPhase("working");
+    setMsg("Проверяю код…");
+    codeResolve.current(code.trim());
+  }
+  function submitPassword() {
+    if (!password.trim() || !passResolve.current) return;
+    setPhase("working");
+    setMsg("Проверяю пароль…");
+    passResolve.current(password.trim());
   }
 
   async function disconnect() {
@@ -64,8 +109,8 @@ export default function TgConnect() {
     <div className="card">
       <h3 style={{ marginTop: 0 }}>Чтение каналов без превью (MTProto)</h3>
       <p className="muted">
-        Подключите отдельный Telegram-аккаунт, чтобы читать каналы с выключенным превью.
-        Риск блокировки аккаунта — используйте запасной.
+        Вход выполняется прямо здесь, в браузере. Используйте отдельный (запасной) аккаунт —
+        есть риск блокировки. Подключается один раз, читать смогут все.
       </p>
 
       {connected === null && <p className="muted">Проверка…</p>}
@@ -78,34 +123,42 @@ export default function TgConnect() {
 
       {connected === false && (
         <>
-          {step === "phone" && (
+          <div className="field">
+            <label>Номер телефона (с +)</label>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+79991234567"
+              disabled={phase !== "idle"}
+            />
+          </div>
+
+          {phase === "idle" && (
+            <button className="btn" onClick={startLogin}>Получить код</button>
+          )}
+
+          {phase === "code" && (
             <div className="field">
-              <label>Номер телефона (с +)</label>
+              <label>Код из Telegram</label>
               <div className="row">
-                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+79991234567" />
-                <button className="btn sm" disabled={busy || !phone.trim()} onClick={send}>
-                  {busy ? "…" : "Код"}
-                </button>
+                <input type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} placeholder="12345" />
+                <button className="btn sm" onClick={submitCode}>ОК</button>
               </div>
             </div>
           )}
-          {(step === "code" || step === "password") && (
-            <>
-              <div className="field">
-                <label>Код из Telegram</label>
-                <input type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} placeholder="12345" />
+
+          {phase === "password" && (
+            <div className="field">
+              <label>Облачный пароль (2FA)</label>
+              <div className="row">
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <button className="btn sm" onClick={submitPassword}>ОК</button>
               </div>
-              {step === "password" && (
-                <div className="field">
-                  <label>Облачный пароль (2FA)</label>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                </div>
-              )}
-              <button className="btn" disabled={busy || !code.trim()} onClick={signIn}>
-                {busy ? "Вход…" : "Войти"}
-              </button>
-            </>
+            </div>
           )}
+
+          {phase === "working" && <p className="muted">Подождите…</p>}
         </>
       )}
 
