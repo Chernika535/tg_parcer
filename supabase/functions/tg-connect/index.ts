@@ -59,28 +59,12 @@ Deno.serve(async (req: Request) => {
 
     if (!(await isAdmin(req))) return json({ error: "только администратор" }, 403);
 
-    const { checkPassword } = await mt();
-
     if (body.action === "send_code") {
       if (!body.phone) return json({ error: "нет номера" }, 400);
       const client = await makeClient();
-      {
-        const names = Object.getOwnPropertyNames(Object.getPrototypeOf(client));
-        return json({
-          error: "CLIENT_METHODS: " +
-            names.filter((n) => /code|sign|auth|start|history|message|getchat|getme/i.test(n)).join(", "),
-        }, 500);
-      }
-      const sent = (await client.invoke({
-        _: "auth.sendCode",
-        phone_number: body.phone,
-        api_id: API_ID,
-        api_hash: API_HASH,
-        settings: { _: "codeSettings" },
-      })) as { phone_code_hash: string };
-      const phoneCodeHash = sent.phone_code_hash;
+      await client.sendCode(body.phone);
       const authStr = await client.exportAuthString();
-      await db.from("tg_session").upsert({ id: "default", tmp_session: authStr, phone_code_hash: phoneCodeHash, session: null });
+      await db.from("tg_session").upsert({ id: "default", tmp_session: authStr, phone_code_hash: null, session: null });
       await client.disconnect();
       return json({ ok: true });
     }
@@ -90,31 +74,14 @@ Deno.serve(async (req: Request) => {
       if (!row?.tmp_session) return json({ error: "сначала запросите код" }, 400);
       const client = await makeClient(row.tmp_session);
       try {
-        await client.invoke({
-          _: "auth.signIn",
-          phone_number: body.phone!,
-          phone_code_hash: row.phone_code_hash!,
-          phone_code: body.code!,
-        });
+        await client.checkCode(body.code);
       } catch (e) {
         const msg = (e as Error).message || String(e);
-        if (msg.includes("PASSWORD")) {
-          if (!body.password) {
-            await client.disconnect();
-            return json({ need_password: true });
-          }
-          try {
-            const ap = await client.invoke({ _: "account.getPassword" });
-            const input = await checkPassword(body.password, ap);
-            await client.invoke({ _: "auth.checkPassword", password: input });
-          } catch (e2) {
-            await client.disconnect();
-            return json({ error: "Неверный облачный пароль (2FA): " + ((e2 as Error).message || String(e2)) }, 400);
-          }
-        } else {
-          await client.disconnect();
-          return json({ error: msg }, 400);
+        await client.disconnect();
+        if (/password/i.test(msg)) {
+          return json({ error: "На аккаунте включена 2FA. Отключите облачный пароль (Настройки → Конфиденциальность → Облачный пароль) и повторите." }, 400);
         }
+        return json({ error: msg }, 400);
       }
       const sess = await client.exportAuthString();
       await db.from("tg_session").update({ session: sess, tmp_session: null, phone_code_hash: null }).eq("id", "default");
