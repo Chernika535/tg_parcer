@@ -59,7 +59,12 @@ Deno.serve(async (req: Request) => {
 
     if (!(await isAdmin(req))) return json({ error: "только администратор" }, 403);
 
-    const { functions, types } = await mt();
+    const m = await mt();
+    const functions = m.functions;
+    const types = m.types;
+    if (!functions || !types) {
+      return json({ error: "MTKRUTO_EXPORTS: " + Object.keys(m).join(", ") }, 500);
+    }
 
     if (body.action === "send_code") {
       if (!body.phone) return json({ error: "нет номера" }, 400);
