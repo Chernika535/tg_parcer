@@ -6,15 +6,22 @@
 //
 // ENV (задать в Deno Deploy → Settings → Environment Variables):
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8?target=denonext";
-
-// Ленивая загрузка MTKruto — чтобы НЕ блокировать старт сервера (иначе Deno Deploy
-// вечно висит на «Прогреве»). Грузим библиотеку при первом обращении.
+// Всё тяжёлое грузим лениво (при первом запросе), чтобы старт сервера был
+// мгновенным — иначе Deno Deploy валит «Warm up».
 // deno-lint-ignore no-explicit-any
 let _mt: any;
 async function mt() {
   if (!_mt) _mt = await import("https://deno.land/x/mtkruto/mod.ts");
   return _mt;
+}
+// deno-lint-ignore no-explicit-any
+let _createClient: any;
+async function loadCreateClient() {
+  if (!_createClient) {
+    const m = await import("https://esm.sh/@supabase/supabase-js@2.39.8?target=denonext");
+    _createClient = m.createClient;
+  }
+  return _createClient;
 }
 
 const API_ID = 2040;
@@ -29,7 +36,8 @@ const cors = {
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...cors, "content-type": "application/json" } });
 
-function svc() {
+async function svc() {
+  const createClient = await loadCreateClient();
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
@@ -38,7 +46,7 @@ function svc() {
 async function isAdmin(req: Request): Promise<boolean> {
   const auth = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!auth) return false;
-  const db = svc();
+  const db = await svc();
   const { data } = await db.auth.getUser(auth);
   if (!data.user) return false;
   const { data: prof } = await db.from("profiles").select("role").eq("id", data.user.id).single();
@@ -56,7 +64,7 @@ async function makeClient(authStr?: string): Promise<any> {
 
 async function handleConnect(req: Request): Promise<Response> {
   const body = (await req.json()) as { action: string; phone?: string; code?: string; password?: string };
-  const db = svc();
+  const db = await svc();
 
   if (body.action === "status") {
     const { data } = await db.from("tg_session").select("session").eq("id", "default").maybeSingle();
@@ -136,7 +144,7 @@ function norm(input: string): string | null {
 }
 
 async function handleRead(req: Request): Promise<Response> {
-  const db = svc();
+  const db = await svc();
   const { data: row } = await db.from("tg_session").select("session").eq("id", "default").maybeSingle();
   if (!row?.session) return json({ posts: [], unavailable: [], noAccount: true });
 
