@@ -281,15 +281,6 @@ async function fnError(error: unknown): Promise<string> {
   return (error as Error).message;
 }
 
-// Реакция (лайк) на пост канала в Telegram под подключённым аккаунтом (best-effort).
-export async function reactToPost(channel: string, msgId: number, remove = false): Promise<void> {
-  try {
-    await mtCall("react", { channel, msgId, emoji: "❤", remove });
-  } catch {
-    /* реакция не критична — молча игнорируем */
-  }
-}
-
 export async function readChannelsMT(
   channels: string[],
 ): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean }> {

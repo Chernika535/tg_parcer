@@ -15,6 +15,3 @@ verify_jwt = false
 
 [functions.read-mt]
 verify_jwt = false
-
-[functions.react]
-verify_jwt = false
