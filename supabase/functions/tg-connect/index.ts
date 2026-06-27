@@ -63,6 +63,17 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "send_code") {
       if (!body.phone) return json({ error: "нет номера" }, 400);
+      {
+        const keys = Object.keys(Api);
+        const authish = keys.filter((k) => /auth|sendcode|signin|code/i.test(k)).slice(0, 80);
+        return json({
+          error:
+            "hasAuth=" + typeof (Api as Record<string, unknown>).auth +
+            " | total=" + keys.length +
+            " | authish=" + authish.join(",") +
+            " | first40=" + keys.slice(0, 40).join(","),
+        }, 500);
+      }
       const client = await makeClient();
       const sent = await client.invoke(
         Api.auth.sendCode({
