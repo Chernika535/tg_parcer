@@ -59,25 +59,20 @@ Deno.serve(async (req: Request) => {
 
     if (!(await isAdmin(req))) return json({ error: "только администратор" }, 403);
 
-    const m = await mt();
-    const functions = m.functions;
-    const types = m.types;
-    if (!functions || !types) {
-      return json({ error: "MTKRUTO_EXPORTS: " + Object.keys(m).join(", ") }, 500);
-    }
+    const { Api, checkPassword } = await mt();
 
     if (body.action === "send_code") {
       if (!body.phone) return json({ error: "нет номера" }, 400);
       const client = await makeClient();
       const sent = await client.invoke(
-        new functions.auth.sendCode({
-          phoneNumber: body.phone,
-          apiId: API_ID,
-          apiHash: API_HASH,
-          settings: new types.CodeSettings({}),
+        Api.auth.sendCode({
+          phone_number: body.phone,
+          api_id: API_ID,
+          api_hash: API_HASH,
+          settings: Api.codeSettings({}),
         }),
       );
-      const phoneCodeHash = (sent as { phoneCodeHash: string }).phoneCodeHash;
+      const phoneCodeHash = (sent as { phone_code_hash: string }).phone_code_hash;
       const authStr = await client.exportAuthString();
       await db.from("tg_session").upsert({ id: "default", tmp_session: authStr, phone_code_hash: phoneCodeHash, session: null });
       await client.disconnect();
@@ -90,10 +85,10 @@ Deno.serve(async (req: Request) => {
       const client = await makeClient(row.tmp_session);
       try {
         await client.invoke(
-          new functions.auth.signIn({
-            phoneNumber: body.phone!,
-            phoneCodeHash: row.phone_code_hash!,
-            phoneCode: body.code!,
+          Api.auth.signIn({
+            phone_number: body.phone!,
+            phone_code_hash: row.phone_code_hash!,
+            phone_code: body.code!,
           }),
         );
       } catch (e) {
@@ -104,7 +99,9 @@ Deno.serve(async (req: Request) => {
             return json({ need_password: true });
           }
           try {
-            await client.checkPassword(body.password);
+            const ap = await client.invoke(Api.account.getPassword());
+            const input = await checkPassword(body.password, ap);
+            await client.invoke(Api.auth.checkPassword({ password: input }));
           } catch (e2) {
             await client.disconnect();
             return json({ error: "Неверный облачный пароль (2FA): " + ((e2 as Error).message || String(e2)) }, 400);
