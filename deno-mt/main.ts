@@ -190,10 +190,12 @@ async function handleRead(req: Request): Promise<Response> {
 }
 
 const PORT = Number(Deno.env.get("PORT") ?? 8000);
+console.log(`[mt] starting, PORT=${PORT}`);
 
-Deno.serve({ port: PORT, hostname: "0.0.0.0" }, async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+Deno.serve({ port: PORT }, async (req: Request) => {
   const url = new URL(req.url);
+  console.log(`[mt] ${req.method} ${url.pathname}`);
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     if (req.method === "POST" && url.pathname === "/tg-connect") return await handleConnect(req);
     if (req.method === "POST" && url.pathname === "/read-mt") return await handleRead(req);
