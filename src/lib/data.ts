@@ -283,7 +283,7 @@ async function fnError(error: unknown): Promise<string> {
 
 export async function readChannelsMT(
   channels: string[],
-): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean }> {
+): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean; error?: string }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
   try {
     return (await mtCall("read-mt", { channels })) as {
@@ -291,8 +291,8 @@ export async function readChannelsMT(
       unavailable: string[];
       noAccount?: boolean;
     };
-  } catch {
-    return { posts: [], unavailable: channels };
+  } catch (e) {
+    return { posts: [], unavailable: channels, error: (e as Error).message };
   }
 }
 

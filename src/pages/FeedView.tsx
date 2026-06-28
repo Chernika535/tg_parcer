@@ -14,11 +14,13 @@ export default function FeedView() {
   const [feed, setFeed] = useState<Feed | null>(null);
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [unavailable, setUnavailable] = useState<string[]>([]);
+  const [mtNote, setMtNote] = useState("");
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setErr("");
+    setMtNote("");
     try {
       const f = await getFeedById(feedId);
       if (!f) throw new Error("лента не найдена или недоступна");
@@ -37,6 +39,8 @@ export default function FeedView() {
           });
           setUnavailable(mt.unavailable);
         }
+        if (mt.error) setMtNote("Чтение закрытых каналов: " + mt.error);
+        else if (mt.noAccount) setMtNote("Чтобы читать закрытые каналы — подключите аккаунт в «Аккаунт».");
       }
     } catch (e) {
       setErr((e as Error).message);
@@ -97,6 +101,7 @@ export default function FeedView() {
           </div>
         )}
 
+        {mtNote && <div className="card" style={{ fontSize: 13 }}>{mtNote}</div>}
         {err && <ErrorState message={err} onRetry={load} />}
         {!posts && !err && <Loading label="Читаю каналы…" />}
         {posts && posts.length === 0 && !err && <Empty>Постов пока нет.</Empty>}
