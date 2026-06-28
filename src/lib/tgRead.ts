@@ -2,11 +2,14 @@
 // На Supabase Edge тяжёлый пакет telegram падает на импорте (крэш изолята),
 // поэтому читаем там же, где и логинимся — в браузере. Сессию читающего
 // аккаунта (одноразового) выдаёт edge-функция tg-connect/get_session.
-import { getReadSession, type Post } from "./data.ts";
+// Медиа (фото/видео/кружки/голосовые/стикеры) скачиваются и превращаются
+// в blob-URL — у MTProto нет готовых ссылок, как у t.me/s.
+import { getReadSession, type Post, type Media } from "./data.ts";
 
 const API_ID = 2040;
 const API_HASH = "b18441a1ff607e10a989891a5462e627";
 const LIMIT = 20;
+const MAX_VIDEO = 30 * 1024 * 1024; // крупнее не качаем — даём ссылку
 
 type MTResult = {
   posts: Post[];
@@ -23,6 +26,95 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   ]);
 }
 
+// deno-lint-ignore no-explicit-any
+function toUrl(buf: any, mime: string): string | undefined {
+  if (!buf || (buf.length ?? 0) === 0) return undefined;
+  try {
+    return URL.createObjectURL(new Blob([buf], { type: mime }));
+  } catch {
+    return undefined;
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function dl(client: any, target: any, opts?: Record<string, unknown>): Promise<unknown> {
+  try {
+    return await withTimeout(client.downloadMedia(target, opts ?? {}), 30000, "медиа не скачалось");
+  } catch {
+    return undefined;
+  }
+}
+
+function num(v: unknown): number {
+  try {
+    return typeof v === "bigint" ? Number(v) : Number(v ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+// Извлекает медиа одного сообщения в наш формат Media[].
+// deno-lint-ignore no-explicit-any
+async function extractMedia(client: any, m: any): Promise<Media[]> {
+  const out: Media[] = [];
+  try {
+    if (m.photo) {
+      const u = toUrl(await dl(client, m), "image/jpeg");
+      if (u) out.push({ type: "photo", url: u });
+    } else if (m.sticker) {
+      const mime: string = m.sticker.mimeType || "";
+      const animated = mime.includes("tgsticker") || mime.includes("webm");
+      if (animated) {
+        // .tgs/.webm не покажем как картинку — берём превью.
+        const t = toUrl(await dl(client, m, { thumb: -1 }), "image/webp");
+        if (t) out.push({ type: "sticker", url: t });
+      } else {
+        const u = toUrl(await dl(client, m), "image/webp");
+        if (u) out.push({ type: "sticker", url: u });
+      }
+    } else if (m.voice) {
+      const u = toUrl(await dl(client, m), "audio/ogg");
+      if (u) out.push({ type: "voice", url: u });
+    } else if (m.audio) {
+      const u = toUrl(await dl(client, m), m.audio.mimeType || "audio/mpeg");
+      if (u) out.push({ type: "voice", url: u });
+    } else if (m.videoNote) {
+      const thumb = toUrl(await dl(client, m, { thumb: -1 }), "image/jpeg");
+      const size = num(m.videoNote.size);
+      const url = size && size <= MAX_VIDEO ? toUrl(await dl(client, m), "video/mp4") : undefined;
+      out.push({ type: "roundvideo", url, thumb });
+    } else if (m.video || m.gif) {
+      const doc = m.video || m.gif;
+      const thumb = toUrl(await dl(client, m, { thumb: -1 }), "image/jpeg");
+      const size = num(doc.size);
+      const url = size && size <= MAX_VIDEO ? toUrl(await dl(client, m), doc.mimeType || "video/mp4") : undefined;
+      out.push({ type: "video", url, thumb });
+    } else if (m.document) {
+      const doc = m.document;
+      let name = "файл";
+      for (const a of doc.attributes ?? []) if (a.fileName) name = a.fileName;
+      const kb = num(doc.size) / 1024;
+      const extra = kb >= 1024 ? (kb / 1024).toFixed(1) + " МБ" : kb >= 1 ? Math.round(kb) + " КБ" : undefined;
+      out.push({ type: "document", title: name, extra });
+    } else if (m.webPreview) {
+      const w = m.webPreview;
+      let image: string | undefined;
+      if (w.photo) image = toUrl(await dl(client, w.photo), "image/jpeg");
+      out.push({
+        type: "link",
+        href: w.url,
+        site: w.siteName,
+        title: w.title,
+        description: w.description,
+        image,
+      });
+    }
+  } catch {
+    /* медиа пропускаем молча */
+  }
+  return out;
+}
+
 export async function readChannelsMT(channels: string[]): Promise<MTResult> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
 
@@ -30,7 +122,6 @@ export async function readChannelsMT(channels: string[]): Promise<MTResult> {
   try {
     session = await getReadSession();
   } catch (e) {
-    // Не вошёл / нет доступа — закрытые каналы читать нечем.
     return { posts: [], unavailable: channels, noAccount: true, error: (e as Error).message };
   }
   if (!session) return { posts: [], unavailable: channels, noAccount: true };
@@ -54,7 +145,19 @@ export async function readChannelsMT(channels: string[]): Promise<MTResult> {
 
   for (const ch of channels) {
     try {
-      // GramJS в браузере резолвит @username сам.
+      // Шапка канала: название + аватарка (качается один раз).
+      let channelTitle: string | undefined;
+      let channelAvatar: string | undefined;
+      try {
+        // deno-lint-ignore no-explicit-any
+        const entity: any = await withTimeout(client.getEntity(ch), 15000, "канал не резолвится");
+        channelTitle = entity.title || entity.username;
+        const ph = await dl(client, entity); // downloadMedia на entity тянет аватар
+        channelAvatar = toUrl(ph, "image/jpeg");
+      } catch {
+        /* без шапки — не критично */
+      }
+
       // deno-lint-ignore no-explicit-any
       const msgs: any[] = await withTimeout<any[]>(client.getMessages(ch, { limit: LIMIT }), 20000, "канал не отвечает");
       if (!msgs || msgs.length === 0) {
@@ -62,18 +165,39 @@ export async function readChannelsMT(channels: string[]): Promise<MTResult> {
         errs.push(ch + ": нет сообщений (возможно нужно вступить в канал)");
         continue;
       }
+
+      // Группируем альбомы (одинаковый grouped_id) в один пост.
+      // deno-lint-ignore no-explicit-any
+      const groups = new Map<string, any[]>();
+      const order: string[] = [];
       for (const m of msgs) {
-        const text: string = m.message ?? "";
-        const hasMedia = !!m.media;
-        if (!text && !hasMedia) continue;
+        const key = m.groupedId ? "g" + m.groupedId.toString() : "s" + m.id;
+        if (!groups.has(key)) {
+          groups.set(key, []);
+          order.push(key);
+        }
+        groups.get(key)!.push(m);
+      }
+
+      for (const key of order) {
+        const group = groups.get(key)!;
+        const text = group.map((x) => x.message).find((t) => t && t.length) ?? "";
+        const head = group[0];
+        const media: Media[] = [];
+        for (const m of group) {
+          if (m.media) media.push(...(await extractMedia(client, m)));
+        }
+        if (!text && media.length === 0) continue;
         posts.push({
           channel: ch,
-          msgId: m.id,
-          postedAt: new Date((m.date ?? 0) * 1000).toISOString(),
+          msgId: head.id,
+          postedAt: new Date((head.date ?? 0) * 1000).toISOString(),
           text,
-          hasMedia,
-          media: [],
-          link: `https://t.me/${ch}/${m.id}`,
+          hasMedia: media.length > 0,
+          media,
+          link: `https://t.me/${ch}/${head.id}`,
+          channelTitle,
+          channelAvatar,
         });
       }
     } catch (e) {
