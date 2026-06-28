@@ -287,6 +287,26 @@ async function fnError(error: unknown): Promise<string> {
   return (error as Error).message;
 }
 
+// Серверное чтение закрытых каналов (read-mt на Supabase). Работает БЕЗ VPN у
+// пользователя, т.к. в Telegram ходит сервер, а не браузер. Может не завестись
+// на edge (тогда клиент откатывается на браузерное чтение).
+export async function readChannelsMTServer(
+  channels: string[],
+): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean; error?: string; note?: string }> {
+  if (channels.length === 0) return { posts: [], unavailable: [] };
+  try {
+    return (await mtCall("read-mt", { channels })) as {
+      posts: Post[];
+      unavailable: string[];
+      noAccount?: boolean;
+      error?: string;
+      note?: string;
+    };
+  } catch (e) {
+    return { posts: [], unavailable: channels, error: (e as Error).message };
+  }
+}
+
 export async function readChannelsMT(
   channels: string[],
   onPost?: (p: Post) => void,

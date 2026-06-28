@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, favoriteLinks, addFavorite, removeFavorite, type Feed, type Post } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, favoriteLinks, addFavorite, removeFavorite, type Feed, type Post } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -45,12 +45,24 @@ export default function FeedView() {
       // в браузере. Посты появляются по мере загрузки (медиа скачивается).
       if (unavailable.length > 0) {
         setMtLoading(true);
-        const mt = await readChannelsMT(unavailable, mergePost);
+        // 1) Сначала — серверное чтение (без VPN у пользователя).
+        const srv = await readChannelsMTServer(unavailable);
+        let result = srv;
+        if (srv.posts && srv.posts.length > 0) {
+          srv.posts.forEach(mergePost);
+          setUnavailable(srv.unavailable);
+        } else {
+          // 2) Сервер не смог (edge не тянет GramJS / пусто) — читаем в браузере
+          //    (нужен VPN), посты стримятся по мере загрузки.
+          const left = srv.unavailable && srv.unavailable.length ? srv.unavailable : unavailable;
+          const br = await readChannelsMT(left, mergePost);
+          setUnavailable(br.unavailable);
+          result = br;
+        }
         setMtLoading(false);
-        setUnavailable(mt.unavailable);
-        if (mt.noAccount) setMtNote("Закрытые каналы читаются в браузере под общим аккаунтом. Войдите; если уже вошли — администратор ещё не подключил читающий аккаунт.");
-        else if (mt.error) setMtNote("Чтение закрытых каналов: " + mt.error);
-        else if (mt.note) setMtNote("Закрытые каналы: " + mt.note);
+        if (result.noAccount) setMtNote("Чтобы читать закрытые каналы, администратор должен подключить общий аккаунт (раздел «Аккаунт»).");
+        else if (result.error) setMtNote("Чтение закрытых каналов: " + result.error);
+        else if (result.note) setMtNote("Закрытые каналы: " + result.note);
       }
     } catch (e) {
       setMtLoading(false);
