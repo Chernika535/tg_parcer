@@ -99,6 +99,8 @@ Deno.serve(async (req: Request) => {
     posts.sort((a, b) => String(b.postedAt).localeCompare(String(a.postedAt)));
     return json({ posts, unavailable, note: errs.length ? errs.join(" | ") : undefined });
   } catch (e) {
-    return json({ error: (e as Error).message || String(e) }, 500);
+    // Возвращаем 200, чтобы реальный текст ошибки дошёл до клиента
+    // (supabase-js на non-2xx прячет тело под «non-2xx status code»).
+    return json({ posts: [], unavailable: [], error: (e as Error).message || String(e) });
   }
 });
