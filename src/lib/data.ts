@@ -289,13 +289,14 @@ async function fnError(error: unknown): Promise<string> {
 
 export async function readChannelsMT(
   channels: string[],
+  onPost?: (p: Post) => void,
 ): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean; error?: string; note?: string }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
   // Чтение идёт в браузере (GramJS), а не на edge — там пакет telegram
   // крэшит изолят на импорте. Импортируем модуль лениво.
   try {
     const { readChannelsMT: readBrowser } = await import("./tgRead.ts");
-    return await readBrowser(channels);
+    return await readBrowser(channels, onPost);
   } catch (e) {
     return { posts: [], unavailable: channels, error: (e as Error).message };
   }

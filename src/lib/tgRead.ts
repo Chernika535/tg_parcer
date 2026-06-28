@@ -115,7 +115,10 @@ async function extractMedia(client: any, m: any): Promise<Media[]> {
   return out;
 }
 
-export async function readChannelsMT(channels: string[]): Promise<MTResult> {
+export async function readChannelsMT(
+  channels: string[],
+  onPost?: (p: Post) => void,
+): Promise<MTResult> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
 
   let session: string | null;
@@ -152,8 +155,12 @@ export async function readChannelsMT(channels: string[]): Promise<MTResult> {
         // deno-lint-ignore no-explicit-any
         const entity: any = await withTimeout(client.getEntity(ch), 15000, "канал не резолвится");
         channelTitle = entity.title || entity.username;
-        const ph = await dl(client, entity); // downloadMedia на entity тянет аватар
-        channelAvatar = toUrl(ph, "image/jpeg");
+        try {
+          const ph = await withTimeout(client.downloadProfilePhoto(entity), 15000, "avatar");
+          channelAvatar = toUrl(ph, "image/jpeg");
+        } catch {
+          /* без аватарки — не критично */
+        }
       } catch {
         /* без шапки — не критично */
       }
@@ -188,7 +195,7 @@ export async function readChannelsMT(channels: string[]): Promise<MTResult> {
           if (m.media) media.push(...(await extractMedia(client, m)));
         }
         if (!text && media.length === 0) continue;
-        posts.push({
+        const post: Post = {
           channel: ch,
           msgId: head.id,
           postedAt: new Date((head.date ?? 0) * 1000).toISOString(),
@@ -198,7 +205,9 @@ export async function readChannelsMT(channels: string[]): Promise<MTResult> {
           link: `https://t.me/${ch}/${head.id}`,
           channelTitle,
           channelAvatar,
-        });
+        };
+        posts.push(post);
+        onPost?.(post); // отдаём пост сразу — чтобы появлялся в ленте по мере загрузки
       }
     } catch (e) {
       unavailable.push(ch);
