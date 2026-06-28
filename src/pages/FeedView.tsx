@@ -41,6 +41,7 @@ export default function FeedView() {
         }
         if (mt.error) setMtNote("Чтение закрытых каналов: " + mt.error);
         else if (mt.noAccount) setMtNote("Чтобы читать закрытые каналы — подключите аккаунт в «Аккаунт».");
+        else if (mt.note) setMtNote("Закрытые каналы: " + mt.note);
       }
     } catch (e) {
       setErr((e as Error).message);

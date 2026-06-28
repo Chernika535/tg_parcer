@@ -57,11 +57,11 @@ function RequireAdmin({ children }: { children: ReactElement }) {
 function TabBar() {
   return (
     <nav className="tabbar">
-      <NavLink to="/" end><Icon name="feed" /><span>Лента</span></NavLink>
+      <NavLink to="/" end><Icon name="feed" size={16} /><span>Лента</span></NavLink>
       <NavLink to="/tags" className="tab-cloud" aria-label="Теги">
-        <Icon name="cloud" size={24} />
+        <Icon name="cloud" size={18} />
       </NavLink>
-      <NavLink to="/my"><Icon name="folder" /><span>Мои</span></NavLink>
+      <NavLink to="/my"><Icon name="folder" size={16} /><span>Мои</span></NavLink>
     </nav>
   );
 }

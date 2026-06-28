@@ -46,10 +46,13 @@ Deno.serve(async (req: Request) => {
 
     const posts: Record<string, unknown>[] = [];
     const unavailable: string[] = [];
+    const errs: string[] = [];
     for (const ch of channels) {
       try {
         // deno-lint-ignore no-explicit-any
-        const msgs = await client.getMessages(ch, { limit: LIMIT } as any);
+        const entity = await client.getEntity(ch);
+        // deno-lint-ignore no-explicit-any
+        const msgs = await client.getMessages(entity, { limit: LIMIT } as any);
         if (!msgs?.length) {
           unavailable.push(ch);
           continue;
@@ -69,8 +72,9 @@ Deno.serve(async (req: Request) => {
             link: `https://t.me/${ch}/${mm.id}`,
           });
         }
-      } catch (_e) {
+      } catch (e) {
         unavailable.push(ch);
+        errs.push(ch + ": " + ((e as Error).message || String(e)));
       }
     }
     try {
@@ -79,7 +83,7 @@ Deno.serve(async (req: Request) => {
       /* ignore */
     }
     posts.sort((a, b) => String(b.postedAt).localeCompare(String(a.postedAt)));
-    return json({ posts, unavailable });
+    return json({ posts, unavailable, note: posts.length === 0 ? errs.join(" | ") : undefined });
   } catch (e) {
     return json({ error: (e as Error).message || String(e) }, 500);
   }

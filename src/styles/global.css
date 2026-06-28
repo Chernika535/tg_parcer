@@ -45,25 +45,25 @@ a { color: var(--ink); text-decoration: none; font-weight: 700; }
 /* Topbar */
 .topbar {
   position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; gap: 12px;
-  padding: 16px 18px 14px;
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 16px;
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
   backdrop-filter: blur(8px);
-  border-bottom: 3px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
 }
 .topbar h1 {
-  font-family: var(--head); font-weight: 900; font-size: 20px; letter-spacing: -0.5px; color: var(--ink);
+  font-family: var(--head); font-weight: 800; font-size: 15px; letter-spacing: -0.3px; color: var(--ink);
   position: relative; display: inline-block;
 }
 .topbar h1::after {
-  content: ""; position: absolute; left: -2px; bottom: 1px; width: 104%; height: 8px;
-  background: var(--lime); z-index: -1; transform: rotate(-1.5deg);
+  content: ""; position: absolute; left: -1px; bottom: 1px; width: 103%; height: 5px;
+  background: var(--lime); z-index: -1; transform: rotate(-1deg);
 }
-.topbar-sub { font-size: 13px; color: var(--muted); margin-top: 4px; font-weight: 600; }
+.topbar-sub { font-size: 11px; color: var(--muted); margin-top: 1px; font-weight: 600; }
 .topbar .back {
-  font-size: 22px; line-height: 1; color: var(--ink);
-  background: var(--surface); border: 3px solid var(--ink); border-radius: var(--r-sm);
-  width: 40px; height: 40px; cursor: pointer; flex: 0 0 auto; box-shadow: var(--shadow-sm); font-weight: 800;
+  font-size: 18px; line-height: 1; color: var(--ink);
+  background: var(--surface); border: 2px solid var(--ink); border-radius: 10px;
+  width: 32px; height: 32px; cursor: pointer; flex: 0 0 auto; font-weight: 800;
 }
 
 .content { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
@@ -115,26 +115,27 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 
 /* Bottom nav — чёрный бар со стикер-кнопками */
 .tabbar {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px;
-  width: calc(100% - 28px); max-width: 460px;
-  display: flex; gap: 8px; padding: 10px 12px 12px;
-  background: var(--ink); border: 3px solid var(--ink); border-radius: 22px;
-  box-shadow: var(--shadow); z-index: 15;
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px;
+  width: calc(100% - 32px); max-width: 380px;
+  display: flex; gap: 6px; padding: 5px 8px;
+  background: var(--ink); border: 2px solid var(--ink); border-radius: var(--pill);
+  box-shadow: var(--shadow-sm); z-index: 15;
 }
 .tabbar a {
-  flex: 1; text-align: center; padding: 8px 0; border-radius: 14px;
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px 0; border-radius: var(--pill);
   color: #fff; font-family: var(--head); font-size: 11px; font-weight: 700;
   transition: background 0.15s, color 0.15s;
 }
-.tabbar a svg { display: block; margin: 0 auto 2px; }
+.tabbar a svg { display: block; }
 .tabbar a span { display: block; }
 .tabbar a.active { color: var(--ink); background: var(--lime); }
 
 /* Центральная кнопка-облако */
 .tabbar a.tab-cloud {
-  flex: 0 0 auto; width: 56px; height: 56px; margin: -22px 4px 0; border-radius: 50%;
+  flex: 0 0 auto; width: 40px; height: 40px; margin: -12px 2px 0; border-radius: 50%; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  background: var(--pink); color: #fff; border: 3px solid var(--ink);
+  background: var(--pink); color: #fff; border: 2px solid var(--ink);
   box-shadow: var(--shadow-sm);
 }
 .tabbar a.tab-cloud.active { background: var(--lime); color: var(--ink); }
@@ -272,11 +273,18 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .switch input:checked + span::after { transform: translateX(22px); }
 
 /* Posts */
-.post-text { white-space: pre-wrap; word-break: break-word; line-height: 1.55; margin: 10px 0; font-size: 15px; }
-.ava { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: var(--surface-2); border: 3px solid var(--ink); }
-.ava-ph { display: flex; align-items: center; justify-content: center; color: var(--ink); font-family: var(--head); font-weight: 800; }
+.post-head { display: flex; align-items: center; gap: 8px; }
+.post-title {
+  font-family: var(--head); font-weight: 800; font-size: 13px; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 50%; flex: 0 1 auto;
+}
+.post-meta { font-size: 11px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
+.post-text { white-space: pre-wrap; word-break: break-word; line-height: 1.5; margin: 9px 0; font-size: 15px; }
+.ln { color: var(--pink); font-weight: 700; text-decoration: underline; word-break: break-word; }
+.ava { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: var(--surface-2); border: 2px solid var(--ink); }
+.ava-ph { display: flex; align-items: center; justify-content: center; color: var(--ink); font-family: var(--head); font-weight: 800; font-size: 13px; }
 
-.fav-btn { background: none; border: none; cursor: pointer; color: var(--ink); padding: 4px; flex: 0 0 auto; }
+.fav-btn { background: none; border: none; cursor: pointer; color: var(--ink); padding: 2px; flex: 0 0 auto; margin-left: auto; }
 .fav-btn.on { color: var(--pink); }
 .fav-btn.on svg { fill: var(--pink); }
 
