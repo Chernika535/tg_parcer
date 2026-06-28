@@ -8,13 +8,15 @@ export async function invokeFn(name: string, body: Record<string, unknown>): Pro
   const cfg = appConfig();
   const base = cfg.supabaseUrl.replace(/\/$/, "");
   const { data: s } = await supabase().auth.getSession();
-  const token = s.session?.access_token || cfg.supabaseAnonKey;
+  // ВАЖНО: не шлём Authorization с publishable-ключом (sb_publishable_…) — это не
+  // JWT, и шлюз функций отвечает 401. Authorization ставим ТОЛЬКО при реальной
+  // пользовательской сессии. Для анонимных вызовов хватает apikey.
   const res = await fetch(`${base}/functions/v1/${name}`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       apikey: cfg.supabaseAnonKey,
-      authorization: `Bearer ${token}`,
+      ...(s.session ? { authorization: `Bearer ${s.session.access_token}` } : {}),
     },
     body: JSON.stringify(body),
   });
