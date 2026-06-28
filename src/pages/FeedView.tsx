@@ -74,13 +74,15 @@ export default function FeedView() {
           // Сервер не дал постов (упал / пусто) — пробуем браузер (нужен VPN).
           const br = await readChannelsMT(srv.unavailable?.length ? srv.unavailable : unavail, mergePost);
           setUnavailable(br.unavailable);
-          result = br;
+          // Если браузер тоже не дал постов — показываем причину сервера (важнее
+          // для диагностики: работает ли чтение закрытых каналов на сервере).
+          result = br.posts.length > 0 ? br : { ...br, error: srv.error || br.error, note: srv.note || br.note };
         } else {
           setUnavailable(srv.unavailable);
         }
         setMtLoading(false);
         if (result.noAccount) setMtNote("Чтобы читать закрытые каналы, администратор должен подключить общий аккаунт (раздел «Аккаунт»).");
-        else if (result.error) setMtNote("Чтение закрытых каналов: " + result.error);
+        else if (result.error) setMtNote("Чтение закрытых каналов (сервер): " + result.error);
         else if (result.note) setMtNote("Закрытые каналы: " + result.note);
       }
     } catch (e) {

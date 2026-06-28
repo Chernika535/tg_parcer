@@ -45,20 +45,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    // Не блокируем загрузку приложения дольше 2.5с. В России /auth/v1 Supabase
+    // часто заблокирован без VPN, и обновление токена «зависает» — тогда просто
+    // показываем приложение как гостю, а сессия подхватится позже, если придёт.
+    const timer = setTimeout(() => setLoading(false), 2500);
+
     supabase()
       .auth.getSession()
-      .then(async ({ data }) => {
+      .then(({ data }) => {
         setSession(data.session);
-        if (data.session) await loadProfile(data.session.user.id);
         setLoading(false);
+        clearTimeout(timer);
+        if (data.session) loadProfile(data.session.user.id); // не блокируем
+      })
+      .catch(() => {
+        setLoading(false);
+        clearTimeout(timer);
       });
 
-    const { data: sub } = supabase().auth.onAuthStateChange(async (_e, s) => {
+    const { data: sub } = supabase().auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      if (s) await loadProfile(s.user.id);
+      if (s) loadProfile(s.user.id);
       else setProfile(null);
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      clearTimeout(timer);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   async function loginWithTelegram(u: TelegramUser) {

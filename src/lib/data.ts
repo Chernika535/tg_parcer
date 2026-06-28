@@ -112,18 +112,30 @@ export async function myFeeds(): Promise<Feed[]> {
 }
 
 // ---- Одобренные публичные ленты (доступны без входа) ----
+// Читаем через edge-функцию (REST-домен в РФ без VPN недоступен).
 export async function publicFeeds(): Promise<Feed[]> {
-  const { data, error } = await db()
-    .from("feeds")
-    .select("*, owner:profiles(display_name, username)")
-    .eq("visibility", "public")
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data as Feed[]) ?? [];
+  const d = (await invokeFn("feeds", { action: "public" })) as { feeds?: Feed[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.feeds ?? [];
 }
 
 export async function getFeedById(id: number): Promise<Feed | null> {
+  // Сначала пробуем функцию (работает без VPN для публичных лент).
+  try {
+    const d = (await invokeFn("feeds", { action: "get", id })) as { feed?: Feed | null; error?: string };
+    if (!d.error && d.feed) return d.feed;
+    if (!d.error && d.feed === null) {
+      // Приватная/чужая лента — добираем через REST под входом (нужен VPN).
+      const { data } = await db()
+        .from("feeds")
+        .select("*, owner:profiles(display_name, username)")
+        .eq("id", id)
+        .maybeSingle();
+      return (data as Feed) ?? null;
+    }
+  } catch {
+    /* падаем на REST ниже */
+  }
   const { data, error } = await db()
     .from("feeds")
     .select("*, owner:profiles(display_name, username)")
