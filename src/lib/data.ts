@@ -270,6 +270,12 @@ export async function tgSetSession(session: string): Promise<void> {
   const d = (await mtCall("tg-connect", { action: "set_session", session })) as { error?: string };
   if (d.error) throw new Error(d.error);
 }
+// Строка сессии читающего аккаунта — для чтения закрытых каналов в браузере.
+export async function getReadSession(): Promise<string | null> {
+  const d = (await mtCall("tg-connect", { action: "get_session" })) as { session?: string | null; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.session ?? null;
+}
 
 async function fnError(error: unknown): Promise<string> {
   try {
@@ -285,13 +291,11 @@ export async function readChannelsMT(
   channels: string[],
 ): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean; error?: string; note?: string }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
+  // Чтение идёт в браузере (GramJS), а не на edge — там пакет telegram
+  // крэшит изолят на импорте. Импортируем модуль лениво.
   try {
-    return (await mtCall("read-mt", { channels })) as {
-      posts: Post[];
-      unavailable: string[];
-      noAccount?: boolean;
-      note?: string;
-    };
+    const { readChannelsMT: readBrowser } = await import("./tgRead.ts");
+    return await readBrowser(channels);
   } catch (e) {
     return { posts: [], unavailable: channels, error: (e as Error).message };
   }

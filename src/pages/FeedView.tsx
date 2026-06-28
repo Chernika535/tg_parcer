@@ -39,8 +39,8 @@ export default function FeedView() {
           });
           setUnavailable(mt.unavailable);
         }
-        if (mt.error) setMtNote("Чтение закрытых каналов: " + mt.error);
-        else if (mt.noAccount) setMtNote("Чтобы читать закрытые каналы — подключите аккаунт в «Аккаунт».");
+        if (mt.noAccount) setMtNote("Закрытые каналы читаются в браузере под общим аккаунтом. Войдите; если уже вошли — администратор ещё не подключил читающий аккаунт.");
+        else if (mt.error) setMtNote("Чтение закрытых каналов: " + mt.error);
         else if (mt.note) setMtNote("Закрытые каналы: " + mt.note);
       }
     } catch (e) {

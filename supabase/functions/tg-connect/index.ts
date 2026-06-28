@@ -57,6 +57,17 @@ Deno.serve(async (req: Request) => {
       return json({ connected: !!data?.session });
     }
 
+    // Выдаём строку сессии читающего аккаунта вошедшим пользователям — чтение
+    // закрытых каналов выполняется в браузере (GramJS на edge не работает).
+    if (body.action === "get_session") {
+      const auth = req.headers.get("authorization")?.replace("Bearer ", "");
+      if (!auth) return json({ error: "нужен вход" }, 401);
+      const { data: u } = await db.auth.getUser(auth);
+      if (!u.user) return json({ error: "нужен вход" }, 401);
+      const { data } = await db.from("tg_session").select("session").eq("id", "default").maybeSingle();
+      return json({ session: data?.session ?? null });
+    }
+
     if (!(await isAdmin(req))) return json({ error: "только администратор" }, 403);
 
     if (body.action === "send_code") {
