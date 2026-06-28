@@ -35,8 +35,17 @@ type Post = {
 };
 
 const UA = "Mozilla/5.0 (compatible; FeedAggregator/1.0)";
-const TIMEOUT_MS = 12000;
-const CONCURRENCY = 5;
+const TIMEOUT_MS = 9000;
+const CONCURRENCY = 8;
+
+// Прокси картинок Telegram через наш сервер — чтобы они грузились в России без VPN.
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+function prox(url: string | undefined): string | undefined {
+  if (!url) return url;
+  if (!/^https?:\/\//i.test(url)) return url; // относительные/data: не трогаем
+  if (!SUPABASE_URL) return url;
+  return `${SUPABASE_URL}/functions/v1/img?u=${encodeURIComponent(url)}`;
+}
 
 function normalize(input: string): string | null {
   let s = input.trim().toLowerCase();
@@ -138,7 +147,22 @@ function parsePosts(html: string, username: string): Post[] {
       const timeEl = el.querySelector(".tgme_widget_message_date time");
       const datetime = timeEl?.getAttribute("datetime");
       if (!datetime) continue;
-      const media = extractMedia(el);
+      const media = extractMedia(el).map((m): Media => {
+        switch (m.type) {
+          case "photo":
+          case "sticker":
+            return { ...m, url: prox(m.url)! };
+          case "video":
+          case "roundvideo":
+            return { ...m, url: prox(m.url), thumb: prox(m.thumb) };
+          case "voice":
+            return { ...m, url: prox(m.url) };
+          case "link":
+            return { ...m, image: prox(m.image) };
+          default:
+            return m;
+        }
+      });
       const views = el.querySelector(".tgme_widget_message_views")?.textContent?.trim();
 
       posts.push({
@@ -151,7 +175,7 @@ function parsePosts(html: string, username: string): Post[] {
         link: `https://t.me/${username}/${msgId}`,
         views: views ?? undefined,
         channelTitle: meta.title,
-        channelAvatar: meta.avatar,
+        channelAvatar: prox(meta.avatar),
       });
     } catch { /* пропускаем битый пост */ }
   }

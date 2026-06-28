@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.read-mt]
 verify_jwt = false
+
+[functions.img]
+verify_jwt = false

@@ -16,6 +16,7 @@ export default function FeedView() {
   const [unavailable, setUnavailable] = useState<string[]>([]);
   const [mtNote, setMtNote] = useState("");
   const [mtLoading, setMtLoading] = useState(false);
+  const [openLoading, setOpenLoading] = useState(false);
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -34,30 +35,48 @@ export default function FeedView() {
   const load = useCallback(async () => {
     setErr("");
     setMtNote("");
+    setPosts(null);
+    setUnavailable([]);
     try {
       const f = await getFeedById(feedId);
       if (!f) throw new Error("лента не найдена или недоступна");
       setFeed(f);
-      const { posts, unavailable } = await readChannels(f.channels);
-      setPosts(posts);
-      setUnavailable(unavailable);
-      // Для каналов без превью дочитываем под общим аккаунтом (MTProto) прямо
-      // в браузере. Посты появляются по мере загрузки (медиа скачивается).
-      if (unavailable.length > 0) {
+      setPosts([]); // переходим в режим прогрессивной загрузки (посты подмешиваются)
+      setOpenLoading(true);
+
+      // Открытые каналы читаем ПАРАЛЛЕЛЬНО, по одному запросу на канал —
+      // посты появляются по мере готовности, а не после самого медленного.
+      const unavail: string[] = [];
+      await Promise.all(
+        f.channels.map(async (ch) => {
+          try {
+            const r = await readChannels([ch]);
+            r.posts.forEach(mergePost);
+            if (r.unavailable.length > 0) unavail.push(ch);
+          } catch {
+            unavail.push(ch);
+          }
+        }),
+      );
+      setOpenLoading(false);
+      setUnavailable(unavail);
+
+      // Закрытые каналы — сначала на сервере (без VPN). В браузер откатываемся
+      // ТОЛЬКО если сервер реально не смог выполниться (иначе без VPN он зависнет).
+      if (unavail.length > 0) {
         setMtLoading(true);
-        // 1) Сначала — серверное чтение (без VPN у пользователя).
-        const srv = await readChannelsMTServer(unavailable);
+        const srv = await readChannelsMTServer(unavail);
         let result = srv;
         if (srv.posts && srv.posts.length > 0) {
           srv.posts.forEach(mergePost);
           setUnavailable(srv.unavailable);
-        } else {
-          // 2) Сервер не смог (edge не тянет GramJS / пусто) — читаем в браузере
-          //    (нужен VPN), посты стримятся по мере загрузки.
-          const left = srv.unavailable && srv.unavailable.length ? srv.unavailable : unavailable;
-          const br = await readChannelsMT(left, mergePost);
+        } else if (srv.error) {
+          // Сервер упал (edge не тянет GramJS) — пробуем браузер (нужен VPN).
+          const br = await readChannelsMT(srv.unavailable?.length ? srv.unavailable : unavail, mergePost);
           setUnavailable(br.unavailable);
           result = br;
+        } else {
+          setUnavailable(srv.unavailable);
         }
         setMtLoading(false);
         if (result.noAccount) setMtNote("Чтобы читать закрытые каналы, администратор должен подключить общий аккаунт (раздел «Аккаунт»).");
@@ -66,6 +85,7 @@ export default function FeedView() {
       }
     } catch (e) {
       setMtLoading(false);
+      setOpenLoading(false);
       setErr((e as Error).message);
     }
   }, [feedId, mergePost]);
@@ -132,8 +152,8 @@ export default function FeedView() {
 
         {!mtLoading && mtNote && <div className="card" style={{ fontSize: 13 }}>{mtNote}</div>}
         {err && <ErrorState message={err} onRetry={load} />}
-        {!posts && !err && <Loading label="Читаю каналы…" />}
-        {posts && posts.length === 0 && !err && <Empty>Постов пока нет.</Empty>}
+        {!err && (!posts || (openLoading && posts.length === 0)) && <Loading label="Читаю каналы…" />}
+        {posts && posts.length === 0 && !openLoading && !mtLoading && !err && <Empty>Постов пока нет.</Empty>}
         {posts?.map((p) => (
           <PostCard
             key={`${p.channel}/${p.msgId}`}
