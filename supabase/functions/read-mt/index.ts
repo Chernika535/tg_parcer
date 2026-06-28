@@ -49,12 +49,26 @@ Deno.serve(async (req: Request) => {
     const errs: string[] = [];
     for (const ch of channels) {
       try {
+        // Резолвим username явно — getEntity на свежей сессии часто не находит
+        // ещё не виденного пира. resolveUsername гарантированно даёт peer.
+        let entity: unknown;
+        try {
+          entity = await client.getEntity(ch);
+        } catch {
+          // deno-lint-ignore no-explicit-any
+          const res = await client.invoke(
+            // deno-lint-ignore no-explicit-any
+            new (tg as any).Api.contacts.ResolveUsername({ username: ch }),
+          );
+          // deno-lint-ignore no-explicit-any
+          entity = (res as any).chats?.[0] ?? (res as any).users?.[0];
+          if (!entity) throw new Error("username не резолвится");
+        }
         // deno-lint-ignore no-explicit-any
-        const entity = await client.getEntity(ch);
-        // deno-lint-ignore no-explicit-any
-        const msgs = await client.getMessages(entity, { limit: LIMIT } as any);
+        const msgs = await client.getMessages(entity as any, { limit: LIMIT } as any);
         if (!msgs?.length) {
           unavailable.push(ch);
+          errs.push(ch + ": нет сообщений (возможно нужно вступить в канал)");
           continue;
         }
         for (const m of msgs) {
@@ -83,7 +97,7 @@ Deno.serve(async (req: Request) => {
       /* ignore */
     }
     posts.sort((a, b) => String(b.postedAt).localeCompare(String(a.postedAt)));
-    return json({ posts, unavailable, note: posts.length === 0 ? errs.join(" | ") : undefined });
+    return json({ posts, unavailable, note: errs.length ? errs.join(" | ") : undefined });
   } catch (e) {
     return json({ error: (e as Error).message || String(e) }, 500);
   }
