@@ -55,14 +55,14 @@ export async function readChannelsMT(channels: string[]): Promise<MTResult> {
   for (const ch of channels) {
     try {
       // GramJS в браузере резолвит @username сам.
-      const msgs = await withTimeout(client.getMessages(ch, { limit: LIMIT }), 20000, "канал не отвечает");
+      // deno-lint-ignore no-explicit-any
+      const msgs: any[] = await withTimeout<any[]>(client.getMessages(ch, { limit: LIMIT }), 20000, "канал не отвечает");
       if (!msgs || msgs.length === 0) {
         unavailable.push(ch);
         errs.push(ch + ": нет сообщений (возможно нужно вступить в канал)");
         continue;
       }
-      // deno-lint-ignore no-explicit-any
-      for (const m of msgs as any[]) {
+      for (const m of msgs) {
         const text: string = m.message ?? "";
         const hasMedia = !!m.media;
         if (!text && !hasMedia) continue;
