@@ -35,8 +35,9 @@ Deno.serve(async (req: Request) => {
     const channels = [...new Set((body.channels ?? []).map(norm).filter(Boolean) as string[])];
     if (channels.length === 0) return json({ posts: [], unavailable: [] });
 
-    const { TelegramClient } = await import("npm:telegram@2.26.22");
-    const { StringSession } = await import("npm:telegram@2.26.22/sessions");
+    const tg = await import("npm:telegram@2.26.22");
+    const TelegramClient = tg.TelegramClient;
+    const StringSession = tg.sessions.StringSession;
     const client = new TelegramClient(new StringSession(row.session), API_ID, API_HASH, {
       connectionRetries: 3,
       useWSS: true,
