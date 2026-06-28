@@ -70,8 +70,8 @@ export default function FeedView() {
         if (srv.posts && srv.posts.length > 0) {
           srv.posts.forEach(mergePost);
           setUnavailable(srv.unavailable);
-        } else if (srv.error) {
-          // Сервер упал (edge не тянет GramJS) — пробуем браузер (нужен VPN).
+        } else if (!srv.noAccount) {
+          // Сервер не дал постов (упал / пусто) — пробуем браузер (нужен VPN).
           const br = await readChannelsMT(srv.unavailable?.length ? srv.unavailable : unavail, mergePost);
           setUnavailable(br.unavailable);
           result = br;
