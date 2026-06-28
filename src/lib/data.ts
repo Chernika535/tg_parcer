@@ -1,7 +1,30 @@
 import { supabase, appConfig } from "./supabase.ts";
 
+// Вызов edge-функции Supabase ПО ОСНОВНОМУ домену (/functions/v1/<name>).
+// ВАЖНО для России: supabase-js по умолчанию шлёт запросы на отдельный поддомен
+// <ref>.functions.supabase.co, который в РФ часто заблокирован, тогда как
+// основной <ref>.supabase.co доступен. Поэтому ходим напрямую fetch'ем.
+export async function invokeFn(name: string, body: Record<string, unknown>): Promise<unknown> {
+  const cfg = appConfig();
+  const base = cfg.supabaseUrl.replace(/\/$/, "");
+  const { data: s } = await supabase().auth.getSession();
+  const token = s.session?.access_token || cfg.supabaseAnonKey;
+  const res = await fetch(`${base}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      apikey: cfg.supabaseAnonKey,
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string })?.error || `HTTP ${res.status}`);
+  return data;
+}
+
 // Вызов MTProto-операции: если задан mtBaseUrl (Deno Deploy) — идём туда,
-// иначе пробуем edge-функцию Supabase того же имени.
+// иначе — edge-функция Supabase того же имени (по основному домену).
 async function mtCall(name: "tg-connect" | "read-mt" | "react", body: Record<string, unknown>): Promise<unknown> {
   const base = appConfig().mtBaseUrl?.replace(/\/$/, "");
   if (base) {
@@ -18,9 +41,7 @@ async function mtCall(name: "tg-connect" | "read-mt" | "react", body: Record<str
     if (!res.ok) throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
     return data;
   }
-  const { data, error } = await supabase().functions.invoke(name, { body });
-  if (error) throw new Error(await fnError(error));
-  return data;
+  return invokeFn(name, body);
 }
 
 export type Visibility = "private" | "public";
@@ -277,16 +298,6 @@ export async function getReadSession(): Promise<string | null> {
   return d.session ?? null;
 }
 
-async function fnError(error: unknown): Promise<string> {
-  try {
-    const body = await (error as { context?: { json?: () => Promise<{ error?: string }> } }).context?.json?.();
-    if (body?.error) return body.error;
-  } catch {
-    /* ignore */
-  }
-  return (error as Error).message;
-}
-
 // Серверное чтение закрытых каналов (read-mt на Supabase). Работает БЕЗ VPN у
 // пользователя, т.к. в Telegram ходит сервер, а не браузер. Может не завестись
 // на edge (тогда клиент откатывается на браузерное чтение).
@@ -327,9 +338,6 @@ export async function readChannels(
   channels: string[],
 ): Promise<{ posts: Post[]; unavailable: string[] }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
-  const { data, error } = await db().functions.invoke("read-channels", {
-    body: { channels },
-  });
-  if (error) throw new Error(error.message);
+  const data = await invokeFn("read-channels", { channels });
   return data as { posts: Post[]; unavailable: string[] };
 }

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase.ts";
+import { invokeFn } from "./data.ts";
 
 export type Profile = {
   id: string;
@@ -61,18 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function loginWithTelegram(u: TelegramUser) {
-    const { data, error } = await supabase().functions.invoke("telegram-auth", { body: u });
-    if (error) {
-      // вытащить настоящий текст ошибки из тела ответа функции
-      let msg = error.message;
-      try {
-        const body = await (error as { context?: { json?: () => Promise<{ error?: string }> } }).context?.json?.();
-        if (body?.error) msg = body.error;
-      } catch {
-        /* ignore */
-      }
-      throw new Error(msg);
-    }
+    // Вызываем по основному домену (см. invokeFn) — поддомен functions.* в РФ блокируется.
+    const data = await invokeFn("telegram-auth", u as unknown as Record<string, unknown>);
     const { token_hash } = data as { token_hash?: string };
     if (!token_hash) throw new Error("сервер не вернул token_hash");
     const { error: verr } = await supabase().auth.verifyOtp({ token_hash, type: "magiclink" });
