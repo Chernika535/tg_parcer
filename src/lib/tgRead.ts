@@ -16,6 +16,13 @@ type MTResult = {
   note?: string;
 };
 
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) => setTimeout(() => rej(new Error(label + " (таймаут " + ms / 1000 + "с)")), ms)),
+  ]);
+}
+
 export async function readChannelsMT(channels: string[]): Promise<MTResult> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
 
@@ -34,9 +41,9 @@ export async function readChannelsMT(channels: string[]): Promise<MTResult> {
     const { TelegramClient } = await import("telegram");
     const { StringSession } = await import("telegram/sessions");
     client = new TelegramClient(new StringSession(session), API_ID, API_HASH, {
-      connectionRetries: 3,
+      connectionRetries: 2,
     });
-    await client.connect();
+    await withTimeout(client.connect(), 20000, "не удалось подключиться к Telegram");
   } catch (e) {
     return { posts: [], unavailable: channels, error: "Подключение MTProto: " + (e as Error).message };
   }
@@ -48,7 +55,7 @@ export async function readChannelsMT(channels: string[]): Promise<MTResult> {
   for (const ch of channels) {
     try {
       // GramJS в браузере резолвит @username сам.
-      const msgs = await client.getMessages(ch, { limit: LIMIT });
+      const msgs = await withTimeout(client.getMessages(ch, { limit: LIMIT }), 20000, "канал не отвечает");
       if (!msgs || msgs.length === 0) {
         unavailable.push(ch);
         errs.push(ch + ": нет сообщений (возможно нужно вступить в канал)");
