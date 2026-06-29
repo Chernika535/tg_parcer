@@ -6,7 +6,7 @@ import { DOMParser, type Element } from "https://deno.land/x/deno_dom@v0.1.45/de
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "content-type": "application/json" } });
@@ -197,10 +197,17 @@ async function fetchChannel(username: string): Promise<Post[]> {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return jsonResponse({ error: "method not allowed" }, 405);
   try {
-    const body = (await req.json()) as { channels?: string[] };
-    const channels = [...new Set((body.channels ?? []).map(normalize).filter(Boolean) as string[])];
+    // Каналы принимаем и из query (GET — проходит в РФ без VPN), и из тела (POST).
+    let raw: string[] = [];
+    if (req.method === "GET") {
+      const q = new URL(req.url).searchParams.get("channels") ?? "";
+      raw = q.split(",");
+    } else {
+      const body = (await req.json().catch(() => ({}))) as { channels?: string[] };
+      raw = body.channels ?? [];
+    }
+    const channels = [...new Set(raw.map(normalize).filter(Boolean) as string[])];
     if (channels.length === 0) return jsonResponse({ posts: [], unavailable: [] });
     const posts: Post[] = [];
     const unavailable: string[] = [];

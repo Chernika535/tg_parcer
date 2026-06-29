@@ -38,6 +38,33 @@ export async function invokeFn(name: string, body: Record<string, unknown>): Pro
   return data;
 }
 
+// GET-вариант вызова функции. В России без VPN POST-запросы к функциям у части
+// провайдеров не проходят, а GET — проходят (проверено: картинки и профиль
+// грузятся, а POST-лента — нет). Поэтому публичное чтение делаем через GET.
+export async function invokeFnGet(name: string, params: Record<string, string>): Promise<unknown> {
+  const cfg = appConfig();
+  const base = cfg.supabaseUrl.replace(/\/$/, "");
+  const token = getAccessToken();
+  const q = new URLSearchParams({ apikey: cfg.supabaseAnonKey, ...params });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  let res: Response;
+  try {
+    res = await fetch(`${base}/functions/v1/${name}?${q.toString()}`, {
+      method: "GET",
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    throw new Error((e as Error).name === "AbortError" ? "сервер не ответил вовремя" : (e as Error).message);
+  } finally {
+    clearTimeout(timer);
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string })?.error || `HTTP ${res.status}`);
+  return data;
+}
+
 // Вызов MTProto-операции: если задан mtBaseUrl (Deno Deploy) — идём туда,
 // иначе — edge-функция Supabase того же имени (по основному домену).
 async function mtCall(name: "tg-connect" | "read-mt" | "react", body: Record<string, unknown>): Promise<unknown> {
@@ -127,15 +154,15 @@ export async function myFeeds(): Promise<Feed[]> {
 // ---- Одобренные публичные ленты (доступны без входа) ----
 // Читаем через edge-функцию (REST-домен в РФ без VPN недоступен).
 export async function publicFeeds(): Promise<Feed[]> {
-  const d = (await invokeFn("feeds", { action: "public" })) as { feeds?: Feed[]; error?: string };
+  const d = (await invokeFnGet("feeds", { action: "public" })) as { feeds?: Feed[]; error?: string };
   if (d.error) throw new Error(d.error);
   return d.feeds ?? [];
 }
 
 export async function getFeedById(id: number): Promise<Feed | null> {
-  // Сначала пробуем функцию (работает без VPN для публичных лент).
+  // Сначала пробуем функцию через GET (работает без VPN для публичных лент).
   try {
-    const d = (await invokeFn("feeds", { action: "get", id })) as { feed?: Feed | null; error?: string };
+    const d = (await invokeFnGet("feeds", { action: "get", id: String(id) })) as { feed?: Feed | null; error?: string };
     if (!d.error && d.feed) return d.feed;
     if (!d.error && d.feed === null) {
       // Приватная/чужая лента — добираем через REST под входом (нужен VPN).
@@ -365,6 +392,7 @@ export async function readChannels(
   channels: string[],
 ): Promise<{ posts: Post[]; unavailable: string[] }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
-  const data = await invokeFn("read-channels", { channels });
+  // GET: каналы передаём через query (без VPN POST не проходит).
+  const data = await invokeFnGet("read-channels", { channels: channels.join(",") });
   return data as { posts: Post[]; unavailable: string[] };
 }

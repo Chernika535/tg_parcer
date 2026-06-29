@@ -6,7 +6,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.108.2";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...cors, "content-type": "application/json" } });
@@ -17,7 +17,19 @@ Deno.serve(async (req: Request) => {
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
       auth: { persistSession: false },
     });
-    const body = (await req.json()) as { action?: string; id?: number };
+    // Параметры берём из query (GET — проходит в РФ без VPN) или из тела (POST).
+    let action: string | undefined;
+    let id: number | undefined;
+    if (req.method === "GET") {
+      const sp = new URL(req.url).searchParams;
+      action = sp.get("action") ?? undefined;
+      id = sp.get("id") ? Number(sp.get("id")) : undefined;
+    } else {
+      const b = (await req.json().catch(() => ({}))) as { action?: string; id?: number };
+      action = b.action;
+      id = b.id;
+    }
+    const body = { action, id };
 
     if (body.action === "public") {
       const { data, error } = await db
