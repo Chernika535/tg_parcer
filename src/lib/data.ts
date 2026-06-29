@@ -9,20 +9,22 @@ export async function invokeFn(name: string, body: Record<string, unknown>): Pro
   const base = cfg.supabaseUrl.replace(/\/$/, "");
   // ВАЖНО: НЕ зовём getSession() — без VPN он зависает на refresh токена через
   // заблокированный /auth/v1, и запрос вообще не уходит. Берём токен из кэша.
-  // Authorization шлём только при реальной сессии (publishable-ключ не JWT → 401).
   const token = getAccessToken();
-  // Жёсткий таймаут — чтобы запрос никогда не висел бесконечно.
+  // КЛЮЧЕВОЕ для России без VPN: делаем «простой» CORS-запрос без preflight.
+  // POST с application/json + заголовком apikey вызывает предварительный OPTIONS,
+  // а он у провайдеров без VPN режется → запрос «висит». Поэтому apikey кладём
+  // в query, content-type = text/plain (req.json() на сервере всё равно парсит),
+  // а Authorization добавляем только вошедшим (им и так нужен VPN для /auth/v1).
+  const url = `${base}/functions/v1/${name}?apikey=${encodeURIComponent(cfg.supabaseAnonKey)}`;
+  const headers: Record<string, string> = { "content-type": "text/plain;charset=UTF-8" };
+  if (token) headers["authorization"] = `Bearer ${token}`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 20000);
   let res: Response;
   try {
-    res = await fetch(`${base}/functions/v1/${name}`, {
+    res = await fetch(url, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        apikey: cfg.supabaseAnonKey,
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
+      headers,
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });

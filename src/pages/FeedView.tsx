@@ -5,6 +5,10 @@ import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 
+// Кэш постов по ленте в памяти (живёт пока открыта вкладка). Повторный заход в
+// ленту показывает результат мгновенно, обновление идёт в фоне.
+const feedCache = new Map<number, Post[]>();
+
 export default function FeedView() {
   const { id } = useParams();
   const feedId = Number(id);
@@ -37,14 +41,23 @@ export default function FeedView() {
   const load = useCallback(async () => {
     setErr("");
     setMtNote("");
-    setPosts(null);
-    setUnavailable([]);
+    // Если есть кэш — показываем его сразу и обновляем в фоне (без большого спиннера).
+    const cached = feedCache.get(feedId);
+    if (cached && cached.length) {
+      setPosts(cached);
+      setOpenLoading(false);
+    } else {
+      setPosts(null);
+      setUnavailable([]);
+    }
     try {
       const f = await getFeedById(feedId);
       if (!f) throw new Error("лента не найдена или недоступна");
       setFeed(f);
-      setPosts([]); // переходим в режим прогрессивной загрузки (посты подмешиваются)
-      setOpenLoading(true);
+      if (!cached || !cached.length) {
+        setPosts([]); // прогрессивная загрузка (посты подмешиваются)
+        setOpenLoading(true);
+      }
 
       // Открытые каналы читаем ПАРАЛЛЕЛЬНО, по одному запросу на канал —
       // посты появляются по мере готовности, а не после самого медленного.
@@ -87,6 +100,11 @@ export default function FeedView() {
         else if (result.error) setMtNote("Чтение закрытых каналов (сервер): " + result.error);
         else if (result.note) setMtNote("Закрытые каналы: " + result.note);
       }
+      // Сохраняем итог в кэш для мгновенного повторного открытия.
+      setPosts((p) => {
+        if (p && p.length) feedCache.set(feedId, p);
+        return p;
+      });
     } catch (e) {
       setMtLoading(false);
       setOpenLoading(false);
