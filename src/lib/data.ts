@@ -130,17 +130,11 @@ function db() {
   return supabase();
 }
 
-// ---- Ленты текущего пользователя ----
+// ---- Ленты текущего пользователя (через функцию — надёжно через прокси) ----
 export async function myFeeds(): Promise<Feed[]> {
-  const { data: u } = await db().auth.getUser();
-  if (!u.user) return [];
-  const { data, error } = await db()
-    .from("feeds")
-    .select("*")
-    .eq("owner_id", u.user.id)
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data as Feed[]) ?? [];
+  const d = (await invokeFn("myfeeds", { action: "list_mine" })) as { feeds?: Feed[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.feeds ?? [];
 }
 
 // ---- Одобренные публичные ленты (доступны без входа) ----
@@ -152,29 +146,20 @@ export async function publicFeeds(): Promise<Feed[]> {
 }
 
 export async function getFeedById(id: number): Promise<Feed | null> {
-  // Сначала пробуем функцию через GET (работает без VPN для публичных лент).
+  // Публичная лента — через GET-функцию (работает без VPN).
   try {
     const d = (await invokeFnGet("feeds", { action: "get", id: String(id) })) as { feed?: Feed | null; error?: string };
     if (!d.error && d.feed) return d.feed;
-    if (!d.error && d.feed === null) {
-      // Приватная/чужая лента — добираем через REST под входом (нужен VPN).
-      const { data } = await db()
-        .from("feeds")
-        .select("*, owner:profiles(display_name, username)")
-        .eq("id", id)
-        .maybeSingle();
-      return (data as Feed) ?? null;
-    }
   } catch {
-    /* падаем на REST ниже */
+    /* пробуем как свою ниже */
   }
-  const { data, error } = await db()
-    .from("feeds")
-    .select("*, owner:profiles(display_name, username)")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as Feed) ?? null;
+  // Приватная/своя лента — ищем среди своих (через функцию, по JWT).
+  try {
+    const mine = await myFeeds();
+    return mine.find((f) => f.id === id) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export type FeedInput = {
@@ -190,26 +175,20 @@ export type FeedInput = {
 };
 
 export async function createFeed(input: FeedInput): Promise<Feed> {
-  const { data: u } = await db().auth.getUser();
-  if (!u.user) throw new Error("нужен вход");
-  const { data, error } = await db()
-    .from("feeds")
-    .insert({
-      owner_id: u.user.id,
-      title: input.title.trim(),
-      description: input.description?.slice(0, 300) || null,
-      cover_url: input.cover_url || null,
-      author_name: input.author_name?.trim() || null,
-      channels: input.channels ?? [],
-      visibility: input.visibility,
-      tags: cleanTags(input.tags),
-      official: !!input.official,
-      by_admin: !!input.by_admin,
-    })
-    .select("*")
-    .single();
-  if (error) throw new Error(error.message);
-  return data as Feed;
+  const payload = {
+    title: input.title.trim(),
+    description: input.description?.slice(0, 300) || null,
+    cover_url: input.cover_url || null,
+    author_name: input.author_name?.trim() || null,
+    channels: input.channels ?? [],
+    visibility: input.visibility,
+    tags: cleanTags(input.tags),
+    official: !!input.official,
+    by_admin: !!input.by_admin,
+  };
+  const d = (await invokeFn("myfeeds", { action: "create", input: payload })) as { feed?: Feed; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.feed as Feed;
 }
 
 export async function updateFeed(
@@ -219,8 +198,8 @@ export async function updateFeed(
   const patch: Record<string, unknown> = { ...fields };
   if (patch.tags) patch.tags = cleanTags(patch.tags as string[]);
   if (typeof patch.description === "string") patch.description = (patch.description as string).slice(0, 300) || null;
-  const { error } = await db().from("feeds").update(patch).eq("id", id);
-  if (error) throw new Error(error.message);
+  const d = (await invokeFn("myfeeds", { action: "update", id, fields: patch })) as { error?: string };
+  if (d.error) throw new Error(d.error);
 }
 
 // Загрузка обложки в Supabase Storage (bucket "covers"), возвращает публичный URL.
@@ -236,25 +215,20 @@ export async function uploadCover(file: File): Promise<string> {
 
 // Админ: пометить/снять «официальный источник».
 export async function setOfficial(id: number, value: boolean): Promise<void> {
-  const { error } = await db().from("feeds").update({ official: value }).eq("id", id);
-  if (error) throw new Error(error.message);
+  const d = (await invokeFn("myfeeds", { action: "set_official", id, value })) as { error?: string };
+  if (d.error) throw new Error(d.error);
 }
 
 export async function deleteFeed(id: number): Promise<void> {
-  const { error } = await db().from("feeds").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const d = (await invokeFn("myfeeds", { action: "delete", id })) as { error?: string };
+  if (d.error) throw new Error(d.error);
 }
 
 // ---- Модерация (только админ; RLS/триггеры на сервере это гарантируют) ----
 export async function pendingFeeds(): Promise<Feed[]> {
-  const { data, error } = await db()
-    .from("feeds")
-    .select("*, owner:profiles(display_name, username)")
-    .eq("visibility", "public")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true });
-  if (error) throw new Error(error.message);
-  return (data as Feed[]) ?? [];
+  const d = (await invokeFn("myfeeds", { action: "list_pending" })) as { feeds?: Feed[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.feeds ?? [];
 }
 
 export async function moderateFeed(
@@ -262,11 +236,8 @@ export async function moderateFeed(
   decision: "approved" | "rejected",
   reason?: string,
 ): Promise<void> {
-  const { error } = await db()
-    .from("feeds")
-    .update({ status: decision, reject_reason: reason ?? null })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+  const d = (await invokeFn("myfeeds", { action: "moderate", id, decision, reason })) as { error?: string };
+  if (d.error) throw new Error(d.error);
 }
 
 // ---- Избранные посты ----

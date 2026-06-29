@@ -35,7 +35,7 @@ export default function FeedCard({
         {feed.description && <div className="feed-card-desc">{feed.description}</div>}
         <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
           {feed.channels.length} каналов
-          {feed.author_name ? ` · ${feed.author_name}` : feed.owner?.display_name ? ` · ${feed.owner.display_name}` : ""}
+          {feed.author_name ? ` · ${feed.author_name}` : ""}
         </div>
         <div className="tags" style={{ marginTop: 8 }}>
           <span className={`chip ${feed.visibility === "public" ? "chip-public" : "chip-private"}`}>

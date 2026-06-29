@@ -48,6 +48,65 @@ function linkify(text: string): ReactNode[] {
   return nodes;
 }
 
+// Добавляет «кэш-бастер» к http-адресу, чтобы повтор реально перезапросил файл.
+function bust(url: string, n: number): string {
+  if (n === 0 || url.startsWith("blob:") || url.startsWith("data:")) return url;
+  return url + (url.includes("?") ? "&" : "?") + "_r=" + n;
+}
+
+// Картинка с кнопкой «↻ Загрузить» при ошибке (медиа из Telegram бывает не докачивается).
+function RImg({ src, className }: { src: string; className?: string }) {
+  const [n, setN] = useState(0);
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <button
+        type="button"
+        className={`media-retry ${className ?? ""}`}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFailed(false); setN((x) => x + 1); }}
+        title="Загрузить ещё раз"
+      >↻</button>
+    );
+  }
+  return <img className={className} alt="" loading="lazy" src={bust(src, n)} onError={() => setFailed(true)} />;
+}
+
+function RVideo({ url, thumb, round }: { url: string; thumb?: string; round?: boolean }) {
+  const [n, setN] = useState(0);
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <button type="button" className="media-retry block" onClick={() => { setFailed(false); setN((x) => x + 1); }}>
+        ↻ Видео не загрузилось — повторить
+      </button>
+    );
+  }
+  return (
+    <video
+      className={round ? "media-video round" : "media-video"}
+      src={bust(url, n)}
+      poster={thumb ? bust(thumb, n) : undefined}
+      controls
+      playsInline
+      preload="metadata"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function RAudio({ url }: { url: string }) {
+  const [n, setN] = useState(0);
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <button type="button" className="media-retry block" onClick={() => { setFailed(false); setN((x) => x + 1); }}>
+        ↻ Голосовое не загрузилось — повторить
+      </button>
+    );
+  }
+  return <audio className="media-audio" src={bust(url, n)} controls preload="none" onError={() => setFailed(true)} />;
+}
+
 export default function PostCard({
   post,
   isFav,
@@ -66,7 +125,7 @@ export default function PostCard({
     <article className="card fade-in">
       <div className="post-head">
         {post.channelAvatar ? (
-          <img className="ava" src={post.channelAvatar} alt="" loading="lazy" />
+          <RImg className="ava" src={post.channelAvatar} />
         ) : (
           <div className="ava ava-ph">@</div>
         )}
@@ -96,7 +155,7 @@ export default function PostCard({
         <div className={`media-grid n${Math.min(photos.length, 4)}`}>
           {photos.map((m, i) => (
             <a key={i} href={post.link} target="_blank" rel="noreferrer" className="media-img-wrap">
-              <img src={(m as { url: string }).url} alt="" loading="lazy" />
+              <RImg src={(m as { url: string }).url} />
             </a>
           ))}
         </div>
@@ -117,26 +176,17 @@ export default function PostCard({
 function MediaBlock({ m, link }: { m: Media; link: string }) {
   if (m.type === "video" || m.type === "roundvideo") {
     if (m.url) {
-      return (
-        <video
-          className={m.type === "roundvideo" ? "media-video round" : "media-video"}
-          src={m.url}
-          poster={m.thumb}
-          controls
-          playsInline
-          preload="metadata"
-        />
-      );
+      return <RVideo url={m.url} thumb={m.thumb} round={m.type === "roundvideo"} />;
     }
     return (
       <a href={link} target="_blank" rel="noreferrer" className="media-img-wrap">
-        {m.thumb && <img src={m.thumb} alt="" loading="lazy" />}
+        {m.thumb && <RImg src={m.thumb} />}
         <span className="play-badge">▶ Видео — открыть</span>
       </a>
     );
   }
   if (m.type === "voice") {
-    return m.url ? <audio className="media-audio" src={m.url} controls preload="none" /> : null;
+    return m.url ? <RAudio url={m.url} /> : null;
   }
   if (m.type === "document") {
     return (
@@ -149,7 +199,7 @@ function MediaBlock({ m, link }: { m: Media; link: string }) {
   if (m.type === "link") {
     return (
       <a href={m.href || link} target="_blank" rel="noreferrer" className="media-link">
-        {m.image && <img src={m.image} alt="" loading="lazy" />}
+        {m.image && <RImg src={m.image} />}
         <div className="media-link-body">
           {m.site && <div className="muted" style={{ fontSize: 12 }}>{m.site}</div>}
           {m.title && <div style={{ fontWeight: 700 }}>{m.title}</div>}

@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.feeds]
 verify_jwt = false
+
+[functions.myfeeds]
+verify_jwt = false
