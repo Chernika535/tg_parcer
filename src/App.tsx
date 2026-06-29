@@ -12,6 +12,7 @@ import Account from "./pages/Account.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import DataPolicy from "./pages/DataPolicy.tsx";
 import Tags from "./pages/Tags.tsx";
+import Diag from "./pages/Diag.tsx";
 import Favorites from "./pages/Favorites.tsx";
 import MenuDrawer from "./components/MenuDrawer.tsx";
 import type { ReactElement } from "react";
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/feed/:id" element={<FeedView />} />
         <Route path="/login" element={<Login />} />
         <Route path="/tags" element={<Tags />} />
+        <Route path="/diag" element={<Diag />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/data-policy" element={<DataPolicy />} />
         <Route path="/my" element={<RequireAuth><MyFeeds /></RequireAuth>} />
