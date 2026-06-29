@@ -100,6 +100,35 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // ---- Избранное ----
+    if (b.action === "fav_links") {
+      const { data } = await db.from("favorites").select("link").eq("user_id", uid);
+      return json({ links: (data ?? []).map((r: { link: string }) => r.link) });
+    }
+    if (b.action === "fav_list") {
+      const { data, error } = await db
+        .from("favorites")
+        .select("data")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false });
+      if (error) return json({ error: error.message }, 500);
+      return json({ posts: (data ?? []).map((r: { data: unknown }) => r.data) });
+    }
+    if (b.action === "fav_add") {
+      const post = b.input as { link?: string } | undefined;
+      if (!post?.link) return json({ error: "нет поста" }, 400);
+      const { error } = await db.from("favorites").upsert({ user_id: uid, link: post.link, data: post });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+    if (b.action === "fav_remove") {
+      const link = (b.input as { link?: string } | undefined)?.link;
+      if (!link) return json({ error: "нет ссылки" }, 400);
+      const { error } = await db.from("favorites").delete().eq("user_id", uid).eq("link", link);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+
     return json({ error: "unknown action" }, 400);
   } catch (e) {
     return json({ error: (e as Error).message || String(e) }, 500);

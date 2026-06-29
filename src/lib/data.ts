@@ -240,39 +240,31 @@ export async function moderateFeed(
   if (d.error) throw new Error(d.error);
 }
 
-// ---- Избранные посты ----
+// ---- Избранные посты (через функцию myfeeds — надёжно через прокси) ----
 export async function favoriteLinks(): Promise<string[]> {
-  const { data: u } = await db().auth.getUser();
-  if (!u.user) return [];
-  const { data } = await db().from("favorites").select("link").eq("user_id", u.user.id);
-  return (data ?? []).map((r: { link: string }) => r.link);
+  if (!getAccessToken()) return [];
+  try {
+    const d = (await invokeFn("myfeeds", { action: "fav_links" })) as { links?: string[] };
+    return d.links ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function listFavorites(): Promise<Post[]> {
-  const { data: u } = await db().auth.getUser();
-  if (!u.user) return [];
-  const { data, error } = await db()
-    .from("favorites")
-    .select("data")
-    .eq("user_id", u.user.id)
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r: { data: Post }) => r.data);
+  if (!getAccessToken()) return [];
+  const d = (await invokeFn("myfeeds", { action: "fav_list" })) as { posts?: Post[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.posts ?? [];
 }
 
 export async function addFavorite(post: Post): Promise<void> {
-  const { data: u } = await db().auth.getUser();
-  if (!u.user) throw new Error("нужен вход");
-  const { error } = await db()
-    .from("favorites")
-    .upsert({ user_id: u.user.id, link: post.link, data: post });
-  if (error) throw new Error(error.message);
+  const d = (await invokeFn("myfeeds", { action: "fav_add", input: post as unknown as Record<string, unknown> })) as { error?: string };
+  if (d.error) throw new Error(d.error);
 }
 
 export async function removeFavorite(link: string): Promise<void> {
-  const { data: u } = await db().auth.getUser();
-  if (!u.user) return;
-  await db().from("favorites").delete().eq("user_id", u.user.id).eq("link", link);
+  await invokeFn("myfeeds", { action: "fav_remove", input: { link } }).catch(() => {});
 }
 
 // ---- MTProto: подключение читающего аккаунта (админ) ----
