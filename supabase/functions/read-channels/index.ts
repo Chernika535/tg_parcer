@@ -67,10 +67,17 @@ function decodeEntities(s: string): string {
 }
 
 // HTML фрагмент текста → чистый текст с переносами строк.
+// Ссылки-теги <a href="URL">текст</a> сохраняем как markdown [текст](URL),
+// чтобы фронтенд сделал их кликабельными (иначе и текст, и адрес терялись).
 function htmlToText(html: string): string {
   return decodeEntities(
     html
       .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<a\b[^>]*\bhref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href, inner) => {
+        const text = inner.replace(/<[^>]+>/g, "").trim();
+        if (!text) return href;
+        return text === href ? href : `[${text}](${href})`;
+      })
       .replace(/<\/(p|div)>/gi, "\n")
       .replace(/<[^>]+>/g, ""),
   )

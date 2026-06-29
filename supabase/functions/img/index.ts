@@ -7,15 +7,10 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, range",
 };
 
-// Разрешаем только хосты Telegram (чтобы прокси нельзя было использовать как открытый релей).
-const ALLOWED = [
-  /(^|\.)cdn-telegram\.org$/i,
-  /(^|\.)cdn\d*\.telesco\.pe$/i,
-  /(^|\.)telesco\.pe$/i,
-  /(^|\.)t\.me$/i,
-  /(^|\.)telegram\.org$/i,
-  /(^|\.)web\.telegram\.org$/i,
-];
+// Блокируем только явно «внутренние»/localhost адреса (чтобы прокси нельзя было
+// использовать против внутренней сети). Любые публичные https-картинки пропускаем —
+// раньше слишком строгий список хостов резал валидные адреса Telegram-CDN.
+const BLOCKED_HOST = /^(localhost$|127\.|10\.|192\.168\.|169\.254\.|::1$|0\.0\.0\.0$)/i;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -28,17 +23,21 @@ Deno.serve(async (req: Request) => {
     } catch {
       return new Response("bad url", { status: 400, headers: cors });
     }
-    if (target.protocol !== "https:" || !ALLOWED.some((re) => re.test(target.hostname))) {
+    if (target.protocol !== "https:" || BLOCKED_HOST.test(target.hostname)) {
       return new Response("host not allowed", { status: 403, headers: cors });
     }
 
     const range = req.headers.get("range");
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
     const upstream = await fetch(target.toString(), {
+      redirect: "follow",
+      signal: ctrl.signal,
       headers: {
         "user-agent": "Mozilla/5.0 (compatible; FeedAggregator/1.0)",
         ...(range ? { range } : {}),
       },
-    });
+    }).finally(() => clearTimeout(timer));
 
     const headers = new Headers(cors);
     const ct = upstream.headers.get("content-type");

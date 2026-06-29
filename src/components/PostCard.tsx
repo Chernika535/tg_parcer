@@ -15,9 +15,10 @@ function relativeTime(iso: string): string {
 }
 
 const LIMIT = 360;
-const TOKEN_RE = /((?:https?:\/\/|www\.)[^\s]+)|(@[a-zA-Z][a-zA-Z0-9_]{3,})/g;
+// Порядок важен: сначала markdown-ссылка [текст](url), потом голый url, потом @упоминание.
+const TOKEN_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|((?:https?:\/\/|www\.)[^\s]+)|(@[a-zA-Z][a-zA-Z0-9_]{3,})/g;
 
-// Делает ссылки и @упоминания кликабельными, сохраняя переносы строк.
+// Делает ссылки (в т.ч. ссылки-текстом), @упоминания кликабельными, сохраняя переносы.
 function linkify(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   let last = 0;
@@ -27,7 +28,11 @@ function linkify(text: string): ReactNode[] {
   while ((m = TOKEN_RE.exec(text))) {
     if (m.index > last) nodes.push(text.slice(last, m.index));
     const tok = m[0];
-    if (m[1]) {
+    if (m[1] && m[2]) {
+      nodes.push(
+        <a key={key++} href={m[2]} target="_blank" rel="noreferrer" className="ln">{m[1]}</a>,
+      );
+    } else if (m[3]) {
       const href = tok.startsWith("www.") ? "https://" + tok : tok;
       nodes.push(
         <a key={key++} href={href} target="_blank" rel="noreferrer" className="ln">{tok}</a>,
