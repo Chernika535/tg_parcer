@@ -5,9 +5,34 @@ import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 
-// Кэш постов по ленте в памяти (живёт пока открыта вкладка). Повторный заход в
-// ленту показывает результат мгновенно, обновление идёт в фоне.
+// Кэш постов по ленте: в памяти (полный, с blob/data медиа) + в localStorage
+// (облегчённый, для мгновенного показа между сессиями).
 const feedCache = new Map<number, Post[]>();
+
+function loadPersisted(id: number): Post[] | null {
+  try {
+    const s = localStorage.getItem("tf_feed_" + id);
+    return s ? (JSON.parse(s) as Post[]) : null;
+  } catch {
+    return null;
+  }
+}
+function persist(id: number, posts: Post[]) {
+  try {
+    // Выкидываем blob:/data: (после перезагрузки невалидны и раздувают хранилище).
+    const lite = posts.slice(0, 40).map((p) => ({
+      ...p,
+      media: p.media.filter((m) => {
+        const u = (m as { url?: string; thumb?: string; image?: string }).url
+          || (m as { thumb?: string }).thumb || (m as { image?: string }).image || "";
+        return !u.startsWith("blob:") && !u.startsWith("data:");
+      }),
+    }));
+    localStorage.setItem("tf_feed_" + id, JSON.stringify(lite));
+  } catch {
+    /* квота/приватный режим — не критично */
+  }
+}
 
 export default function FeedView() {
   const { id } = useParams();
@@ -42,7 +67,7 @@ export default function FeedView() {
     setErr("");
     setMtNote("");
     // Если есть кэш — показываем его сразу и обновляем в фоне (без большого спиннера).
-    const cached = feedCache.get(feedId);
+    const cached = feedCache.get(feedId) ?? loadPersisted(feedId);
     if (cached && cached.length) {
       setPosts(cached);
       setOpenLoading(false);
@@ -59,20 +84,18 @@ export default function FeedView() {
         setOpenLoading(true);
       }
 
-      // Открытые каналы читаем ПАРАЛЛЕЛЬНО, по одному запросу на канал —
-      // посты появляются по мере готовности, а не после самого медленного.
-      const unavail: string[] = [];
-      await Promise.all(
-        f.channels.map(async (ch) => {
-          try {
-            const r = await readChannels([ch]);
-            r.posts.forEach(mergePost);
-            if (r.unavailable.length > 0) unavail.push(ch);
-          } catch {
-            unavail.push(ch);
-          }
-        }),
-      );
+      // Открытые каналы — ОДНИМ запросом (сервер сам читает их параллельно).
+      // Так один холодный старт функции вместо 12 — заметно быстрее и надёжнее.
+      let unavail: string[] = [];
+      try {
+        const r = await readChannels(f.channels);
+        r.posts.forEach(mergePost);
+        unavail = r.unavailable;
+      } catch (e) {
+        // Если открытые не прочитались — не валим всю ленту, помечаем все каналы.
+        unavail = f.channels;
+        setMtNote("Не удалось прочитать каналы: " + (e as Error).message);
+      }
       setOpenLoading(false);
       setUnavailable(unavail);
 
@@ -102,7 +125,10 @@ export default function FeedView() {
       }
       // Сохраняем итог в кэш для мгновенного повторного открытия.
       setPosts((p) => {
-        if (p && p.length) feedCache.set(feedId, p);
+        if (p && p.length) {
+          feedCache.set(feedId, p);
+          persist(feedId, p);
+        }
         return p;
       });
     } catch (e) {

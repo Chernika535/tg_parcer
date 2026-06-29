@@ -35,7 +35,8 @@ type Post = {
 };
 
 const UA = "Mozilla/5.0 (compatible; FeedAggregator/1.0)";
-const TIMEOUT_MS = 9000;
+const TIMEOUT_MS = 8000; // таймаут самого fetch к t.me
+const HARD_MS = 9000; // абсолютный потолок на канал (на случай зависшего соединения)
 const CONCURRENCY = 8;
 
 // Прокси картинок Telegram через наш сервер — чтобы они грузились в России без VPN.
@@ -183,7 +184,7 @@ function parsePosts(html: string, username: string): Post[] {
   return posts;
 }
 
-async function fetchChannel(username: string): Promise<Post[]> {
+async function fetchChannelInner(username: string): Promise<Post[]> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -191,8 +192,18 @@ async function fetchChannel(username: string): Promise<Post[]> {
     if (!res.ok) return [];
     const html = await res.text();
     if (!html.includes("tgme_")) return [];
-    return parsePosts(html, username);
+    const posts = parsePosts(html, username);
+    return posts.slice(-20); // не раздуваем ответ — последние 20
   } catch { return []; }
+}
+
+// Жёсткий потолок: связь сервера с Telegram бывает «висит», поэтому не ждём
+// дольше HARD_MS — иначе функция может тянуться десятки секунд и оборваться.
+function fetchChannel(username: string): Promise<Post[]> {
+  return Promise.race([
+    fetchChannelInner(username),
+    new Promise<Post[]>((resolve) => setTimeout(() => resolve([]), HARD_MS)),
+  ]);
 }
 
 Deno.serve(async (req: Request) => {
