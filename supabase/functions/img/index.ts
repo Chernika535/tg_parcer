@@ -28,16 +28,26 @@ Deno.serve(async (req: Request) => {
     }
 
     const range = req.headers.get("range");
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12000);
-    const upstream = await fetch(target.toString(), {
-      redirect: "follow",
-      signal: ctrl.signal,
-      headers: {
-        "user-agent": "Mozilla/5.0 (compatible; FeedAggregator/1.0)",
-        ...(range ? { range } : {}),
-      },
-    }).finally(() => clearTimeout(timer));
+    const reqHeaders = {
+      "user-agent": "Mozilla/5.0 (compatible; FeedAggregator/1.0)",
+      ...(range ? { range } : {}),
+    };
+    // Связь Supabase→Telegram нестабильна — несколько попыток скачать картинку.
+    let upstream: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
+        const r = await fetch(target.toString(), { redirect: "follow", signal: ctrl.signal, headers: reqHeaders })
+          .finally(() => clearTimeout(timer));
+        if (r.ok || r.status === 206) { upstream = r; break; }
+        upstream = r; // не-ок ответ запомним, но попробуем ещё
+      } catch {
+        /* таймаут/обрыв — повторим */
+      }
+      if (attempt < 2) await new Promise((res) => setTimeout(res, 500));
+    }
+    if (!upstream) return new Response("upstream failed", { status: 502, headers: cors });
 
     const headers = new Headers(cors);
     const ct = upstream.headers.get("content-type");

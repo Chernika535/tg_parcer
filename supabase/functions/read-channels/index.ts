@@ -46,7 +46,9 @@ function prox(url: string | undefined): string | undefined {
   if (!url) return url;
   if (!/^https?:\/\//i.test(url)) return url;
   if (!IMG_BASE) return url;
-  return `${IMG_BASE.replace(/\/$/, "")}/functions/v1/img?u=${encodeURIComponent(url)}`;
+  // Декодим HTML-сущности (t.me/s кодирует & как &amp; в адресах) — иначе адрес битый.
+  const clean = url.replace(/&amp;/g, "&").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
+  return `${IMG_BASE.replace(/\/$/, "")}/functions/v1/img?u=${encodeURIComponent(clean)}`;
 }
 
 function normalize(input: string): string | null {

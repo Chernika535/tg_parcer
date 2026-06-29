@@ -38,11 +38,17 @@ function toUrl(buf: any, mime: string): string | undefined {
 
 // deno-lint-ignore no-explicit-any
 async function dl(client: any, target: any, opts?: Record<string, unknown>): Promise<unknown> {
-  try {
-    return await withTimeout(client.downloadMedia(target, opts ?? {}), 30000, "медиа не скачалось");
-  } catch {
-    return undefined;
+  // Две попытки — связь с Telegram бывает нестабильной, медиа не докачивается.
+  for (let i = 0; i < 2; i++) {
+    try {
+      const r = await withTimeout(client.downloadMedia(target, opts ?? {}), 25000, "медиа не скачалось");
+      // deno-lint-ignore no-explicit-any
+      if (r && (r as any).length) return r;
+    } catch {
+      /* повторим */
+    }
   }
+  return undefined;
 }
 
 function num(v: unknown): number {
