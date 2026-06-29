@@ -20,12 +20,15 @@ function loadPersisted(id: number): Post[] | null {
 function persist(id: number, posts: Post[]) {
   try {
     // Выкидываем blob:/data: (после перезагрузки невалидны и раздувают хранилище).
+    const dead = (u?: string) => !!u && (u.startsWith("blob:") || u.startsWith("data:"));
     const lite = posts.slice(0, 40).map((p) => ({
       ...p,
+      // Мёртвую blob-аватарку не сохраняем — иначе после перезагрузки «битая».
+      channelAvatar: dead(p.channelAvatar) ? undefined : p.channelAvatar,
       media: p.media.filter((m) => {
         const u = (m as { url?: string; thumb?: string; image?: string }).url
           || (m as { thumb?: string }).thumb || (m as { image?: string }).image || "";
-        return !u.startsWith("blob:") && !u.startsWith("data:");
+        return !dead(u);
       }),
     }));
     localStorage.setItem("tf_feed_" + id, JSON.stringify(lite));

@@ -75,6 +75,9 @@ function htmlToText(html: string): string {
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<a\b[^>]*\bhref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href, inner) => {
         const text = inner.replace(/<[^>]+>/g, "").trim();
+        // Внешние ссылки → markdown [текст](url). Внутренние (#хэштеги, ?q=, tg://)
+        // оставляем просто текстом, иначе в ленте торчит сырой markdown.
+        if (!/^https?:\/\//i.test(href)) return text;
         if (!text) return href;
         return text === href ? href : `[${text}](${href})`;
       })
