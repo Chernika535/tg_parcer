@@ -57,12 +57,17 @@ export default function Diag() {
       }
     };
 
+    const gap = () => new Promise((r) => setTimeout(r, 2000)); // паузы между запросами (провайдер прижимает частые)
+
     out.push(await timed("2. feeds GET (функция)", () => getTxt(`${base}/functions/v1/feeds?apikey=${encodeURIComponent(key)}&action=public`, {}, 15000)));
     setRows([...out]);
+    await gap();
     out.push(await timed("3. read-channels GET", () => getTxt(`${base}/functions/v1/read-channels?apikey=${encodeURIComponent(key)}&channels=durov`, {}, 15000)));
     setRows([...out]);
+    await gap();
     out.push(await timed("4. feeds POST (функция)", () => getTxt(`${base}/functions/v1/feeds?apikey=${encodeURIComponent(key)}`, { method: "POST", headers: { "content-type": "text/plain;charset=UTF-8" }, body: JSON.stringify({ action: "public" }) }, 15000)));
     setRows([...out]);
+    await gap();
     out.push(await timed("5. REST GET (/rest/v1)", () => getTxt(`${base}/rest/v1/feeds?select=id&limit=1`, { headers: { apikey: key } }, 15000)));
     setRows([...out]);
 

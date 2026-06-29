@@ -41,11 +41,15 @@ export async function invokeFnGet(name: string, params: Record<string, string>):
   const q = new URLSearchParams({ apikey: cfg.supabaseAnonKey, ...params });
   const url = `${base}/functions/v1/${name}?${q.toString()}`;
   const init: RequestInit = { method: "GET", headers: token ? { authorization: `Bearer ${token}` } : {} };
-  // Связь с Supabase без VPN нестабильна — делаем до 3 попыток.
+  // Связь с Supabase без VPN нестабильна / прижата провайдером — делаем
+  // несколько попыток с паузами (паузы важны: без них повторы попадают под тот
+  // же троттлинг, что и первый запрос).
   let lastErr: unknown;
-  for (const ms of [12000, 14000, 18000]) {
+  const delays = [0, 1200, 2500, 4000];
+  for (let i = 0; i < delays.length; i++) {
+    if (delays[i]) await new Promise((r) => setTimeout(r, delays[i]));
     try {
-      return await fetchJson(url, init, ms);
+      return await fetchJson(url, init, 13000);
     } catch (e) {
       lastErr = e;
     }
