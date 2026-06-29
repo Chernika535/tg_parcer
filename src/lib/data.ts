@@ -4,65 +4,48 @@ import { supabase, appConfig, getAccessToken } from "./supabase.ts";
 // ВАЖНО для России: supabase-js по умолчанию шлёт запросы на отдельный поддомен
 // <ref>.functions.supabase.co, который в РФ часто заблокирован, тогда как
 // основной <ref>.supabase.co доступен. Поэтому ходим напрямую fetch'ем.
-export async function invokeFn(name: string, body: Record<string, unknown>): Promise<unknown> {
-  const cfg = appConfig();
-  const base = cfg.supabaseUrl.replace(/\/$/, "");
-  // ВАЖНО: НЕ зовём getSession() — без VPN он зависает на refresh токена через
-  // заблокированный /auth/v1, и запрос вообще не уходит. Берём токен из кэша.
-  const token = getAccessToken();
-  // КЛЮЧЕВОЕ для России без VPN: делаем «простой» CORS-запрос без preflight.
-  // POST с application/json + заголовком apikey вызывает предварительный OPTIONS,
-  // а он у провайдеров без VPN режется → запрос «висит». Поэтому apikey кладём
-  // в query, content-type = text/plain (req.json() на сервере всё равно парсит),
-  // а Authorization добавляем только вошедшим (им и так нужен VPN для /auth/v1).
-  const url = `${base}/functions/v1/${name}?apikey=${encodeURIComponent(cfg.supabaseAnonKey)}`;
-  const headers: Record<string, string> = { "content-type": "text/plain;charset=UTF-8" };
-  if (token) headers["authorization"] = `Bearer ${token}`;
+// Один заход запроса с таймаутом, КОТОРЫЙ ПОКРЫВАЕТ И ЧТЕНИЕ ТЕЛА. Это важно:
+// раньше abort снимался после получения заголовков, а res.json() на нестабильной
+// сети (без VPN) мог висеть бесконечно → «Загрузка… часами».
+async function fetchJson(url: string, init: RequestInit, ms: number): Promise<unknown> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 20000);
-  let res: Response;
+  const timer = setTimeout(() => ctrl.abort(), ms);
   try {
-    res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    const data = await res.json().catch(() => ({})); // тело тоже под таймаутом
+    if (!res.ok) throw new Error((data as { error?: string })?.error || `HTTP ${res.status}`);
+    return data;
   } catch (e) {
     throw new Error((e as Error).name === "AbortError" ? "сервер не ответил вовремя" : (e as Error).message);
   } finally {
     clearTimeout(timer);
   }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string })?.error || `HTTP ${res.status}`);
-  return data;
 }
 
-// GET-вариант вызова функции. В России без VPN POST-запросы к функциям у части
-// провайдеров не проходят, а GET — проходят (проверено: картинки и профиль
-// грузятся, а POST-лента — нет). Поэтому публичное чтение делаем через GET.
+export async function invokeFn(name: string, body: Record<string, unknown>): Promise<unknown> {
+  const cfg = appConfig();
+  const base = cfg.supabaseUrl.replace(/\/$/, "");
+  const token = getAccessToken();
+  const url = `${base}/functions/v1/${name}?apikey=${encodeURIComponent(cfg.supabaseAnonKey)}`;
+  const headers: Record<string, string> = { "content-type": "text/plain;charset=UTF-8" };
+  if (token) headers["authorization"] = `Bearer ${token}`;
+  return fetchJson(url, { method: "POST", headers, body: JSON.stringify(body) }, 20000);
+}
+
+// GET-вариант вызова функции. Делаем до 2 попыток — связь с Supabase без VPN
+// бывает нестабильной (тело ответа иногда «застревает»), повтор часто помогает.
 export async function invokeFnGet(name: string, params: Record<string, string>): Promise<unknown> {
   const cfg = appConfig();
   const base = cfg.supabaseUrl.replace(/\/$/, "");
   const token = getAccessToken();
   const q = new URLSearchParams({ apikey: cfg.supabaseAnonKey, ...params });
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 20000);
-  let res: Response;
+  const url = `${base}/functions/v1/${name}?${q.toString()}`;
+  const init: RequestInit = { method: "GET", headers: token ? { authorization: `Bearer ${token}` } : {} };
   try {
-    res = await fetch(`${base}/functions/v1/${name}?${q.toString()}`, {
-      method: "GET",
-      headers: token ? { authorization: `Bearer ${token}` } : {},
-      signal: ctrl.signal,
-    });
-  } catch (e) {
-    throw new Error((e as Error).name === "AbortError" ? "сервер не ответил вовремя" : (e as Error).message);
-  } finally {
-    clearTimeout(timer);
+    return await fetchJson(url, init, 15000);
+  } catch {
+    return await fetchJson(url, init, 20000); // вторая попытка
   }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string })?.error || `HTTP ${res.status}`);
-  return data;
 }
 
 // Вызов MTProto-операции: если задан mtBaseUrl (Deno Deploy) — идём туда,

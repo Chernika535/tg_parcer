@@ -20,16 +20,6 @@ export default function Diag() {
     }
   }
 
-  async function withTimeout(p: Promise<Response>, ms: number): Promise<Response> {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), ms);
-    try {
-      return await p;
-    } finally {
-      clearTimeout(t);
-    }
-  }
-
   async function run() {
     setRunning(true);
     setRows([]);
@@ -43,66 +33,37 @@ export default function Diag() {
       await timed("1. img GET (функция)", async () => {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 15000);
-        const r = await fetch(`${base}/functions/v1/img?u=https://telegram.org/img/t_logo.png`, { signal: ctrl.signal }).finally(() => clearTimeout(t));
-        return `HTTP ${r.status}, ${r.headers.get("content-type")}`;
+        try {
+          const r = await fetch(`${base}/functions/v1/img?u=https://telegram.org/img/t_logo.png`, { signal: ctrl.signal });
+          await r.blob();
+          return `HTTP ${r.status}, ${r.headers.get("content-type")}`;
+        } finally {
+          clearTimeout(t);
+        }
       }),
     );
     setRows([...out]);
 
-    // 2. feeds GET (функция, ключ в query).
-    out.push(
-      await timed("2. feeds GET (функция)", async () => {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 15000);
-        const r = await fetch(`${base}/functions/v1/feeds?apikey=${encodeURIComponent(key)}&action=public`, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+    // Запрос с таймаутом, ПОКРЫВАЮЩИМ чтение тела (иначе тело может «висеть» вечно).
+    const getTxt = async (url: string, init: RequestInit, ms: number) => {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), ms);
+      try {
+        const r = await fetch(url, { ...init, signal: ctrl.signal });
         const txt = await r.text();
         return `HTTP ${r.status}, ${txt.slice(0, 80)}`;
-      }),
-    );
-    setRows([...out]);
+      } finally {
+        clearTimeout(t);
+      }
+    };
 
-    // 3. read-channels GET (функция).
-    out.push(
-      await timed("3. read-channels GET", async () => {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 15000);
-        const r = await fetch(`${base}/functions/v1/read-channels?apikey=${encodeURIComponent(key)}&channels=durov`, { signal: ctrl.signal }).finally(() => clearTimeout(t));
-        const txt = await r.text();
-        return `HTTP ${r.status}, ${txt.slice(0, 80)}`;
-      }),
-    );
+    out.push(await timed("2. feeds GET (функция)", () => getTxt(`${base}/functions/v1/feeds?apikey=${encodeURIComponent(key)}&action=public`, {}, 15000)));
     setRows([...out]);
-
-    // 4. feeds POST (функция) — для сравнения GET vs POST.
-    out.push(
-      await timed("4. feeds POST (функция)", async () => {
-        const r = await withTimeout(
-          fetch(`${base}/functions/v1/feeds?apikey=${encodeURIComponent(key)}`, {
-            method: "POST",
-            headers: { "content-type": "text/plain;charset=UTF-8" },
-            body: JSON.stringify({ action: "public" }),
-          }),
-          15000,
-        );
-        const txt = await r.text();
-        return `HTTP ${r.status}, ${txt.slice(0, 80)}`;
-      }),
-    );
+    out.push(await timed("3. read-channels GET", () => getTxt(`${base}/functions/v1/read-channels?apikey=${encodeURIComponent(key)}&channels=durov`, {}, 15000)));
     setRows([...out]);
-
-    // 5. REST GET (таблица feeds напрямую).
-    out.push(
-      await timed("5. REST GET (/rest/v1)", async () => {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 15000);
-        const r = await fetch(`${base}/rest/v1/feeds?select=id&limit=1`, {
-          headers: { apikey: key },
-          signal: ctrl.signal,
-        }).finally(() => clearTimeout(t));
-        const txt = await r.text();
-        return `HTTP ${r.status}, ${txt.slice(0, 60)}`;
-      }),
-    );
+    out.push(await timed("4. feeds POST (функция)", () => getTxt(`${base}/functions/v1/feeds?apikey=${encodeURIComponent(key)}`, { method: "POST", headers: { "content-type": "text/plain;charset=UTF-8" }, body: JSON.stringify({ action: "public" }) }, 15000)));
+    setRows([...out]);
+    out.push(await timed("5. REST GET (/rest/v1)", () => getTxt(`${base}/rest/v1/feeds?select=id&limit=1`, { headers: { apikey: key } }, 15000)));
     setRows([...out]);
 
     setRunning(false);
