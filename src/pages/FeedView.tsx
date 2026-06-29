@@ -9,29 +9,32 @@ import PostCard from "../components/PostCard.tsx";
 // (облегчённый, для мгновенного показа между сессиями).
 const feedCache = new Map<number, Post[]>();
 
+// blob:/data: ссылки живут только в текущей вкладке — после перезагрузки мертвы.
+// Поэтому и при сохранении, и при чтении кэша их выкидываем (иначе «битые» фото).
+const isDeadUrl = (u?: string) => !!u && (u.startsWith("blob:") || u.startsWith("data:"));
+function sanitize(posts: Post[]): Post[] {
+  return posts.map((p) => ({
+    ...p,
+    channelAvatar: isDeadUrl(p.channelAvatar) ? undefined : p.channelAvatar,
+    media: p.media.filter((m) => {
+      const u = (m as { url?: string; thumb?: string; image?: string }).url
+        || (m as { thumb?: string }).thumb || (m as { image?: string }).image || "";
+      return !isDeadUrl(u);
+    }),
+  }));
+}
+
 function loadPersisted(id: number): Post[] | null {
   try {
     const s = localStorage.getItem("tf_feed_" + id);
-    return s ? (JSON.parse(s) as Post[]) : null;
+    return s ? sanitize(JSON.parse(s) as Post[]) : null;
   } catch {
     return null;
   }
 }
 function persist(id: number, posts: Post[]) {
   try {
-    // Выкидываем blob:/data: (после перезагрузки невалидны и раздувают хранилище).
-    const dead = (u?: string) => !!u && (u.startsWith("blob:") || u.startsWith("data:"));
-    const lite = posts.slice(0, 40).map((p) => ({
-      ...p,
-      // Мёртвую blob-аватарку не сохраняем — иначе после перезагрузки «битая».
-      channelAvatar: dead(p.channelAvatar) ? undefined : p.channelAvatar,
-      media: p.media.filter((m) => {
-        const u = (m as { url?: string; thumb?: string; image?: string }).url
-          || (m as { thumb?: string }).thumb || (m as { image?: string }).image || "";
-        return !dead(u);
-      }),
-    }));
-    localStorage.setItem("tf_feed_" + id, JSON.stringify(lite));
+    localStorage.setItem("tf_feed_" + id, JSON.stringify(sanitize(posts).slice(0, 40)));
   } catch {
     /* квота/приватный режим — не критично */
   }
