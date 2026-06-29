@@ -1,7 +1,7 @@
-// Supabase Edge Function: серверное чтение публичных Telegram-каналов
-// через https://t.me/s/<channel>. Вытаскивает текст, медиа (фото/видео/голос/
-// кружок/стикер/документ/превью ссылки), аватар и название канала.
-import { DOMParser, type Element } from "https://deno.land/x/deno_dom@v0.1.45/deno-dom-wasm.ts";
+// Supabase Edge Function: серверное чтение публичных Telegram-каналов через
+// https://t.me/s/<channel>. Парсим РЕГУЛЯРКАМИ, без deno-dom (его WASM грузится
+// на холодном старте долго и функция не укладывается в лимит → "Failed to fetch").
+// Вытаскиваем текст, фото, превью видео, голос, стикеры, превью ссылок, аватар.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,15 +35,14 @@ type Post = {
 };
 
 const UA = "Mozilla/5.0 (compatible; FeedAggregator/1.0)";
-const TIMEOUT_MS = 8000; // таймаут самого fetch к t.me
-const HARD_MS = 9000; // абсолютный потолок на канал (на случай зависшего соединения)
+const TIMEOUT_MS = 8000;
+const HARD_MS = 9000;
 const CONCURRENCY = 8;
 
-// Прокси картинок Telegram через наш сервер — чтобы они грузились в России без VPN.
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 function prox(url: string | undefined): string | undefined {
   if (!url) return url;
-  if (!/^https?:\/\//i.test(url)) return url; // относительные/data: не трогаем
+  if (!/^https?:\/\//i.test(url)) return url;
   if (!SUPABASE_URL) return url;
   return `${SUPABASE_URL}/functions/v1/img?u=${encodeURIComponent(url)}`;
 }
@@ -55,133 +54,142 @@ function normalize(input: string): string | null {
   return s.length >= 3 && s.length <= 64 ? s : null;
 }
 
-function bgUrl(style: string | null): string | undefined {
-  if (!style) return undefined;
-  const m = style.match(/background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i);
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&amp;/g, "&");
+}
+
+// HTML фрагмент текста → чистый текст с переносами строк.
+function htmlToText(html: string): string {
+  return decodeEntities(
+    html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div)>/gi, "\n")
+      .replace(/<[^>]+>/g, ""),
+  )
+    .split("\n")
+    .map((l) => l.replace(/[ \t ]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function firstBg(block: string, re: RegExp): string | undefined {
+  const m = block.match(re);
+  if (!m) return undefined;
+  const s = m[0].match(/background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i);
+  return s?.[1];
+}
+
+function attr(block: string, re: RegExp): string | undefined {
+  const m = block.match(re);
   return m?.[1];
 }
 
-function extractText(el: Element): string {
-  const html = el.innerHTML.replace(/<br\s*\/?>/gi, "\n");
-  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
-  const text = doc?.querySelector("div")?.textContent ?? el.textContent ?? "";
-  return text.split("\n").map((l) => l.replace(/[ \t ]+/g, " ").trim()).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+function channelMeta(html: string): { title?: string; avatar?: string } {
+  const head = html.slice(0, html.indexOf('class="tgme_channel_history') + 1 || 4000);
+  const title = attr(head, /tgme_channel_info_header_title[^>]*>\s*<[^>]*>([^<]+)/i)
+    || attr(head, /tgme_header_title[^>]*>\s*<[^>]*>([^<]+)/i)
+    || attr(head, /tgme_channel_info_header_title[^>]*>([^<]+)/i);
+  const avatar = attr(head, /tgme_page_photo_image[^>]*>\s*<img[^>]+src="([^"]+)"/i)
+    || attr(html, /tgme_widget_message_owner_photo[^>]*>\s*<img[^>]+src="([^"]+)"/i)
+    || attr(html, /<img[^>]*class="tgme_widget_message_user_photo[^"]*"[^>]+src="([^"]+)"/i);
+  return { title: title ? decodeEntities(title.trim()) : undefined, avatar };
 }
 
-function extractMedia(el: Element): Media[] {
+function extractMedia(block: string): Media[] {
   const media: Media[] = [];
-  try {
-    for (const ph of el.querySelectorAll("a.tgme_widget_message_photo_wrap")) {
-      const url = bgUrl((ph as Element).getAttribute("style"));
-      if (url) media.push({ type: "photo", url });
-    }
-    for (const vp of el.querySelectorAll(".tgme_widget_message_video_player")) {
-      const e = vp as Element;
-      const url = e.querySelector("video")?.getAttribute("src") ?? undefined;
-      const thumb = bgUrl(e.querySelector(".tgme_widget_message_video_thumb")?.getAttribute("style") ?? null);
-      media.push({ type: "video", url, thumb });
-    }
-    // кружочки (video note) — отдельная разметка
-    for (const rv of el.querySelectorAll(".tgme_widget_message_roundvideo_player")) {
-      const e = rv as Element;
-      const url = e.querySelector("video")?.getAttribute("src") ?? undefined;
-      const thumb = bgUrl(e.querySelector(".tgme_widget_message_roundvideo_thumb")?.getAttribute("style") ?? null);
-      media.push({ type: "roundvideo", url, thumb });
-    }
-    for (const v of el.querySelectorAll("audio.tgme_widget_message_voice")) {
-      media.push({ type: "voice", url: (v as Element).getAttribute("src") ?? undefined });
-    }
-    for (const st of el.querySelectorAll("i.tgme_widget_message_sticker, picture.tgme_widget_message_tgsticker img")) {
-      const e = st as Element;
-      const url = bgUrl(e.getAttribute("style")) ?? e.getAttribute("data-webp") ?? e.getAttribute("src") ?? undefined;
-      if (url) media.push({ type: "sticker", url });
-    }
-    for (const d of el.querySelectorAll(".tgme_widget_message_document")) {
-      const e = d as Element;
-      const title = e.querySelector(".tgme_widget_message_document_title")?.textContent?.trim();
-      const extra = e.querySelector(".tgme_widget_message_document_extra")?.textContent?.trim();
-      if (title) media.push({ type: "document", title, extra: extra ?? undefined });
-    }
-    const lp = el.querySelector("a.tgme_widget_message_link_preview");
-    if (lp) {
-      const e = lp as Element;
-      media.push({
-        type: "link",
-        href: e.getAttribute("href") ?? undefined,
-        site: e.querySelector(".link_preview_site_name")?.textContent?.trim(),
-        title: e.querySelector(".link_preview_title")?.textContent?.trim(),
-        description: e.querySelector(".link_preview_description")?.textContent?.trim(),
-        image: bgUrl(e.querySelector(".link_preview_image")?.getAttribute("style") ?? null),
-      });
-    }
-  } catch { /* медиа не критичны */ }
+
+  // Фото
+  for (const m of block.matchAll(/tgme_widget_message_photo_wrap[^>]*style="([^"]*)"/gi)) {
+    const u = m[1].match(/background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i)?.[1];
+    if (u) media.push({ type: "photo", url: prox(u)! });
+  }
+  // Видео (превью + src если есть)
+  for (const m of block.matchAll(/tgme_widget_message_video_player[\s\S]*?(?=tgme_widget_message_video_player|tgme_widget_message_footer|$)/gi)) {
+    const seg = m[0];
+    const thumb = seg.match(/tgme_widget_message_video_thumb[^>]*style="[^"]*background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i)?.[1];
+    const url = seg.match(/<video[^>]+src="([^"]+)"/i)?.[1];
+    media.push({ type: "video", url: prox(url), thumb: prox(thumb) });
+  }
+  // Кружочки
+  const round = block.match(/tgme_widget_message_roundvideo[\s\S]*?(?=tgme_widget_message_footer|$)/i)?.[0];
+  if (round) {
+    const thumb = round.match(/background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i)?.[1];
+    const url = round.match(/<video[^>]+src="([^"]+)"/i)?.[1];
+    media.push({ type: "roundvideo", url: prox(url), thumb: prox(thumb) });
+  }
+  // Голосовые
+  const voice = block.match(/<audio[^>]*tgme_widget_message_voice[^>]*src="([^"]+)"/i)?.[1]
+    || block.match(/tgme_widget_message_voice[^>]*>[\s\S]*?<audio[^>]+src="([^"]+)"/i)?.[1];
+  if (voice) media.push({ type: "voice", url: prox(voice) });
+  // Стикеры
+  const sticker = block.match(/tgme_widget_message_sticker[^>]*data-webp="([^"]+)"/i)?.[1]
+    || block.match(/tgme_widget_message_tgsticker[\s\S]*?<img[^>]+src="([^"]+)"/i)?.[1];
+  if (sticker) media.push({ type: "sticker", url: prox(sticker)! });
+  // Документы
+  const docTitle = attr(block, /tgme_widget_message_document_title[^>]*>([^<]+)/i);
+  if (docTitle) {
+    const extra = attr(block, /tgme_widget_message_document_extra[^>]*>([^<]+)/i);
+    media.push({ type: "document", title: decodeEntities(docTitle.trim()), extra: extra ? decodeEntities(extra.trim()) : undefined });
+  }
+  // Превью ссылки
+  if (/tgme_widget_message_link_preview/i.test(block)) {
+    const seg = block.match(/tgme_widget_message_link_preview[\s\S]*?(?=tgme_widget_message_footer|$)/i)?.[0] ?? block;
+    media.push({
+      type: "link",
+      href: attr(block, /tgme_widget_message_link_preview"\s+href="([^"]+)"/i),
+      site: attr(seg, /link_preview_site_name[^>]*>([^<]+)/i),
+      title: attr(seg, /link_preview_title[^>]*>([^<]+)/i),
+      description: attr(seg, /link_preview_description[^>]*>([\s\S]*?)<\/div>/i)?.replace(/<[^>]+>/g, "").trim(),
+      image: prox(firstBg(seg, /link_preview_image[^>]*style="[^"]*"/i)),
+    });
+  }
   return media;
 }
 
-type Doc = ReturnType<DOMParser["parseFromString"]>;
-function parseChannelMeta(doc: Doc): { title?: string; avatar?: string } {
-  if (!doc) return {};
-  const title = doc.querySelector(".tgme_channel_info_header_title")?.textContent?.trim()
-    ?? doc.querySelector(".tgme_header_title")?.textContent?.trim();
-  const avatar = doc.querySelector(".tgme_channel_info .tgme_page_photo_image img")?.getAttribute("src")
-    ?? doc.querySelector(".tgme_page_photo_image img")?.getAttribute("src")
-    ?? doc.querySelector("img.tgme_widget_message_owner_photo")?.getAttribute("src")
-    ?? undefined;
-  return { title: title ?? undefined, avatar: avatar ?? undefined };
-}
-
 function parsePosts(html: string, username: string): Post[] {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  if (!doc) return [];
-  const meta = parseChannelMeta(doc);
+  const meta = channelMeta(html);
   const posts: Post[] = [];
-  for (const block of doc.querySelectorAll(".tgme_widget_message")) {
-    try {
-      const el = block as unknown as Element;
-      const dataPost = el.getAttribute("data-post");
-      if (!dataPost) continue;
-      const msgId = Number(dataPost.split("/").pop());
-      if (!Number.isFinite(msgId) || msgId <= 0) continue;
+  // Режем на блоки сообщений по data-post.
+  const parts = html.split(/<div class="tgme_widget_message[ "]/);
+  for (const block of parts) {
+    const dataPost = attr(block, /data-post="([^"]+)"/);
+    if (!dataPost) continue;
+    const msgId = Number(dataPost.split("/").pop());
+    if (!Number.isFinite(msgId) || msgId <= 0) continue;
+    const datetime = attr(block, /tgme_widget_message_date[\s\S]*?datetime="([^"]+)"/i) || attr(block, /datetime="([^"]+)"/i);
+    if (!datetime) continue;
 
-      const textEl = el.querySelector(".tgme_widget_message_text");
-      const text = textEl ? extractText(textEl) : "";
-      const timeEl = el.querySelector(".tgme_widget_message_date time");
-      const datetime = timeEl?.getAttribute("datetime");
-      if (!datetime) continue;
-      const media = extractMedia(el).map((m): Media => {
-        switch (m.type) {
-          case "photo":
-          case "sticker":
-            return { ...m, url: prox(m.url)! };
-          case "video":
-          case "roundvideo":
-            return { ...m, url: prox(m.url), thumb: prox(m.thumb) };
-          case "voice":
-            return { ...m, url: prox(m.url) };
-          case "link":
-            return { ...m, image: prox(m.image) };
-          default:
-            return m;
-        }
-      });
-      const views = el.querySelector(".tgme_widget_message_views")?.textContent?.trim();
+    // Текст
+    let text = "";
+    const tm = block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>\s*(?:<div class="tgme_widget_message_(?:footer|reply|inline)|<\/div>)/i)
+      || block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/i);
+    if (tm) text = htmlToText(tm[1]);
 
-      posts.push({
-        channel: username,
-        msgId,
-        postedAt: new Date(datetime).toISOString(),
-        text,
-        hasMedia: media.length > 0,
-        media,
-        link: `https://t.me/${username}/${msgId}`,
-        views: views ?? undefined,
-        channelTitle: meta.title,
-        channelAvatar: prox(meta.avatar),
-      });
-    } catch { /* пропускаем битый пост */ }
+    const media = extractMedia(block);
+    const views = attr(block, /tgme_widget_message_views[^>]*>([^<]+)/i);
+
+    posts.push({
+      channel: username,
+      msgId,
+      postedAt: new Date(datetime).toISOString(),
+      text,
+      hasMedia: media.length > 0,
+      media,
+      link: `https://t.me/${username}/${msgId}`,
+      views: views ? views.trim() : undefined,
+      channelTitle: meta.title,
+      channelAvatar: prox(meta.avatar),
+    });
   }
   posts.sort((a, b) => a.postedAt.localeCompare(b.postedAt));
-  return posts;
+  return posts.slice(-20);
 }
 
 async function fetchChannelInner(username: string): Promise<Post[]> {
@@ -192,13 +200,12 @@ async function fetchChannelInner(username: string): Promise<Post[]> {
     if (!res.ok) return [];
     const html = await res.text();
     if (!html.includes("tgme_")) return [];
-    const posts = parsePosts(html, username);
-    return posts.slice(-20); // не раздуваем ответ — последние 20
-  } catch { return []; }
+    return parsePosts(html, username);
+  } catch {
+    return [];
+  }
 }
 
-// Жёсткий потолок: связь сервера с Telegram бывает «висит», поэтому не ждём
-// дольше HARD_MS — иначе функция может тянуться десятки секунд и оборваться.
 function fetchChannel(username: string): Promise<Post[]> {
   return Promise.race([
     fetchChannelInner(username),
@@ -209,17 +216,16 @@ function fetchChannel(username: string): Promise<Post[]> {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    // Каналы принимаем и из query (GET — проходит в РФ без VPN), и из тела (POST).
     let raw: string[] = [];
     if (req.method === "GET") {
-      const q = new URL(req.url).searchParams.get("channels") ?? "";
-      raw = q.split(",");
+      raw = (new URL(req.url).searchParams.get("channels") ?? "").split(",");
     } else {
       const body = (await req.json().catch(() => ({}))) as { channels?: string[] };
       raw = body.channels ?? [];
     }
     const channels = [...new Set(raw.map(normalize).filter(Boolean) as string[])];
     if (channels.length === 0) return jsonResponse({ posts: [], unavailable: [] });
+
     const posts: Post[] = [];
     const unavailable: string[] = [];
     let i = 0;
@@ -227,7 +233,8 @@ Deno.serve(async (req: Request) => {
       while (i < channels.length) {
         const ch = channels[i++];
         const p = await fetchChannel(ch);
-        if (p.length === 0) unavailable.push(ch); else posts.push(...p);
+        if (p.length === 0) unavailable.push(ch);
+        else posts.push(...p);
       }
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, channels.length) }, worker));
