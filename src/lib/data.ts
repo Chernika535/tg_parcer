@@ -384,7 +384,11 @@ export async function readChannels(
   channels: string[],
 ): Promise<{ posts: Post[]; unavailable: string[] }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
-  // GET: каналы передаём через query (без VPN POST не проходит).
-  const data = await invokeFnGet("read-channels", { channels: channels.join(",") });
+  // GET: каналы через query. imgbase — чтобы картинки-прокси указывали на тот же
+  // адрес, что использует клиент (Onreza /sb или напрямую Supabase).
+  const data = await invokeFnGet("read-channels", {
+    channels: channels.join(","),
+    imgbase: appConfig().supabaseUrl,
+  });
   return data as { posts: Post[]; unavailable: string[] };
 }

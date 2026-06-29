@@ -39,12 +39,14 @@ const TIMEOUT_MS = 8000;
 const HARD_MS = 9000;
 const CONCURRENCY = 8;
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+// База для прокси картинок задаётся клиентом (?imgbase=...): это либо домен
+// Onreza (/sb), либо сам Supabase. Если не передана — берём свой адрес.
+let IMG_BASE = Deno.env.get("SUPABASE_URL") ?? "";
 function prox(url: string | undefined): string | undefined {
   if (!url) return url;
   if (!/^https?:\/\//i.test(url)) return url;
-  if (!SUPABASE_URL) return url;
-  return `${SUPABASE_URL}/functions/v1/img?u=${encodeURIComponent(url)}`;
+  if (!IMG_BASE) return url;
+  return `${IMG_BASE.replace(/\/$/, "")}/functions/v1/img?u=${encodeURIComponent(url)}`;
 }
 
 function normalize(input: string): string | null {
@@ -217,12 +219,17 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     let raw: string[] = [];
+    let imgbase = "";
     if (req.method === "GET") {
-      raw = (new URL(req.url).searchParams.get("channels") ?? "").split(",");
+      const sp = new URL(req.url).searchParams;
+      raw = (sp.get("channels") ?? "").split(",");
+      imgbase = sp.get("imgbase") ?? "";
     } else {
-      const body = (await req.json().catch(() => ({}))) as { channels?: string[] };
+      const body = (await req.json().catch(() => ({}))) as { channels?: string[]; imgbase?: string };
       raw = body.channels ?? [];
+      imgbase = body.imgbase ?? "";
     }
+    if (imgbase) IMG_BASE = imgbase;
     const channels = [...new Set(raw.map(normalize).filter(Boolean) as string[])];
     if (channels.length === 0) return jsonResponse({ posts: [], unavailable: [] });
 

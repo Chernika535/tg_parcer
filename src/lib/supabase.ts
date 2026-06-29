@@ -23,6 +23,22 @@ export function getAccessToken(): string | null {
   return _accessToken;
 }
 
+// Если на том же домене (Onreza) поднят наш прокси /sb → ходим через него
+// (Россия без VPN). Иначе — напрямую в Supabase (как раньше, нужен VPN).
+async function detectBase(directUrl: string): Promise<string> {
+  try {
+    const proxyBase = location.origin + "/sb";
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3500);
+    const r = await fetch(proxyBase + "/health", { cache: "no-store", signal: ctrl.signal }).finally(() => clearTimeout(t));
+    const j = (await r.json().catch(() => null)) as { proxy?: boolean } | null;
+    if (j?.proxy) return proxyBase;
+  } catch {
+    /* прокси нет — идём напрямую */
+  }
+  return directUrl;
+}
+
 export async function initApp(): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch("/config.json", { cache: "no-store" });
@@ -31,6 +47,7 @@ export async function initApp(): Promise<{ ok: boolean; error?: string }> {
     if (!cfg.supabaseUrl || cfg.supabaseUrl.includes("YOUR-PROJECT")) {
       return { ok: false, error: "config.json не настроен (Supabase)" };
     }
+    cfg.supabaseUrl = await detectBase(cfg.supabaseUrl);
     _config = cfg;
     _client = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
     return { ok: true };
