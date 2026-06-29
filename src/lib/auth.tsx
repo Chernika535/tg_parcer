@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, setAccessToken } from "./supabase.ts";
-import { invokeFn } from "./data.ts";
+import { invokeFn, getMyProfile } from "./data.ts";
 
 export type Profile = {
   id: string;
@@ -39,9 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadProfile(uid: string) {
-    const { data } = await supabase().from("profiles").select("*").eq("id", uid).single();
-    setProfile((data as Profile) ?? null);
+  async function loadProfile(_uid: string) {
+    // Через функцию (по JWT), а не supabase-js REST — стабильнее через прокси.
+    try {
+      const p = await getMyProfile();
+      setProfile((p as Profile) ?? null);
+    } catch {
+      setProfile(null);
+    }
   }
 
   useEffect(() => {

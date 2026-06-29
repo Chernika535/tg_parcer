@@ -337,6 +337,12 @@ export async function tgSetSession(session: string): Promise<void> {
   const d = (await mtCall("tg-connect", { action: "set_session", session })) as { error?: string };
   if (d.error) throw new Error(d.error);
 }
+// Профиль текущего пользователя — через функцию (надёжнее, чем REST через прокси).
+export async function getMyProfile(): Promise<unknown> {
+  const d = (await mtCall("tg-connect", { action: "profile" })) as { profile?: unknown };
+  return d.profile ?? null;
+}
+
 // Строка сессии читающего аккаунта — для чтения закрытых каналов в браузере.
 export async function getReadSession(): Promise<string | null> {
   const d = (await mtCall("tg-connect", { action: "get_session" })) as { session?: string | null; error?: string };

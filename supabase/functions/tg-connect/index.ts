@@ -57,6 +57,17 @@ Deno.serve(async (req: Request) => {
       return json({ connected: !!data?.session });
     }
 
+    // Профиль текущего пользователя по его JWT (через прокси supabase-js REST
+    // капризничает, поэтому тянем профиль здесь, service-role'ом).
+    if (body.action === "profile") {
+      const auth = req.headers.get("authorization")?.replace("Bearer ", "");
+      if (!auth) return json({ profile: null });
+      const { data: u } = await db.auth.getUser(auth);
+      if (!u.user) return json({ profile: null });
+      const { data } = await db.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+      return json({ profile: data ?? null });
+    }
+
     // Выдаём строку сессии читающего аккаунта вошедшим пользователям — чтение
     // закрытых каналов выполняется в браузере (GramJS на edge не работает).
     if (body.action === "get_session") {
