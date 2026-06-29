@@ -6,6 +6,16 @@ import { initApp } from "./lib/supabase.ts";
 import { AuthProvider } from "./lib/auth.tsx";
 import "./styles/global.css";
 
+// Жёстко вычищаем старые service worker'ы и их кэш. Раньше SW кэшировал JS
+// «навсегда» (CacheFirst), и телефон крутил устаревший код, который ходил на
+// заблокированный в РФ поддомен functions.* — отсюда вечное «Читаю каналы…».
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
+}
+if (typeof caches !== "undefined") {
+  caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => {});
+}
+
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
 initApp().then((res) => {

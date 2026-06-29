@@ -11,15 +11,26 @@ export async function invokeFn(name: string, body: Record<string, unknown>): Pro
   // ВАЖНО: не шлём Authorization с publishable-ключом (sb_publishable_…) — это не
   // JWT, и шлюз функций отвечает 401. Authorization ставим ТОЛЬКО при реальной
   // пользовательской сессии. Для анонимных вызовов хватает apikey.
-  const res = await fetch(`${base}/functions/v1/${name}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      apikey: cfg.supabaseAnonKey,
-      ...(s.session ? { authorization: `Bearer ${s.session.access_token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
+  // Жёсткий таймаут — чтобы запрос никогда не висел бесконечно.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  let res: Response;
+  try {
+    res = await fetch(`${base}/functions/v1/${name}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        apikey: cfg.supabaseAnonKey,
+        ...(s.session ? { authorization: `Bearer ${s.session.access_token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    throw new Error((e as Error).name === "AbortError" ? "сервер не ответил вовремя" : (e as Error).message);
+  } finally {
+    clearTimeout(timer);
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data as { error?: string })?.error || `HTTP ${res.status}`);
   return data;

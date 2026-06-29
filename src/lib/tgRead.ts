@@ -8,7 +8,7 @@ import { getReadSession, type Post, type Media } from "./data.ts";
 
 const API_ID = 2040;
 const API_HASH = "b18441a1ff607e10a989891a5462e627";
-const LIMIT = 20;
+const LIMIT = 12;
 const MAX_VIDEO = 30 * 1024 * 1024; // крупнее не качаем — даём ссылку
 
 type MTResult = {
@@ -190,24 +190,30 @@ export async function readChannelsMT(
         const group = groups.get(key)!;
         const text = group.map((x) => x.message).find((t) => t && t.length) ?? "";
         const head = group[0];
-        const media: Media[] = [];
-        for (const m of group) {
-          if (m.media) media.push(...(await extractMedia(client, m)));
-        }
-        if (!text && media.length === 0) continue;
+        const hasMedia = group.some((m) => m.media);
+        if (!text && !hasMedia) continue;
         const post: Post = {
           channel: ch,
           msgId: head.id,
           postedAt: new Date((head.date ?? 0) * 1000).toISOString(),
           text,
-          hasMedia: media.length > 0,
-          media,
+          hasMedia,
+          media: [],
           link: `https://t.me/${ch}/${head.id}`,
           channelTitle,
           channelAvatar,
         };
         posts.push(post);
-        onPost?.(post); // отдаём пост сразу — чтобы появлялся в ленте по мере загрузки
+        // Текст показываем СРАЗУ (быстро), медиа докачиваем и досылаем апдейтом.
+        onPost?.(post);
+        if (hasMedia) {
+          const media: Media[] = [];
+          for (const m of group) {
+            if (m.media) media.push(...(await extractMedia(client, m)));
+          }
+          post.media = media;
+          onPost?.({ ...post });
+        }
       }
     } catch (e) {
       unavailable.push(ch);

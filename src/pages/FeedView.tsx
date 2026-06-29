@@ -20,15 +20,17 @@ export default function FeedView() {
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  // Подмешивает пост в ленту без дублей, сохраняя сортировку по времени.
+  // Подмешивает/обновляет пост в ленте (upsert по channel/msgId), сохраняя
+  // сортировку. Позволяет показать текст сразу, а медиа дослать позже.
   const mergePost = useCallback((p: Post) => {
     setPosts((prev) => {
       const arr = prev ? [...prev] : [];
       const key = (x: Post) => `${x.channel}/${x.msgId}`;
-      if (arr.some((x) => key(x) === key(p))) return arr;
-      arr.push(p);
+      const i = arr.findIndex((x) => key(x) === key(p));
+      if (i >= 0) arr[i] = p;
+      else arr.push(p);
       arr.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
-      return arr;
+      return [...arr];
     });
   }, []);
 
