@@ -9,6 +9,9 @@ declare module "nitropack/types" {
     '/sb/health': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../routes/sb/health.get').default>>>>
     }
+    '/tgtest': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../routes/tgtest.get').default>>>>
+    }
   }
 }
 export {}
