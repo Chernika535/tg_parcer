@@ -41,11 +41,16 @@ export async function invokeFnGet(name: string, params: Record<string, string>):
   const q = new URLSearchParams({ apikey: cfg.supabaseAnonKey, ...params });
   const url = `${base}/functions/v1/${name}?${q.toString()}`;
   const init: RequestInit = { method: "GET", headers: token ? { authorization: `Bearer ${token}` } : {} };
-  try {
-    return await fetchJson(url, init, 15000);
-  } catch {
-    return await fetchJson(url, init, 20000); // вторая попытка
+  // Связь с Supabase без VPN нестабильна — делаем до 3 попыток.
+  let lastErr: unknown;
+  for (const ms of [12000, 14000, 18000]) {
+    try {
+      return await fetchJson(url, init, ms);
+    } catch (e) {
+      lastErr = e;
+    }
   }
+  throw lastErr instanceof Error ? lastErr : new Error("сервер не ответил");
 }
 
 // Вызов MTProto-операции: если задан mtBaseUrl (Deno Deploy) — идём туда,

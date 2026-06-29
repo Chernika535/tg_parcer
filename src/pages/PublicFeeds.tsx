@@ -19,8 +19,24 @@ export default function PublicFeeds() {
   async function load() {
     setErr("");
     try {
-      setFeeds(await publicFeeds());
+      const list = await publicFeeds();
+      setFeeds(list);
+      try {
+        localStorage.setItem("tf_public_feeds", JSON.stringify(list));
+      } catch {
+        /* ignore */
+      }
     } catch (e) {
+      // Связь нестабильна — показываем сохранённый список, чтобы не было пусто.
+      try {
+        const s = localStorage.getItem("tf_public_feeds");
+        if (s) {
+          setFeeds(JSON.parse(s) as Feed[]);
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
       setErr((e as Error).message);
     }
   }
