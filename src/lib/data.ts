@@ -1,4 +1,4 @@
-import { supabase, appConfig } from "./supabase.ts";
+import { supabase, appConfig, getAccessToken } from "./supabase.ts";
 
 // Вызов edge-функции Supabase ПО ОСНОВНОМУ домену (/functions/v1/<name>).
 // ВАЖНО для России: supabase-js по умолчанию шлёт запросы на отдельный поддомен
@@ -7,10 +7,10 @@ import { supabase, appConfig } from "./supabase.ts";
 export async function invokeFn(name: string, body: Record<string, unknown>): Promise<unknown> {
   const cfg = appConfig();
   const base = cfg.supabaseUrl.replace(/\/$/, "");
-  const { data: s } = await supabase().auth.getSession();
-  // ВАЖНО: не шлём Authorization с publishable-ключом (sb_publishable_…) — это не
-  // JWT, и шлюз функций отвечает 401. Authorization ставим ТОЛЬКО при реальной
-  // пользовательской сессии. Для анонимных вызовов хватает apikey.
+  // ВАЖНО: НЕ зовём getSession() — без VPN он зависает на refresh токена через
+  // заблокированный /auth/v1, и запрос вообще не уходит. Берём токен из кэша.
+  // Authorization шлём только при реальной сессии (publishable-ключ не JWT → 401).
+  const token = getAccessToken();
   // Жёсткий таймаут — чтобы запрос никогда не висел бесконечно.
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 20000);
@@ -21,7 +21,7 @@ export async function invokeFn(name: string, body: Record<string, unknown>): Pro
       headers: {
         "content-type": "application/json",
         apikey: cfg.supabaseAnonKey,
-        ...(s.session ? { authorization: `Bearer ${s.session.access_token}` } : {}),
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),
       signal: ctrl.signal,

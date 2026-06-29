@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "./supabase.ts";
+import { supabase, setAccessToken } from "./supabase.ts";
 import { invokeFn } from "./data.ts";
 
 export type Profile = {
@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .auth.getSession()
       .then(({ data }) => {
         setSession(data.session);
+        setAccessToken(data.session?.access_token ?? null);
         setLoading(false);
         clearTimeout(timer);
         if (data.session) loadProfile(data.session.user.id); // не блокируем
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase().auth.onAuthStateChange((_e, s) => {
       setSession(s);
+      setAccessToken(s?.access_token ?? null);
       if (s) loadProfile(s.user.id);
       else setProfile(null);
     });

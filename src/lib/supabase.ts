@@ -12,6 +12,17 @@ export type AppConfig = {
 let _client: SupabaseClient | null = null;
 let _config: AppConfig | null = null;
 
+// Текущий access-token держим в памяти и обновляем по auth-событиям. Это нужно,
+// чтобы вызовы функций НЕ дёргали getSession() (он без VPN зависает на refresh
+// токена через заблокированный /auth/v1). Гость = null, и читаем публичное.
+let _accessToken: string | null = null;
+export function setAccessToken(t: string | null): void {
+  _accessToken = t;
+}
+export function getAccessToken(): string | null {
+  return _accessToken;
+}
+
 export async function initApp(): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch("/config.json", { cache: "no-store" });
