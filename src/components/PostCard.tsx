@@ -3,6 +3,7 @@ import type { Post, Media } from "../lib/data.ts";
 import Icon from "./Icon.tsx";
 import { shareLink, postUrl } from "../lib/share.ts";
 import { linkify } from "../lib/linkify.tsx";
+import AddChannelButton from "./AddChannelButton.tsx";
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -105,6 +106,7 @@ export default function PostCard({
           {post.channelTitle || `@${post.channel}`}
         </a>
         <span className="post-meta">@{post.channel} · {relativeTime(post.postedAt)}</span>
+        <AddChannelButton channel={post.channel} />
         <button
           className="fav-btn"
           onClick={() => shareLink(postUrl(post.channel, post.msgId), post.channelTitle || `@${post.channel}`)}

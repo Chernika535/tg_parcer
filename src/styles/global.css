@@ -256,6 +256,12 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .how-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 8px; }
 .how-list li { background: var(--surface-2); border: 2px solid var(--ink); border-radius: var(--r-sm); padding: 10px 12px; font-weight: 600; }
 .sort-sel { border: 2px solid var(--ink); border-radius: 999px; padding: 4px 10px; background: var(--paper); font-weight: 700; font-size: 12.5px; }
+/* Мини-шит «добавить канал в ленту» */
+.sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; z-index: 60; }
+.sheet { width: 100%; max-width: 520px; background: var(--paper); border: 3px solid var(--ink); border-radius: 18px 18px 0 0; box-shadow: 0 -6px 0 var(--ink); padding: 16px; max-height: 75vh; overflow-y: auto; }
+.sheet-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.sheet-item { text-align: left; padding: 11px 13px; border: 2px solid var(--ink); border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink); font-weight: 700; cursor: pointer; }
+.sheet-item:disabled { opacity: .6; }
 .tabs-row { display: flex; gap: 6px; margin-bottom: 12px; }
 .seg { flex: 1; padding: 9px 6px; border: 3px solid var(--ink); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); font-weight: 800; cursor: pointer; font-size: 13px; }
 .seg.on { background: var(--lime); box-shadow: 3px 3px 0 var(--ink); }
