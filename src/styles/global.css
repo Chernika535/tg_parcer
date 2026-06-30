@@ -263,6 +263,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .feed-like { position: absolute; right: 8px; top: 8px; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
 .feed-like.on { background: var(--pink); color: #fff; }
 .feed-like.on svg { fill: #fff; }
+.feed-share { position: absolute; right: 8px; bottom: 8px; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
 .feed-cover-status { position: absolute; right: 8px; top: 8px; }
 .tag-badge {
   display: inline-flex; align-items: center; gap: 4px;

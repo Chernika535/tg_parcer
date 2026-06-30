@@ -4,6 +4,7 @@ import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, favori
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
+import { shareLink, feedUrl } from "../lib/share.ts";
 
 // Кэш постов по ленте: в памяти (полный, с blob/data медиа) + в localStorage
 // (облегчённый, для мгновенного показа между сессиями).
@@ -207,9 +208,14 @@ export default function FeedView() {
 
         <div className="row spread">
           <span className="muted">{feed ? `${feed.channels.length} каналов` : ""}</span>
-          <button className="btn ghost sm" onClick={refresh} disabled={refreshing}>
-            {refreshing ? "Обновление…" : "↻ Обновить"}
-          </button>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn ghost sm" onClick={() => shareLink(feedUrl(feedId), feed?.title)}>
+              ↗ Поделиться
+            </button>
+            <button className="btn ghost sm" onClick={refresh} disabled={refreshing}>
+              {refreshing ? "Обновление…" : "↻ Обновить"}
+            </button>
+          </div>
         </div>
 
 

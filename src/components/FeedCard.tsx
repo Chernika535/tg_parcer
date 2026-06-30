@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Feed } from "../lib/data.ts";
 import CoverArt from "./CoverArt.tsx";
 import Icon from "./Icon.tsx";
+import { shareLink, feedUrl } from "../lib/share.ts";
 
 export default function FeedCard({
   feed,
@@ -40,6 +41,13 @@ export default function FeedCard({
           )}
         </div>
         {statusBadge && <div className="feed-cover-status">{statusBadge}</div>}
+        <button
+          className="feed-share"
+          onClick={(e) => { e.stopPropagation(); shareLink(feedUrl(feed.id), feed.title); }}
+          aria-label="Поделиться лентой"
+        >
+          <Icon name="share" size={16} />
+        </button>
       </div>
       <div className="feed-card-body">
         <div className="feed-card-title" onClick={onOpen}>

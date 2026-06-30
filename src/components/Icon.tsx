@@ -3,7 +3,7 @@ type Props = { name: IconName; size?: number; className?: string };
 export type IconName =
   | "feed" | "folder" | "shield" | "user" | "login" | "plus" | "search"
   | "refresh" | "back" | "trash" | "edit" | "check" | "doc" | "mail"
-  | "play" | "image" | "logout" | "eye" | "close" | "cloud" | "menu" | "tag" | "heart";
+  | "play" | "image" | "logout" | "eye" | "close" | "cloud" | "menu" | "tag" | "heart" | "share";
 
 const P: Record<IconName, JSX.Element> = {
   feed: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18" /></>,
@@ -18,6 +18,7 @@ const P: Record<IconName, JSX.Element> = {
   back: <path d="M15 18l-6-6 6-6" />,
   trash: <path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />,
   edit: <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />,
+  share: <><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></>,
   check: <path d="M20 6L9 17l-5-5" />,
   doc: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></>,
   mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></>,
