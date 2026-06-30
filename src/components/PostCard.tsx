@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import type { Post, Media } from "../lib/data.ts";
 import Icon from "./Icon.tsx";
 import { shareLink, postUrl } from "../lib/share.ts";
+import { linkify } from "../lib/linkify.tsx";
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -16,38 +17,6 @@ function relativeTime(iso: string): string {
 }
 
 const LIMIT = 360;
-// Порядок важен: сначала markdown-ссылка [текст](url), потом голый url, потом @упоминание.
-const TOKEN_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|((?:https?:\/\/|www\.)[^\s]+)|(@[a-zA-Z][a-zA-Z0-9_]{3,})/g;
-
-// Делает ссылки (в т.ч. ссылки-текстом), @упоминания кликабельными, сохраняя переносы.
-function linkify(text: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  let last = 0;
-  let m: RegExpExecArray | null;
-  TOKEN_RE.lastIndex = 0;
-  let key = 0;
-  while ((m = TOKEN_RE.exec(text))) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
-    const tok = m[0];
-    if (m[1] && m[2]) {
-      nodes.push(
-        <a key={key++} href={m[2]} target="_blank" rel="noreferrer" className="ln">{m[1]}</a>,
-      );
-    } else if (m[3]) {
-      const href = tok.startsWith("www.") ? "https://" + tok : tok;
-      nodes.push(
-        <a key={key++} href={href} target="_blank" rel="noreferrer" className="ln">{tok}</a>,
-      );
-    } else {
-      nodes.push(
-        <a key={key++} href={`https://t.me/${tok.slice(1)}`} target="_blank" rel="noreferrer" className="ln">{tok}</a>,
-      );
-    }
-    last = m.index + tok.length;
-  }
-  if (last < text.length) nodes.push(text.slice(last));
-  return nodes;
-}
 
 // Добавляет «кэш-бастер» к http-адресу, чтобы повтор реально перезапросил файл.
 function bust(url: string, n: number): string {

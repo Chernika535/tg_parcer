@@ -294,6 +294,24 @@ export async function removeFeedFav(id: number): Promise<void> {
   await invokeFn("myfeeds", { action: "ffav_remove", id }).catch(() => {});
 }
 
+// ---- Избранные ТЕГИ ----
+export async function favTags(): Promise<string[]> {
+  if (!getAccessToken()) return [];
+  try {
+    const d = (await invokeFn("myfeeds", { action: "tfav_list" })) as { tags?: string[] };
+    return d.tags ?? [];
+  } catch {
+    return [];
+  }
+}
+export async function addFavTag(tag: string): Promise<void> {
+  const d = (await invokeFn("myfeeds", { action: "tfav_add", input: { tag } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+export async function removeFavTag(tag: string): Promise<void> {
+  await invokeFn("myfeeds", { action: "tfav_remove", input: { tag } }).catch(() => {});
+}
+
 // ---- Закрепления (pins) ----
 export type Pin = { feed_id: number; tag: string; rank: number };
 export async function pinsList(): Promise<Pin[]> {

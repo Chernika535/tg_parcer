@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import { shareLink, feedUrl } from "../lib/share.ts";
+import { linkify } from "../lib/linkify.tsx";
 
 // Кэш постов по ленте: в памяти (полный, с blob/data медиа) + в localStorage
 // (облегчённый, для мгновенного показа между сессиями).
@@ -204,7 +205,7 @@ export default function FeedView() {
     <>
       <TopBar title={feed?.title || "Лента"} onBack={() => nav(-1)} />
       <div className="content">
-        {feed?.description && <div className="card" style={{ padding: 14 }}>{feed.description}</div>}
+        {feed?.description && <div className="card post-text" style={{ padding: 14 }}>{linkify(feed.description)}</div>}
 
         <div className="row spread">
           <span className="muted">{feed ? `${feed.channels.length} каналов` : ""}</span>

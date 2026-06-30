@@ -178,6 +178,26 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // ---- Избранные ТЕГИ ----
+    if (b.action === "tfav_list") {
+      const { data } = await db.from("tag_favorites").select("tag").eq("user_id", uid).order("created_at", { ascending: false });
+      return json({ tags: (data ?? []).map((r: { tag: string }) => r.tag) });
+    }
+    if (b.action === "tfav_add") {
+      const tag = (b.input as { tag?: string } | undefined)?.tag?.trim().toLowerCase();
+      if (!tag) return json({ error: "нет тега" }, 400);
+      const { error } = await db.from("tag_favorites").upsert({ user_id: uid, tag });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+    if (b.action === "tfav_remove") {
+      const tag = (b.input as { tag?: string } | undefined)?.tag?.trim().toLowerCase();
+      if (!tag) return json({ error: "нет тега" }, 400);
+      const { error } = await db.from("tag_favorites").delete().eq("user_id", uid).eq("tag", tag);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+
     // ---- Закрепления (админ; RLS на feed_pins это гарантирует) ----
     if (b.action === "pins_list") {
       const { data, error } = await db.from("feed_pins").select("*").order("rank", { ascending: false });

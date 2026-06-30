@@ -5,6 +5,8 @@ import {
   removeFavorite,
   favoriteFeeds,
   removeFeedFav,
+  favTags,
+  removeFavTag,
   readChannels,
   type Post,
   type Feed,
@@ -13,7 +15,7 @@ import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import FeedCard from "../components/FeedCard.tsx";
 
-type Tab = "posts" | "feeds" | "stream";
+type Tab = "stream" | "posts" | "feeds" | "tags";
 
 export default function Favorites() {
   const [tab, setTab] = useState<Tab>("stream");
@@ -22,11 +24,13 @@ export default function Favorites() {
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [stream, setStream] = useState<Post[] | null>(null);
+  const [tags, setTags] = useState<string[] | null>(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     if (tab === "posts" && !posts) listFavorites().then(setPosts).catch((e) => setErr(e.message));
     if (tab === "feeds" && !feeds) favoriteFeeds().then(setFeeds).catch((e) => setErr(e.message));
+    if (tab === "tags" && !tags) favTags().then(setTags).catch((e) => setErr(e.message));
     if (tab === "stream" && !stream) loadStream();
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -54,15 +58,20 @@ export default function Favorites() {
     setFeeds((prev) => (prev ?? []).filter((x) => x.id !== f.id));
     setStream(null); // пересоберётся
   }
+  async function unfavTag(t: string) {
+    await removeFavTag(t);
+    setTags((prev) => (prev ?? []).filter((x) => x !== t));
+  }
 
   return (
     <>
       <TopBar title="Избранное" />
       <div className="content">
         <div className="tabs-row">
+          <button className={`seg ${tab === "stream" ? "on" : ""}`} onClick={() => setTab("stream")}>Лента</button>
           <button className={`seg ${tab === "posts" ? "on" : ""}`} onClick={() => setTab("posts")}>Посты</button>
           <button className={`seg ${tab === "feeds" ? "on" : ""}`} onClick={() => setTab("feeds")}>Ленты</button>
-          <button className={`seg ${tab === "stream" ? "on" : ""}`} onClick={() => setTab("stream")}>Общая лента</button>
+          <button className={`seg ${tab === "tags" ? "on" : ""}`} onClick={() => setTab("tags")}>Теги</button>
         </div>
 
         {err && <ErrorState message={err} onRetry={() => { setErr(""); setPosts(null); setFeeds(null); setStream(null); }} />}
@@ -82,6 +91,21 @@ export default function Favorites() {
             <div className="feed-grid">
               {feeds?.map((f) => (
                 <FeedCard key={f.id} feed={f} onOpen={() => nav(`/feed/${f.id}`)} liked onToggleLike={() => unfavFeed(f)} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab === "tags" && (
+          <>
+            {!tags && !err && <Loading />}
+            {tags && tags.length === 0 && <Empty>Нет избранных тегов. Откройте тег и нажмите «В избранное».</Empty>}
+            <div className="chip-row">
+              {tags?.map((t) => (
+                <span key={t} className="chip" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <button className="chip-btn" style={{ border: "none", background: "none", padding: 0, font: "inherit", cursor: "pointer" }} onClick={() => nav(`/tag/${encodeURIComponent(t)}`)}>#{t}</button>
+                  <button className="chip-x" onClick={() => unfavTag(t)} aria-label="Убрать">✕</button>
+                </span>
               ))}
             </div>
           </>
