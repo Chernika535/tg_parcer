@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, favoriteLinks, addFavorite, removeFavorite, type Feed, type Post } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, favoriteLinks, addFavorite, removeFavorite, type Feed, type Post } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -105,29 +105,16 @@ export default function FeedView() {
       setOpenLoading(false);
       setUnavailable(unavail);
 
-      // Закрытые каналы — сначала на сервере (без VPN). В браузер откатываемся
-      // ТОЛЬКО если сервер реально не смог выполниться (иначе без VPN он зависнет).
+      // Закрытые каналы читаем в браузере (GramJS, нужен VPN). Серверный путь
+      // (GramJS на edge) на практике не работал и только тормозил, поэтому убран.
       if (unavail.length > 0) {
         setMtLoading(true);
-        const srv = await readChannelsMTServer(unavail);
-        let result = srv;
-        if (srv.posts && srv.posts.length > 0) {
-          srv.posts.forEach(mergePost);
-          setUnavailable(srv.unavailable);
-        } else if (!srv.noAccount) {
-          // Сервер не дал постов (упал / пусто) — пробуем браузер (нужен VPN).
-          const br = await readChannelsMT(srv.unavailable?.length ? srv.unavailable : unavail, mergePost);
-          setUnavailable(br.unavailable);
-          // Если браузер тоже не дал постов — показываем причину сервера (важнее
-          // для диагностики: работает ли чтение закрытых каналов на сервере).
-          result = br.posts.length > 0 ? br : { ...br, error: srv.error || br.error, note: srv.note || br.note };
-        } else {
-          setUnavailable(srv.unavailable);
-        }
+        const br = await readChannelsMT(unavail, mergePost);
+        setUnavailable(br.unavailable);
         setMtLoading(false);
-        if (result.noAccount) setMtNote("Чтобы читать закрытые каналы, администратор должен подключить общий аккаунт (раздел «Аккаунт»).");
-        else if (result.error) setMtNote("Чтение закрытых каналов (сервер): " + result.error);
-        else if (result.note) setMtNote("Закрытые каналы: " + result.note);
+        if (br.noAccount) setMtNote("Чтобы читать закрытые каналы, администратор должен подключить общий аккаунт (раздел «Аккаунт»).");
+        else if (br.error) setMtNote("Закрытые каналы: " + br.error);
+        else if (br.note) setMtNote("Закрытые каналы — " + br.note);
       }
       // Сохраняем итог в кэш для мгновенного повторного открытия.
       setPosts((p) => {

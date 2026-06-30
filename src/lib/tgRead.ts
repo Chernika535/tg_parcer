@@ -36,20 +36,23 @@ function toUrl(buf: any, mime: string): string | undefined {
   }
 }
 
+// Счётчики докачки медиа (для диагностики в плашке).
+const mstat = { ok: 0, fail: 0 };
+
 // deno-lint-ignore no-explicit-any
 async function dl(client: any, target: any, opts?: Record<string, unknown>): Promise<unknown> {
-  // Две попытки — связь с Telegram бывает нестабильной, медиа не докачивается.
-  for (let i = 0; i < 2; i++) {
-    try {
-      const r = await withTimeout(client.downloadMedia(target, opts ?? {}), 25000, "медиа не скачалось");
-      // deno-lint-ignore no-explicit-any
-      if (r && (r as any).length) return r;
-    } catch {
-      /* повторим */
-    }
+  try {
+    const r = await withTimeout(client.downloadMedia(target, opts ?? {}), 12000, "медиа не скачалось");
+    // deno-lint-ignore no-explicit-any
+    if (r && (r as any).length) { mstat_ok(); return r; }
+  } catch {
+    /* ниже отметим неудачу */
   }
+  mstat_fail();
   return undefined;
 }
+function mstat_ok() { mstat.ok++; }
+function mstat_fail() { mstat.fail++; }
 
 function num(v: unknown): number {
   try {
@@ -151,6 +154,9 @@ export async function readChannelsMT(
   const posts: Post[] = [];
   const unavailable: string[] = [];
   const errs: string[] = [];
+  mstat.ok = 0;
+  mstat.fail = 0;
+  let mediaPostsLeft = 14; // суммарный лимит постов с докачкой медиа (чтобы фаза завершалась)
 
   for (const ch of channels) {
     try {
@@ -212,7 +218,9 @@ export async function readChannelsMT(
         posts.push(post);
         // Текст показываем СРАЗУ (быстро), медиа докачиваем и досылаем апдейтом.
         onPost?.(post);
-        if (hasMedia) {
+        // Докачиваем медиа только у первых N постов (иначе фаза тянется минутами).
+        if (hasMedia && mediaPostsLeft > 0) {
+          mediaPostsLeft--;
           const media: Media[] = [];
           for (const m of group) {
             if (m.media) media.push(...(await extractMedia(client, m)));
@@ -234,5 +242,9 @@ export async function readChannelsMT(
   }
 
   posts.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
-  return { posts, unavailable, note: errs.length ? errs.join(" | ") : undefined };
+  const parts: string[] = [];
+  if (posts.length) parts.push(`постов: ${posts.length}`);
+  parts.push(`медиа: ${mstat.ok} ок / ${mstat.fail} не удалось`);
+  if (errs.length) parts.push(errs.join(" | "));
+  return { posts, unavailable, note: parts.join(" · ") };
 }
