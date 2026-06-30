@@ -51,7 +51,7 @@ export default function PublicFeeds() {
 
   return (
     <>
-      <TopBar title="ТелеФид" />
+      <TopBar title="Полистай" />
       <div className="content">
         {feeds && feeds.length > 0 && (
           <FeedFilter

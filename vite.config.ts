@@ -38,11 +38,11 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icon-192.png", "icon-512.png"],
       manifest: {
-        name: "ТелеФид",
-        short_name: "ТелеФид",
-        description: "Ленты публичных Telegram-каналов: подборки, темы, поиск",
-        theme_color: "#221a52",
-        background_color: "#221a52",
+        name: "Полистай",
+        short_name: "Полистай",
+        description: "Ленты Telegram-каналов: подборки, темы, поиск, избранное",
+        theme_color: "#dedbcf",
+        background_color: "#dedbcf",
         display: "standalone",
         start_url: "/",
         icons: [

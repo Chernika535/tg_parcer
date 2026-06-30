@@ -13,7 +13,7 @@ export default function DataPolicy() {
           <p className="muted">Дата вступления в силу: 2026 год.</p>
           <p>
             Настоящий документ определяет порядок обработки персональных данных пользователей
-            приложения «ТелеФид» (далее — «Сервис»).
+            приложения «Полистай» (далее — «Сервис»).
           </p>
 
           <h3>1. Оператор</h3>
@@ -60,7 +60,7 @@ export default function DataPolicy() {
           </p>
 
           <h3>8. Контакты оператора</h3>
-          <a className="btn sm" href={`mailto:${EMAIL}?subject=Обработка%20ПДн%20ТелеФид`}>
+          <a className="btn sm" href={`mailto:${EMAIL}?subject=Обработка%20ПДн%20Полистай`}>
             Написать автору
           </a>
         </div>

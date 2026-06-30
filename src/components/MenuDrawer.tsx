@@ -27,7 +27,7 @@ export default function MenuDrawer() {
         <div className="drawer-overlay" onClick={() => setOpen(false)}>
           <aside className="drawer" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-head">
-              <span className="drawer-brand">ТелеФид</span>
+              <span className="drawer-brand">Полистай</span>
               <button className="burger ghost" onClick={() => setOpen(false)} aria-label="Закрыть">
                 <Icon name="close" />
               </button>
