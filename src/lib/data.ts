@@ -111,7 +111,8 @@ export type Media =
   | { type: "voice"; url?: string }
   | { type: "sticker"; url: string }
   | { type: "document"; title: string; extra?: string }
-  | { type: "link"; href?: string; site?: string; title?: string; description?: string; image?: string };
+  | { type: "link"; href?: string; site?: string; title?: string; description?: string; image?: string }
+  | { type: "unsupported" };
 
 export type Post = {
   channel: string;

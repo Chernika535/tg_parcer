@@ -90,6 +90,8 @@ export default function PostCard({
   const long = post.text.length > LIMIT;
   const shown = expanded || !long ? post.text : post.text.slice(0, LIMIT) + "…";
   const photos = post.media.filter((m) => m.type === "photo" || m.type === "sticker");
+  // Нечего показать (опрос, гео, контакт и т.п.) — текста нет и медиа не извлеклось.
+  const nothing = !post.text && post.media.filter((m) => m.type !== "unsupported").length === 0;
 
   return (
     <article className="card fade-in">
@@ -120,6 +122,12 @@ export default function PostCard({
           </button>
         )}
       </div>
+
+      {nothing && (
+        <a href={post.link} target="_blank" rel="noreferrer" className="media-doc" style={{ textAlign: "center" }}>
+          📌 Пост нестандартного формата (опрос и т.п.). Открыть в канале ↗
+        </a>
+      )}
 
       {post.text && <div className="post-text">{linkify(shown)}</div>}
       {long && (
