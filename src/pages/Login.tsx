@@ -50,7 +50,11 @@ export default function Login() {
         else nav("/feeds", { replace: true });
       }
     } catch (e) {
-      setErr((e as Error).message);
+      const m = (e as Error).message || "";
+      if (/not confirmed/i.test(m)) setErr("E-mail не подтверждён. Подтвердите его по ссылке из письма, либо попросите администратора подтвердить аккаунт.");
+      else if (/invalid login credentials/i.test(m)) setErr("Неверный e-mail или пароль.");
+      else if (/already registered|already exists/i.test(m)) setErr("Такой e-mail уже зарегистрирован — войдите.");
+      else setErr(m);
     } finally {
       setBusy(false);
     }
