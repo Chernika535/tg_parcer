@@ -99,7 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUpEmail(email: string, password: string): Promise<{ needConfirm: boolean }> {
-    const { data, error } = await supabase().auth.signUp({ email: email.trim(), password });
+    const { data, error } = await supabase().auth.signUp({
+      email: email.trim(),
+      password,
+      // Ссылка-подтверждение должна вести на наш домен, а не на localhost.
+      options: { emailRedirectTo: location.origin },
+    });
     if (error) throw new Error(error.message);
     // Если в проекте включено подтверждение почты — сессии сразу не будет.
     return { needConfirm: !data.session };
@@ -111,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const payload: { email?: string; password?: string } = {};
     if (fields.email?.trim()) payload.email = fields.email.trim();
     if (fields.password) payload.password = fields.password;
-    const { data, error } = await supabase().auth.updateUser(payload);
+    const { data, error } = await supabase().auth.updateUser(payload, { emailRedirectTo: location.origin });
     if (error) throw new Error(error.message);
     // Если меняли e-mail и включено подтверждение — новый e-mail вступит в силу после письма.
     return { emailConfirm: !!payload.email && !data.user?.email_confirmed_at };
