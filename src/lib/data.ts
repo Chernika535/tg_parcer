@@ -140,9 +140,13 @@ export async function myFeeds(): Promise<Feed[]> {
 // ---- Одобренные публичные ленты (доступны без входа) ----
 // Читаем через edge-функцию (REST-домен в РФ без VPN недоступен).
 export async function publicFeeds(): Promise<Feed[]> {
-  const d = (await invokeFnGet("feeds", { action: "public" })) as { feeds?: Feed[]; error?: string };
+  return (await loadPublic()).feeds;
+}
+// Публичные ленты + закрепления (для сортировки «закреплённые сверху»).
+export async function loadPublic(): Promise<{ feeds: Feed[]; pins: Pin[] }> {
+  const d = (await invokeFnGet("feeds", { action: "public" })) as { feeds?: Feed[]; pins?: Pin[]; error?: string };
   if (d.error) throw new Error(d.error);
-  return d.feeds ?? [];
+  return { feeds: d.feeds ?? [], pins: d.pins ?? [] };
 }
 
 export async function getFeedById(id: number): Promise<Feed | null> {
@@ -153,10 +157,10 @@ export async function getFeedById(id: number): Promise<Feed | null> {
   } catch {
     /* пробуем как свою ниже */
   }
-  // Приватная/своя лента — ищем среди своих (через функцию, по JWT).
+  // Приватная/своя/любая (для админа) лента — через функцию по JWT (RLS решает доступ).
   try {
-    const mine = await myFeeds();
-    return mine.find((f) => f.id === id) ?? null;
+    const d = (await invokeFn("myfeeds", { action: "get_any", id })) as { feed?: Feed | null };
+    return d.feed ?? null;
   } catch {
     return null;
   }
@@ -265,6 +269,44 @@ export async function addFavorite(post: Post): Promise<void> {
 
 export async function removeFavorite(link: string): Promise<void> {
   await invokeFn("myfeeds", { action: "fav_remove", input: { link } }).catch(() => {});
+}
+
+// ---- Избранные ЛЕНТЫ ----
+export async function feedFavIds(): Promise<number[]> {
+  if (!getAccessToken()) return [];
+  try {
+    const d = (await invokeFn("myfeeds", { action: "ffav_ids" })) as { ids?: number[] };
+    return d.ids ?? [];
+  } catch {
+    return [];
+  }
+}
+export async function favoriteFeeds(): Promise<Feed[]> {
+  const d = (await invokeFn("myfeeds", { action: "ffav_list" })) as { feeds?: Feed[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.feeds ?? [];
+}
+export async function addFeedFav(id: number): Promise<void> {
+  const d = (await invokeFn("myfeeds", { action: "ffav_add", id })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+export async function removeFeedFav(id: number): Promise<void> {
+  await invokeFn("myfeeds", { action: "ffav_remove", id }).catch(() => {});
+}
+
+// ---- Закрепления (pins) ----
+export type Pin = { feed_id: number; tag: string; rank: number };
+export async function pinsList(): Promise<Pin[]> {
+  const d = (await invokeFn("myfeeds", { action: "pins_list" })) as { pins?: Pin[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.pins ?? [];
+}
+export async function setPin(feed_id: number, tag: string, rank: number): Promise<void> {
+  const d = (await invokeFn("myfeeds", { action: "pin_set", input: { feed_id, tag, rank } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+export async function removePin(feed_id: number, tag: string): Promise<void> {
+  await invokeFn("myfeeds", { action: "pin_remove", input: { feed_id, tag } }).catch(() => {});
 }
 
 // ---- MTProto: подключение читающего аккаунта (админ) ----

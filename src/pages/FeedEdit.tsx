@@ -92,7 +92,7 @@ export default function FeedEdit() {
       };
       if (isNew) await createFeed(payload);
       else await updateFeed(feedId, payload);
-      nav("/my");
+      nav(-1);
     } catch (e) {
       setErr((e as Error).message);
       setSaving(false);
@@ -103,7 +103,7 @@ export default function FeedEdit() {
 
   return (
     <>
-      <TopBar title={isNew ? "Новая лента" : "Лента"} onBack={() => nav("/my")} />
+      <TopBar title={isNew ? "Новая лента" : "Лента"} onBack={() => nav(-1)} />
       <div className="content">
         {err && <ErrorState message={err} />}
         <div className="field">

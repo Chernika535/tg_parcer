@@ -71,6 +71,9 @@ export default function Admin() {
               >
                 ✕ Отклонить
               </button>
+              <button className="btn secondary sm" onClick={() => nav(`/my/${f.id}/edit`)}>
+                ✎ Редактировать
+              </button>
             </div>
           </div>
         ))}

@@ -39,7 +39,8 @@ Deno.serve(async (req: Request) => {
         .eq("status", "approved")
         .order("created_at", { ascending: false });
       if (error) return json({ error: error.message }, 500);
-      return json({ feeds: data ?? [] });
+      const { data: pins } = await db.from("feed_pins").select("*");
+      return json({ feeds: data ?? [], pins: pins ?? [] });
     }
 
     if (body.action === "get") {

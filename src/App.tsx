@@ -3,6 +3,7 @@ import { useAuth } from "./lib/auth.tsx";
 import { Loading } from "./components/States.tsx";
 import Icon from "./components/Icon.tsx";
 import PublicFeeds from "./pages/PublicFeeds.tsx";
+import Landing from "./pages/Landing.tsx";
 import MyFeeds from "./pages/MyFeeds.tsx";
 import FeedView from "./pages/FeedView.tsx";
 import FeedEdit from "./pages/FeedEdit.tsx";
@@ -25,7 +26,8 @@ export default function App() {
     <div className="app">
       <MenuDrawer />
       <Routes>
-        <Route path="/" element={<PublicFeeds />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/feeds" element={<PublicFeeds />} />
         <Route path="/feed/:id" element={<FeedView />} />
         <Route path="/login" element={<Login />} />
         <Route path="/tags" element={<Tags />} />
@@ -59,7 +61,7 @@ function RequireAdmin({ children }: { children: ReactElement }) {
 function TabBar() {
   return (
     <nav className="tabbar">
-      <NavLink to="/" end><Icon name="feed" size={16} /><span>Лента</span></NavLink>
+      <NavLink to="/feeds"><Icon name="feed" size={16} /><span>Ленты</span></NavLink>
       <NavLink to="/favorites" className="tab-cloud" aria-label="Избранное">
         <Icon name="heart" size={18} />
       </NavLink>

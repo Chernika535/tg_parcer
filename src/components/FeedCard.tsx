@@ -8,16 +8,29 @@ export default function FeedCard({
   onOpen,
   statusBadge,
   actions,
+  liked,
+  onToggleLike,
 }: {
   feed: Feed;
   onOpen: () => void;
   statusBadge?: ReactNode;
   actions?: ReactNode;
+  liked?: boolean;
+  onToggleLike?: () => void;
 }) {
   return (
     <div className="feed-card fade-in">
       <div className="feed-cover" onClick={onOpen}>
         <CoverArt seed={`${feed.title}${feed.id}`} src={feed.cover_url} className="feed-cover-art" />
+        {onToggleLike && (
+          <button
+            className={`feed-like ${liked ? "on" : ""}`}
+            onClick={(e) => { e.stopPropagation(); onToggleLike(); }}
+            aria-label="В избранные ленты"
+          >
+            <Icon name="heart" size={18} />
+          </button>
+        )}
         <div className="feed-cover-badges">
           {feed.official && (
             <span className="tag-badge official"><Icon name="check" size={12} /> официальный</span>

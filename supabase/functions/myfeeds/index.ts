@@ -46,6 +46,17 @@ Deno.serve(async (req: Request) => {
       return json({ feeds: data ?? [] });
     }
 
+    if (b.action === "get_any") {
+      if (!b.id) return json({ error: "нет id" }, 400);
+      // RLS вернёт ленту, если она видна пользователю (своя / админ / одобренная).
+      const { data } = await db
+        .from("feeds")
+        .select("*, owner:profiles(display_name, username)")
+        .eq("id", b.id)
+        .maybeSingle();
+      return json({ feed: data ?? null });
+    }
+
     if (b.action === "list_pending") {
       const { data, error } = await db
         .from("feeds")
@@ -125,6 +136,57 @@ Deno.serve(async (req: Request) => {
       const link = (b.input as { link?: string } | undefined)?.link;
       if (!link) return json({ error: "нет ссылки" }, 400);
       const { error } = await db.from("favorites").delete().eq("user_id", uid).eq("link", link);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+
+    // ---- Избранные ЛЕНТЫ ----
+    if (b.action === "ffav_ids") {
+      const { data } = await db.from("feed_favorites").select("feed_id").eq("user_id", uid);
+      return json({ ids: (data ?? []).map((r: { feed_id: number }) => r.feed_id) });
+    }
+    if (b.action === "ffav_list") {
+      const { data, error } = await db
+        .from("feed_favorites")
+        .select("feed:feeds(*, owner:profiles(display_name, username))")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false });
+      if (error) return json({ error: error.message }, 500);
+      const feeds = (data ?? []).map((r: { feed: unknown }) => r.feed).filter(Boolean);
+      return json({ feeds });
+    }
+    if (b.action === "ffav_add") {
+      if (!b.id) return json({ error: "нет id" }, 400);
+      const { error } = await db.from("feed_favorites").upsert({ user_id: uid, feed_id: b.id });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+    if (b.action === "ffav_remove") {
+      if (!b.id) return json({ error: "нет id" }, 400);
+      const { error } = await db.from("feed_favorites").delete().eq("user_id", uid).eq("feed_id", b.id);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+
+    // ---- Закрепления (админ; RLS на feed_pins это гарантирует) ----
+    if (b.action === "pins_list") {
+      const { data, error } = await db.from("feed_pins").select("*").order("rank", { ascending: false });
+      if (error) return json({ error: error.message }, 500);
+      return json({ pins: data ?? [] });
+    }
+    if (b.action === "pin_set") {
+      const i = (b.input ?? {}) as { feed_id?: number; tag?: string; rank?: number };
+      if (!i.feed_id) return json({ error: "нет feed_id" }, 400);
+      const { error } = await db
+        .from("feed_pins")
+        .upsert({ feed_id: i.feed_id, tag: i.tag ?? "", rank: i.rank ?? 0 }, { onConflict: "feed_id,tag" });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+    if (b.action === "pin_remove") {
+      const i = (b.input ?? {}) as { feed_id?: number; tag?: string };
+      if (!i.feed_id) return json({ error: "нет feed_id" }, 400);
+      const { error } = await db.from("feed_pins").delete().eq("feed_id", i.feed_id).eq("tag", i.tag ?? "");
       if (error) return json({ error: error.message }, 500);
       return json({ ok: true });
     }

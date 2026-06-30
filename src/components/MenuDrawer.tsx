@@ -34,7 +34,8 @@ export default function MenuDrawer() {
             </div>
 
             <nav className="drawer-nav">
-              <Item icon="feed" label="Лента" onClick={() => go("/")} />
+              <Item icon="feed" label="Главная" onClick={() => go("/")} />
+              <Item icon="feed" label="Все ленты" onClick={() => go("/feeds")} />
               <Item icon="folder" label="Мои ленты" onClick={() => go("/my")} />
               <Item icon="cloud" label="Теги" onClick={() => go("/tags")} />
               {session && <Item icon="heart" label="Избранное" onClick={() => go("/favorites")} />}

@@ -46,7 +46,7 @@ export default function Tags() {
                 key={t}
                 className="cloud-tag"
                 style={{ width: d, height: d, fontSize: Math.max(12, Math.round(d * 0.16)) }}
-                onClick={() => nav(`/?tag=${encodeURIComponent(t)}`)}
+                onClick={() => nav(`/feeds?tag=${encodeURIComponent(t)}`)}
                 title={`${t} · ${n}`}
               >
                 <span className="cloud-tag-name">#{t}</span>
@@ -66,7 +66,7 @@ export default function Tags() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && q.trim()) nav(`/?tag=${encodeURIComponent(q.trim().toLowerCase())}`);
+              if (e.key === "Enter" && q.trim()) nav(`/feeds?tag=${encodeURIComponent(q.trim().toLowerCase())}`);
             }}
           />
           {q && <button className="search-clear" onClick={() => setQ("")}>✕</button>}

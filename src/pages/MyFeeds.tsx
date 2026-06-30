@@ -3,7 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { myFeeds, deleteFeed, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import FeedCard from "../components/FeedCard.tsx";
-import FeedFilter, { filterFeeds, allTagsOf } from "../components/FeedFilter.tsx";
+import FeedFilter, { applyFilters, allTagsOf, emptyFilters, type Filters } from "../components/FeedFilter.tsx";
+
+// Владелец может править только приватные и отклонённые. Публичные на модерации/
+// одобренные правит администратор (так просили).
+function canOwnerEdit(f: Feed) {
+  return f.visibility === "private" || f.status === "rejected";
+}
 
 function statusBadge(f: Feed) {
   if (f.visibility === "private") return null;
@@ -15,8 +21,7 @@ function statusBadge(f: Feed) {
 export default function MyFeeds() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [err, setErr] = useState("");
-  const [query, setQuery] = useState("");
-  const [active, setActive] = useState<string[]>([]);
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
   const nav = useNavigate();
 
   async function load() {
@@ -38,22 +43,14 @@ export default function MyFeeds() {
   }
 
   const allTags = useMemo(() => allTagsOf(feeds ?? []), [feeds]);
-  const shown = useMemo(() => filterFeeds(feeds ?? [], query, active), [feeds, query, active]);
-  const toggleTag = (t: string) =>
-    setActive((a) => (a.includes(t) ? a.filter((x) => x !== t) : [...a, t]));
+  const shown = useMemo(() => applyFilters(feeds ?? [], filters), [feeds, filters]);
 
   return (
     <>
       <TopBar title="Мои ленты" subtitle="Приватные и общедоступные подборки" />
       <div className="content">
         {feeds && feeds.length > 0 && (
-          <FeedFilter
-            query={query}
-            setQuery={setQuery}
-            allTags={allTags}
-            active={active}
-            toggleTag={toggleTag}
-          />
+          <FeedFilter filters={filters} setFilters={setFilters} allTags={allTags} />
         )}
         {err && <ErrorState message={err} onRetry={load} />}
         {!feeds && !err && <Loading />}
@@ -68,9 +65,15 @@ export default function MyFeeds() {
               statusBadge={statusBadge(f)}
               actions={
                 <>
-                  <button className="btn secondary sm" onClick={() => nav(`/my/${f.id}/edit`)}>
-                    ✎ Изменить
-                  </button>
+                  {canOwnerEdit(f) ? (
+                    <button className="btn secondary sm" onClick={() => nav(`/my/${f.id}/edit`)}>
+                      ✎ Изменить
+                    </button>
+                  ) : (
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      {f.status === "pending" ? "на модерации — правит админ" : "опубликована — правит админ"}
+                    </span>
+                  )}
                   <button className="btn ghost sm" onClick={() => remove(f.id, f.title)}>
                     🗑
                   </button>
