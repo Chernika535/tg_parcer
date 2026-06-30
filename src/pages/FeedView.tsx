@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, favoriteLinks, addFavorite, removeFavorite, type Feed, type Post } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, favoriteLinks, addFavorite, removeFavorite, type Feed, type Post } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -54,6 +54,9 @@ export default function FeedView() {
   const [openLoading, setOpenLoading] = useState(false);
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [retrying, setRetrying] = useState<string | null>(null);
+
+  const GUEST_MSG = "Чтобы читать каналы, контент которых защищён от копирования, вам необходимо войти в свой аккаунт. Для гостей доступны только каналы с публичными превью.";
 
   // Подмешивает/обновляет пост в ленте (upsert по channel/msgId), сохраняя
   // сортировку. Позволяет показать текст сразу, а медиа дослать позже.
@@ -68,6 +71,40 @@ export default function FeedView() {
       return [...arr];
     });
   }, []);
+
+  // Чтение закрытых каналов: сначала сервер (read-mt, сессия service-role,
+  // работает и без VPN), затем браузер (GramJS, нужен VPN) для тех, что не вышли.
+  const readClosed = useCallback(
+    async (chs: string[]): Promise<{ unavailable: string[]; note?: string; noAccount?: boolean; error?: string }> => {
+      const srv = await readChannelsMTServer(chs);
+      if (srv.posts && srv.posts.length > 0) srv.posts.forEach(mergePost);
+      const left = srv.posts && srv.posts.length > 0 ? srv.unavailable ?? [] : chs;
+      if (left.length === 0) return { unavailable: [], note: srv.note };
+      // Остаток (или всё, если сервер пуст) — пробуем в браузере.
+      const br = await readChannelsMT(left, mergePost);
+      return {
+        unavailable: br.unavailable,
+        note: br.note || srv.note,
+        noAccount: br.noAccount && srv.noAccount,
+        error: br.error || srv.error,
+      };
+    },
+    [mergePost],
+  );
+
+  // Повторная попытка по одному каналу (кнопка ↻ у недоступного канала).
+  const retryChannel = useCallback(
+    async (ch: string) => {
+      setRetrying(ch);
+      try {
+        const r = await readClosed([ch]);
+        setUnavailable((prev) => prev.filter((c) => (c === ch ? r.unavailable.includes(ch) : true)));
+      } finally {
+        setRetrying(null);
+      }
+    },
+    [readClosed],
+  );
 
   const load = useCallback(async () => {
     setErr("");
@@ -105,16 +142,20 @@ export default function FeedView() {
       setOpenLoading(false);
       setUnavailable(unavail);
 
-      // Закрытые каналы читаем в браузере (GramJS, нужен VPN). Серверный путь
-      // (GramJS на edge) на практике не работал и только тормозил, поэтому убран.
+      // Закрытые каналы (защита от копирования) — только для вошедших.
       if (unavail.length > 0) {
-        setMtLoading(true);
-        const br = await readChannelsMT(unavail, mergePost);
-        setUnavailable(br.unavailable);
-        setMtLoading(false);
-        if (br.noAccount) setMtNote("Чтобы читать закрытые каналы, администратор должен подключить общий аккаунт (раздел «Аккаунт»).");
-        else if (br.error) setMtNote("Закрытые каналы: " + br.error);
-        else if (br.note) setMtNote("Закрытые каналы — " + br.note);
+        if (!session) {
+          setUnavailable(unavail);
+          setMtNote(GUEST_MSG);
+        } else {
+          setMtLoading(true);
+          const r = await readClosed(unavail);
+          setUnavailable(r.unavailable);
+          setMtLoading(false);
+          if (r.noAccount) setMtNote("Общий читающий аккаунт не подключён — это делает администратор в разделе «Аккаунт».");
+          else if (r.error) setMtNote("Закрытые каналы: " + r.error);
+          else if (r.note) setMtNote("Закрытые каналы — " + r.note);
+        }
       }
       // Сохраняем итог в кэш для мгновенного повторного открытия.
       setPosts((p) => {
@@ -129,7 +170,7 @@ export default function FeedView() {
       setOpenLoading(false);
       setErr((e as Error).message);
     }
-  }, [feedId, mergePost]);
+  }, [feedId, mergePost, session, readClosed]);
 
   useEffect(() => {
     load();
@@ -184,7 +225,17 @@ export default function FeedView() {
             <div className="tags">
               {unavailable.map((c) => (
                 <span key={c} className="tag">
-                  @{c} <span className="badge warn">недоступен</span>
+                  @{c}
+                  {session && (
+                    <button
+                      className="btn ghost sm"
+                      style={{ marginLeft: 6, padding: "2px 8px" }}
+                      onClick={() => retryChannel(c)}
+                      disabled={retrying === c}
+                    >
+                      {retrying === c ? "…" : "↻ ещё раз"}
+                    </button>
+                  )}
                 </span>
               ))}
             </div>
