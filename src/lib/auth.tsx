@@ -28,6 +28,8 @@ type AuthState = {
   loading: boolean;
   isAdmin: boolean;
   loginWithTelegram: (u: TelegramUser) => Promise<void>;
+  signInEmail: (email: string, password: string) => Promise<void>;
+  signUpEmail: (email: string, password: string) => Promise<{ needConfirm: boolean }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -90,6 +92,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (verr) throw new Error(verr.message);
   }
 
+  async function signInEmail(email: string, password: string) {
+    const { error } = await supabase().auth.signInWithPassword({ email: email.trim(), password });
+    if (error) throw new Error(error.message);
+  }
+
+  async function signUpEmail(email: string, password: string): Promise<{ needConfirm: boolean }> {
+    const { data, error } = await supabase().auth.signUp({ email: email.trim(), password });
+    if (error) throw new Error(error.message);
+    // Если в проекте включено подтверждение почты — сессии сразу не будет.
+    return { needConfirm: !data.session };
+  }
+
   async function signOut() {
     await supabase().auth.signOut();
   }
@@ -106,6 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isAdmin: profile?.role === "admin",
         loginWithTelegram,
+        signInEmail,
+        signUpEmail,
         signOut,
         refreshProfile,
       }}

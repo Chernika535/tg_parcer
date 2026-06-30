@@ -16,7 +16,7 @@ import FeedCard from "../components/FeedCard.tsx";
 type Tab = "posts" | "feeds" | "stream";
 
 export default function Favorites() {
-  const [tab, setTab] = useState<Tab>("posts");
+  const [tab, setTab] = useState<Tab>("stream");
   const nav = useNavigate();
 
   const [posts, setPosts] = useState<Post[] | null>(null);
