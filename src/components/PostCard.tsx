@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { Post, Media } from "../lib/data.ts";
 import Icon from "./Icon.tsx";
-import { shareLink } from "../lib/share.ts";
+import { shareLink, postUrl } from "../lib/share.ts";
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -136,7 +136,7 @@ export default function PostCard({
         <span className="post-meta">@{post.channel} · {relativeTime(post.postedAt)}</span>
         <button
           className="fav-btn"
-          onClick={() => shareLink(post.link, post.channelTitle || `@${post.channel}`)}
+          onClick={() => shareLink(postUrl(post.channel, post.msgId), post.channelTitle || `@${post.channel}`)}
           aria-label="Поделиться постом"
         >
           <Icon name="share" size={17} />

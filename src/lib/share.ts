@@ -21,3 +21,7 @@ export async function shareLink(url: string, title?: string): Promise<void> {
 export function feedUrl(id: number): string {
   return `${location.origin}/#/feed/${id}`;
 }
+// Ссылка на отдельный пост в приложении.
+export function postUrl(channel: string, msgId: number): string {
+  return `${location.origin}/#/post/${channel}/${msgId}`;
+}
