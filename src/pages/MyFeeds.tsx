@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../lib/auth.tsx";
 import { myFeeds, deleteFeed, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import FeedCard from "../components/FeedCard.tsx";
@@ -22,6 +23,7 @@ export default function MyFeeds() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [err, setErr] = useState("");
   const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const { isAdmin } = useAuth();
   const nav = useNavigate();
 
   async function load() {
@@ -65,7 +67,7 @@ export default function MyFeeds() {
               statusBadge={statusBadge(f)}
               actions={
                 <>
-                  {canOwnerEdit(f) ? (
+                  {isAdmin || canOwnerEdit(f) ? (
                     <button className="btn secondary sm" onClick={() => nav(`/my/${f.id}/edit`)}>
                       ✎ Изменить
                     </button>
