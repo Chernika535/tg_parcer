@@ -347,6 +347,15 @@ export async function getMyProfile(): Promise<unknown> {
   const d = (await mtCall("tg-connect", { action: "profile" })) as { profile?: unknown };
   return d.profile ?? null;
 }
+// Обновление профиля (имя/аватар) — через функцию по JWT.
+export async function updateMyProfile(fields: { display_name?: string; photo_url?: string }): Promise<void> {
+  const d = (await invokeFn("myfeeds", { action: "update_profile", input: fields })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+// Загрузка аватарки (в bucket covers), возвращает публичный URL.
+export async function uploadAvatar(file: File): Promise<string> {
+  return uploadCover(file);
+}
 
 // Строка сессии читающего аккаунта — для чтения закрытых каналов в браузере.
 export async function getReadSession(): Promise<string | null> {

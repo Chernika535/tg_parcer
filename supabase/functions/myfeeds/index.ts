@@ -40,6 +40,16 @@ Deno.serve(async (req: Request) => {
       value?: boolean;
     };
 
+    if (b.action === "update_profile") {
+      const p = (b.input ?? {}) as { display_name?: string; photo_url?: string };
+      const patch: Record<string, unknown> = { id: uid };
+      if (p.display_name !== undefined) patch.display_name = p.display_name || null;
+      if (p.photo_url !== undefined) patch.photo_url = p.photo_url || null;
+      const { data, error } = await db.from("profiles").upsert(patch).select("*").maybeSingle();
+      if (error) return json({ error: error.message }, 500);
+      return json({ profile: data });
+    }
+
     if (b.action === "list_mine") {
       const { data, error } = await db.from("feeds").select("*").eq("owner_id", uid).order("created_at", { ascending: false });
       if (error) return json({ error: error.message }, 500);

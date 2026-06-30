@@ -30,6 +30,7 @@ type AuthState = {
   loginWithTelegram: (u: TelegramUser) => Promise<void>;
   signInEmail: (email: string, password: string) => Promise<void>;
   signUpEmail: (email: string, password: string) => Promise<{ needConfirm: boolean }>;
+  updateCredentials: (fields: { email?: string; password?: string }) => Promise<{ emailConfirm: boolean }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -104,6 +105,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { needConfirm: !data.session };
   }
 
+  // Привязка/смена e-mail и/или пароля у текущего аккаунта (в т.ч. для вошедших
+  // через Telegram — так можно добавить второй способ входа).
+  async function updateCredentials(fields: { email?: string; password?: string }): Promise<{ emailConfirm: boolean }> {
+    const payload: { email?: string; password?: string } = {};
+    if (fields.email?.trim()) payload.email = fields.email.trim();
+    if (fields.password) payload.password = fields.password;
+    const { data, error } = await supabase().auth.updateUser(payload);
+    if (error) throw new Error(error.message);
+    // Если меняли e-mail и включено подтверждение — новый e-mail вступит в силу после письма.
+    return { emailConfirm: !!payload.email && !data.user?.email_confirmed_at };
+  }
+
   async function signOut() {
     await supabase().auth.signOut();
   }
@@ -122,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithTelegram,
         signInEmail,
         signUpEmail,
+        updateCredentials,
         signOut,
         refreshProfile,
       }}
