@@ -19,10 +19,21 @@ function statusBadge(f: Feed) {
   return <span className="badge warn">отклонена</span>;
 }
 
+type Vis = "all" | "private" | "public";
+
+function loadPins(): Set<number> {
+  try { return new Set(JSON.parse(localStorage.getItem("tf_mypins") || "[]") as number[]); } catch { return new Set(); }
+}
+function savePins(s: Set<number>) {
+  try { localStorage.setItem("tf_mypins", JSON.stringify([...s])); } catch { /* ignore */ }
+}
+
 export default function MyFeeds() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [err, setErr] = useState("");
   const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [vis, setVis] = useState<Vis>("all");
+  const [pins, setPins] = useState<Set<number>>(() => loadPins());
   const { isAdmin } = useAuth();
   const nav = useNavigate();
 
@@ -44,15 +55,36 @@ export default function MyFeeds() {
     load();
   }
 
+  function togglePin(id: number) {
+    setPins((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      savePins(next);
+      return next;
+    });
+  }
+
   const allTags = useMemo(() => allTagsOf(feeds ?? []), [feeds]);
-  const shown = useMemo(() => applyFilters(feeds ?? [], filters), [feeds, filters]);
+  const shown = useMemo(() => {
+    let list = applyFilters(feeds ?? [], filters);
+    if (vis !== "all") list = list.filter((f) => f.visibility === vis);
+    // Закреплённые — вверх (по локальному списку).
+    return [...list].sort((a, b) => Number(pins.has(b.id)) - Number(pins.has(a.id)));
+  }, [feeds, filters, vis, pins]);
 
   return (
     <>
       <TopBar title="Мои ленты" subtitle="Приватные и общедоступные подборки" />
       <div className="content">
         {feeds && feeds.length > 0 && (
-          <FeedFilter filters={filters} setFilters={setFilters} allTags={allTags} />
+          <>
+            <div className="tabs-row">
+              <button className={`seg ${vis === "all" ? "on" : ""}`} onClick={() => setVis("all")}>Все</button>
+              <button className={`seg ${vis === "private" ? "on" : ""}`} onClick={() => setVis("private")}>Личные</button>
+              <button className={`seg ${vis === "public" ? "on" : ""}`} onClick={() => setVis("public")}>Публичные</button>
+            </div>
+            <FeedFilter filters={filters} setFilters={setFilters} allTags={allTags} />
+          </>
         )}
         {err && <ErrorState message={err} onRetry={load} />}
         {!feeds && !err && <Loading />}
@@ -67,6 +99,9 @@ export default function MyFeeds() {
               statusBadge={statusBadge(f)}
               actions={
                 <>
+                  <button className="btn ghost sm" onClick={() => togglePin(f.id)} title="Закрепить у себя">
+                    {pins.has(f.id) ? "📌 Закреплена" : "📌 Закрепить"}
+                  </button>
                   {isAdmin || canOwnerEdit(f) ? (
                     <button className="btn secondary sm" onClick={() => nav(`/my/${f.id}/edit`)}>
                       ✎ Изменить
