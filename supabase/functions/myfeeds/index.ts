@@ -67,6 +67,17 @@ Deno.serve(async (req: Request) => {
       return json({ feed: data ?? null });
     }
 
+    if (b.action === "list_public_all") {
+      // Все публичные ленты всех статусов — для админа (RLS отдаёт всё только ему).
+      const { data, error } = await db
+        .from("feeds")
+        .select("*, owner:profiles(display_name, username)")
+        .eq("visibility", "public")
+        .order("created_at", { ascending: false });
+      if (error) return json({ error: error.message }, 500);
+      return json({ feeds: data ?? [] });
+    }
+
     if (b.action === "list_pending") {
       const { data, error } = await db
         .from("feeds")

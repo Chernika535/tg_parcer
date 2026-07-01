@@ -235,6 +235,12 @@ export async function pendingFeeds(): Promise<Feed[]> {
   if (d.error) throw new Error(d.error);
   return d.feeds ?? [];
 }
+// Все публичные ленты (все статусы) — для модерации.
+export async function allPublicFeeds(): Promise<Feed[]> {
+  const d = (await invokeFn("myfeeds", { action: "list_public_all" })) as { feeds?: Feed[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.feeds ?? [];
+}
 
 export async function moderateFeed(
   id: number,
