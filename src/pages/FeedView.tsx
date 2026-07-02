@@ -11,6 +11,13 @@ import { linkify } from "../lib/linkify.tsx";
 // (облегчённый, для мгновенного показа между сессиями).
 const feedCache = new Map<number, Post[]>();
 
+// Нормализуем ник канала для сравнения (лента может хранить @Name / ссылку).
+function normCh(c: string): string {
+  return c.trim().toLowerCase()
+    .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
+    .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
+}
+
 // blob:/data: ссылки живут только в текущей вкладке — после перезагрузки мертвы.
 // Поэтому и при сохранении, и при чтении кэша их выкидываем (иначе «битые» фото).
 const isDeadUrl = (u?: string) => !!u && (u.startsWith("blob:") || u.startsWith("data:"));
@@ -124,6 +131,9 @@ export default function FeedView() {
       const f = await getFeedById(feedId);
       if (!f) throw new Error("лента не найдена или недоступна");
       setFeed(f);
+      // Убираем из показа посты каналов, которых больше нет в ленте (после удаления канала).
+      const chan = new Set(f.channels.map(normCh));
+      setPosts((prev) => (prev ? prev.filter((p) => chan.has(normCh(p.channel))) : prev));
       if (!cached || !cached.length) {
         setPosts([]); // прогрессивная загрузка (посты подмешиваются)
         setOpenLoading(true);
