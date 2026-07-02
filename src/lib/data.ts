@@ -410,6 +410,15 @@ export async function readChannelsMTServer(
   }
 }
 
+// Догрузка одного крупного видео/медиа по channel+msgId (через общий аккаунт).
+export async function loadPostMedia(channel: string, msgId: number): Promise<{ url?: string; tooBig?: boolean; error?: string }> {
+  try {
+    return (await mtCall("read-mt", { one: { channel, msgId } }, 60000)) as { url?: string; tooBig?: boolean; error?: string };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 export async function readChannelsMT(
   channels: string[],
   onPost?: (p: Post) => void,

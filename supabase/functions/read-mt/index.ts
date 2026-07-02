@@ -48,7 +48,44 @@ Deno.serve(async (req: Request) => {
     const { data: row } = await db.from("tg_session").select("session").eq("id", "default").maybeSingle();
     if (!row?.session) return json({ posts: [], unavailable: [], noAccount: true });
 
-    const body = (await req.json()) as { channels?: string[] };
+    const body = (await req.json()) as { channels?: string[]; one?: { channel?: string; msgId?: number } };
+
+    // Режим догрузки одного медиа (видео/голосовое) по channel+msgId — для крупных
+    // видео открытых каналов, которых нет в t.me/s превью.
+    if (body.one?.channel && body.one?.msgId) {
+      const ch = norm(body.one.channel);
+      if (!ch) return json({ error: "bad channel" });
+      const tg = await import("npm:telegram@2.26.22");
+      const client = new tg.TelegramClient(new tg.sessions.StringSession(row.session), API_ID, API_HASH, { connectionRetries: 2, useWSS: true });
+      await withTimeout(client.connect(), 9000);
+      const VIDEO_MAX = 25 * 1024 * 1024;
+      try {
+        // deno-lint-ignore no-explicit-any
+        let entity: any;
+        try { entity = await withTimeout(client.getEntity(ch), 8000); }
+        catch {
+          // deno-lint-ignore no-explicit-any
+          const res: any = await withTimeout(client.invoke(new (tg as any).Api.contacts.ResolveUsername({ username: ch })), 8000);
+          entity = res.chats?.[0] ?? res.users?.[0];
+        }
+        // deno-lint-ignore no-explicit-any
+        const msgs: any[] = await withTimeout(client.getMessages(entity, { ids: [body.one.msgId] } as any), 9000);
+        const m = msgs?.[0];
+        const doc = m?.video || m?.gif || m?.videoNote || m?.document || m?.voice || m?.audio;
+        const size = doc ? Number(doc.size ?? 0) : 0;
+        if (!doc) return json({ error: "нет медиа" });
+        if (size > VIDEO_MAX) return json({ tooBig: true });
+        const buf = await withTimeout(client.downloadMedia(m, {}), 40000) as Uint8Array;
+        try { await client.disconnect(); } catch { /* ignore */ }
+        if (!buf?.length) return json({ error: "не удалось скачать" });
+        const mime = doc.mimeType || (m.voice || m.audio ? "audio/ogg" : "video/mp4");
+        return json({ url: `data:${mime};base64,${encodeBase64(buf)}` });
+      } catch (e) {
+        try { await client.disconnect(); } catch { /* ignore */ }
+        return json({ error: (e as Error).message || String(e) });
+      }
+    }
+
     const channels = [...new Set((body.channels ?? []).map(norm).filter(Boolean) as string[])];
     if (channels.length === 0) return json({ posts: [], unavailable: [] });
 

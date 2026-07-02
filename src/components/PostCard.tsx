@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Post, Media } from "../lib/data.ts";
+import { loadPostMedia } from "../lib/data.ts";
 import Icon from "./Icon.tsx";
 import { shareLink, postUrl } from "../lib/share.ts";
 import { linkify } from "../lib/linkify.tsx";
@@ -149,7 +150,7 @@ export default function PostCard({
       )}
 
       {post.media.map((m, i) => (
-        <MediaBlock key={i} m={m} link={post.link} />
+        <MediaBlock key={i} m={m} link={post.link} channel={post.channel} msgId={post.msgId} />
       ))}
 
       <div className="row spread" style={{ marginTop: 8 }}>
@@ -160,17 +161,45 @@ export default function PostCard({
   );
 }
 
-function MediaBlock({ m, link }: { m: Media; link: string }) {
+function LoadableVideo({ thumb, link, channel, msgId, round }: { thumb?: string; link: string; channel: string; msgId: number; round?: boolean }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "toobig" | "error">("idle");
+
+  async function load() {
+    setState("loading");
+    const r = await loadPostMedia(channel, msgId);
+    if (r.url) { setUrl(r.url); setState("idle"); }
+    else if (r.tooBig) setState("toobig");
+    else setState("error");
+  }
+
+  if (url) return <RVideo url={url} thumb={thumb} round={round} />;
+
+  return (
+    <div className="media-img-wrap" style={{ position: "relative", minHeight: 120 }}>
+      {thumb && <RImg src={thumb} />}
+      <div className="play-badge" style={{ flexDirection: "column", gap: 8 }}>
+        {state === "idle" && <button className="btn sm" onClick={load}>⬇ Загрузить видео</button>}
+        {state === "loading" && <span>Загружаю видео…</span>}
+        {state === "toobig" && <a href={link} target="_blank" rel="noreferrer" className="btn sm">Видео большое — открыть в Telegram ↗</a>}
+        {state === "error" && (
+          <>
+            <button className="btn sm" onClick={load}>↻ Повторить</button>
+            <a href={link} target="_blank" rel="noreferrer" style={{ color: "#fff" }}>или открыть в Telegram ↗</a>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MediaBlock({ m, link, channel, msgId }: { m: Media; link: string; channel: string; msgId: number }) {
   if (m.type === "video" || m.type === "roundvideo") {
     if (m.url) {
       return <RVideo url={m.url} thumb={m.thumb} round={m.type === "roundvideo"} />;
     }
-    return (
-      <a href={link} target="_blank" rel="noreferrer" className="media-img-wrap">
-        {m.thumb && <RImg src={m.thumb} />}
-        <span className="play-badge">▶ Видео — открыть</span>
-      </a>
-    );
+    // Крупное видео (нет прямой ссылки в t.me/s) — предлагаем догрузить через MTProto.
+    return <LoadableVideo thumb={m.thumb} link={link} channel={channel} msgId={msgId} round={m.type === "roundvideo"} />;
   }
   if (m.type === "voice") {
     return m.url ? <RAudio url={m.url} /> : null;
