@@ -22,14 +22,14 @@ async function fetchJson(url: string, init: RequestInit, ms: number): Promise<un
   }
 }
 
-export async function invokeFn(name: string, body: Record<string, unknown>): Promise<unknown> {
+export async function invokeFn(name: string, body: Record<string, unknown>, timeoutMs = 20000): Promise<unknown> {
   const cfg = appConfig();
   const base = cfg.supabaseUrl.replace(/\/$/, "");
   const token = getAccessToken();
   const url = `${base}/functions/v1/${name}?apikey=${encodeURIComponent(cfg.supabaseAnonKey)}`;
   const headers: Record<string, string> = { "content-type": "text/plain;charset=UTF-8" };
   if (token) headers["authorization"] = `Bearer ${token}`;
-  return fetchJson(url, { method: "POST", headers, body: JSON.stringify(body) }, 20000);
+  return fetchJson(url, { method: "POST", headers, body: JSON.stringify(body) }, timeoutMs);
 }
 
 // GET-вариант вызова функции. Делаем до 2 попыток — связь с Supabase без VPN
@@ -59,7 +59,7 @@ export async function invokeFnGet(name: string, params: Record<string, string>):
 
 // Вызов MTProto-операции: если задан mtBaseUrl (Deno Deploy) — идём туда,
 // иначе — edge-функция Supabase того же имени (по основному домену).
-async function mtCall(name: "tg-connect" | "read-mt" | "react", body: Record<string, unknown>): Promise<unknown> {
+async function mtCall(name: "tg-connect" | "read-mt" | "react", body: Record<string, unknown>, timeoutMs = 20000): Promise<unknown> {
   const base = appConfig().mtBaseUrl?.replace(/\/$/, "");
   if (base) {
     const { data: s } = await supabase().auth.getSession();
@@ -75,7 +75,7 @@ async function mtCall(name: "tg-connect" | "read-mt" | "react", body: Record<str
     if (!res.ok) throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
     return data;
   }
-  return invokeFn(name, body);
+  return invokeFn(name, body, timeoutMs);
 }
 
 export type Visibility = "private" | "public";
@@ -397,7 +397,8 @@ export async function readChannelsMTServer(
 ): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean; error?: string; note?: string }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
   try {
-    return (await mtCall("read-mt", { channels })) as {
+    // read-mt на edge читает Telegram и качает медиа — даём ему больше времени (30с).
+    return (await mtCall("read-mt", { channels }, 30000)) as {
       posts: Post[];
       unavailable: string[];
       noAccount?: boolean;

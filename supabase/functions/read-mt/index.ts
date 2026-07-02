@@ -9,8 +9,13 @@ import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 
 const API_ID = 2040;
 const API_HASH = "b18441a1ff607e10a989891a5462e627";
-const LIMIT = 20;
-const BYTE_BUDGET = 6 * 1024 * 1024; // суммарный потолок на медиа в ответе
+const LIMIT = 12;
+const BYTE_BUDGET = 4 * 1024 * 1024; // суммарный потолок на медиа в ответе
+const DEADLINE_MS = 18000; // бюджет на ЧТЕНИЕ (после подключения)
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -51,10 +56,14 @@ Deno.serve(async (req: Request) => {
     const TelegramClient = tg.TelegramClient;
     const StringSession = tg.sessions.StringSession;
     const client = new TelegramClient(new StringSession(row.session), API_ID, API_HASH, {
-      connectionRetries: 3,
+      connectionRetries: 2,
       useWSS: true,
     });
-    await client.connect();
+    await withTimeout(client.connect(), 9000);
+
+    // Бюджет времени начинаем считать ПОСЛЕ подключения (импорт+connect не в счёт).
+    const start = Date.now();
+    const timeLeft = () => DEADLINE_MS - (Date.now() - start);
 
     let budget = BYTE_BUDGET;
     const dataUrl = (buf: unknown, mime: string): string | undefined => {
@@ -65,8 +74,9 @@ Deno.serve(async (req: Request) => {
     };
     // deno-lint-ignore no-explicit-any
     const dl = async (target: any, opts?: Record<string, unknown>): Promise<unknown> => {
+      if (timeLeft() < 2500) return undefined; // время вышло — отдаём текст без медиа
       try {
-        return await client.downloadMedia(target, opts ?? {});
+        return await withTimeout(client.downloadMedia(target, opts ?? {}), 6000);
       } catch {
         return undefined;
       }
@@ -119,17 +129,20 @@ Deno.serve(async (req: Request) => {
     const errs: string[] = [];
 
     for (const ch of channels) {
+      if (timeLeft() < 1500) { unavailable.push(ch); continue; } // не успели — отдадим остальное
       try {
         // Резолвим username явно — getEntity на свежей сессии часто не находит пира.
         // deno-lint-ignore no-explicit-any
+        // (getEntity под таймаутом ниже)
+        // deno-lint-ignore no-explicit-any
         let entity: any;
         try {
-          entity = await client.getEntity(ch);
+          entity = await withTimeout(client.getEntity(ch), 7000);
         } catch {
-          const res = await client.invoke(
+          const res = await withTimeout(client.invoke(
             // deno-lint-ignore no-explicit-any
             new (tg as any).Api.contacts.ResolveUsername({ username: ch }),
-          );
+          ), 7000);
           // deno-lint-ignore no-explicit-any
           entity = (res as any).chats?.[0] ?? (res as any).users?.[0];
           if (!entity) throw new Error("username не резолвится");
@@ -138,13 +151,13 @@ Deno.serve(async (req: Request) => {
         const channelTitle: string | undefined = entity.title || entity.username;
         let channelAvatar: string | undefined;
         try {
-          channelAvatar = dataUrl(await client.downloadProfilePhoto(entity), "image/jpeg");
+          if (timeLeft() > 3000) channelAvatar = dataUrl(await withTimeout(client.downloadProfilePhoto(entity), 5000), "image/jpeg");
         } catch {
           /* без аватарки */
         }
 
         // deno-lint-ignore no-explicit-any
-        const msgs: any[] = await client.getMessages(entity, { limit: LIMIT } as any);
+        const msgs: any[] = await withTimeout(client.getMessages(entity, { limit: LIMIT } as any), 9000);
         if (!msgs?.length) {
           unavailable.push(ch);
           errs.push(ch + ": нет сообщений (возможно нужно вступить в канал)");
