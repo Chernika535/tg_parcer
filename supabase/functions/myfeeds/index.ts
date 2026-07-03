@@ -15,6 +15,11 @@ const json = (d: unknown, s = 200) =>
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+
+function isEmail(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -48,6 +53,35 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await db.from("profiles").upsert(patch).select("*").maybeSingle();
       if (error) return json({ error: error.message }, 500);
       return json({ profile: data });
+    }
+
+    // Привязка/смена e-mail и пароля — сразу, под service-role, БЕЗ письма-подтверждения.
+    // Через client-side auth.updateUser почта уходит в «ожидание подтверждения», а
+    // дефолтный SMTP Supabase до ya.ru/gmail часто не доходит — почта не применяется.
+    if (b.action === "set_credentials") {
+      if (!SERVICE_ROLE) return json({ error: "функция не сконфигурирована (service role)" }, 500);
+      const p = (b.input ?? {}) as { email?: string; password?: string };
+      const patch: { email?: string; password?: string; email_confirm?: boolean } = {};
+      if (p.email && p.email.trim()) {
+        const em = p.email.trim().toLowerCase();
+        if (!isEmail(em)) return json({ error: "неверный формат e-mail" }, 400);
+        patch.email = em;
+        patch.email_confirm = true; // применяем сразу, без письма
+      }
+      if (p.password) {
+        if (p.password.length < 6) return json({ error: "пароль не короче 6 символов" }, 400);
+        patch.password = p.password;
+      }
+      if (!patch.email && !patch.password) return json({ error: "укажите e-mail и/или пароль" }, 400);
+      const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+      const { data, error } = await admin.auth.admin.updateUserById(uid, patch);
+      if (error) {
+        const msg = /already been registered|already exists/i.test(error.message)
+          ? "этот e-mail уже занят другим аккаунтом"
+          : error.message;
+        return json({ error: msg }, 400);
+      }
+      return json({ ok: true, email: data.user?.email });
     }
 
     if (b.action === "list_mine") {

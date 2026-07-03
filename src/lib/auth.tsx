@@ -113,13 +113,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Привязка/смена e-mail и/или пароля у текущего аккаунта (в т.ч. для вошедших
   // через Telegram — так можно добавить второй способ входа).
   async function updateCredentials(fields: { email?: string; password?: string }): Promise<{ emailConfirm: boolean }> {
-    const payload: { email?: string; password?: string } = {};
-    if (fields.email?.trim()) payload.email = fields.email.trim();
-    if (fields.password) payload.password = fields.password;
-    const { data, error } = await supabase().auth.updateUser(payload, { emailRedirectTo: location.origin });
-    if (error) throw new Error(error.message);
-    // Если меняли e-mail и включено подтверждение — новый e-mail вступит в силу после письма.
-    return { emailConfirm: !!payload.email && !data.user?.email_confirmed_at };
+    // Применяем через edge-функцию под service-role — сразу, без письма-подтверждения
+    // (client-side updateUser отправляет почту в «ожидание», а SMTP часто не доходит).
+    const res = (await invokeFn("myfeeds", {
+      action: "set_credentials",
+      input: { email: fields.email?.trim() || undefined, password: fields.password || undefined },
+    })) as { ok?: boolean; email?: string; error?: string };
+    if (res.error) throw new Error(res.error);
+    // Обновляем локальную сессию, чтобы показать новый e-mail сразу.
+    try { await supabase().auth.refreshSession(); } catch { /* не критично */ }
+    return { emailConfirm: false };
   }
 
   async function signOut() {

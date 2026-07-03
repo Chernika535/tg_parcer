@@ -14,7 +14,10 @@ export default function Account() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
 
-  const [email, setEmail] = useState(session?.user?.email || "");
+  // Технический telegram.local в поле не показываем — он мешает вписать настоящий.
+  const currentEmail = session?.user?.email || "";
+  const realEmail = currentEmail.endsWith("@telegram.local") ? "" : currentEmail;
+  const [email, setEmail] = useState(realEmail);
   const [password, setPassword] = useState("");
   const [savingCreds, setSavingCreds] = useState(false);
   const [credMsg, setCredMsg] = useState("");
@@ -113,7 +116,7 @@ export default function Account() {
           <h3 style={{ marginTop: 0 }}>E-mail и пароль</h3>
           <p className="muted">
             Привяжите e-mail и пароль — чтобы входить без Telegram (например, без VPN).
-            {session?.user?.email ? ` Текущий e-mail: ${session.user.email}.` : " Сейчас e-mail не привязан."}
+            {realEmail ? ` Текущий e-mail: ${realEmail}.` : " Сейчас e-mail не привязан."}
           </p>
           <div className="field">
             <label>E-mail</label>

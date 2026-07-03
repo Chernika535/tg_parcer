@@ -79,26 +79,44 @@ Deno.serve(async (req: Request) => {
 
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
-    const email = `tg${user.id}@telegram.local`;
+    const fallbackEmail = `tg${user.id}@telegram.local`;
     const displayName =
       [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || `tg${user.id}`;
 
-    // создаём пользователя (если уже есть — игнорируем ошибку)
-    const { data: created, error: createErr } = await admin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: { telegram_id: user.id, username: user.username, display_name: displayName },
-    });
+    // Аккаунт ищем по НЕИЗМЕНЯЕМОМУ telegram_id (в profiles), а НЕ по e-mail:
+    // пользователь может привязать/сменить свой настоящий e-mail, и тогда поиск
+    // по tg<id>@telegram.local создал бы дубликат и «сбросил» бы почту обратно.
+    let userId: string | undefined;
+    let email = fallbackEmail;
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("telegram_id", user.id)
+      .maybeSingle();
+    if (prof?.id) {
+      userId = prof.id as string;
+      // Берём ТЕКУЩИЙ e-mail пользователя (вдруг он привязал свой) — для generateLink.
+      const { data: got } = await admin.auth.admin.getUserById(userId);
+      if (got?.user?.email) email = got.user.email;
+    }
 
-    let userId = created?.user?.id;
-    if (createErr) {
-      // уже существует — найдём его
-      const { data: list } = await admin.auth.admin.listUsers();
-      userId = list?.users.find((u) => u.email === email)?.id;
+    if (!userId) {
+      // Нового пользователя заводим с техническим e-mail tg<id>@telegram.local.
+      const { data: created, error: createErr } = await admin.auth.admin.createUser({
+        email: fallbackEmail,
+        email_confirm: true,
+        user_metadata: { telegram_id: user.id, username: user.username, display_name: displayName },
+      });
+      userId = created?.user?.id;
+      if (createErr || !userId) {
+        // На всякий случай — вдруг такой e-mail уже есть, но профиль не связан.
+        const { data: list } = await admin.auth.admin.listUsers();
+        userId = list?.users.find((u) => u.email === fallbackEmail)?.id;
+      }
     }
     if (!userId) return jsonResponse({ error: "не удалось создать пользователя" }, 500);
 
-    // апсерт профиля (роль не трогаем, чтобы не сбросить админа)
+    // апсерт профиля (роль и e-mail не трогаем, чтобы не сбросить админа/почту)
     await admin.from("profiles").upsert(
       {
         id: userId,
@@ -110,7 +128,7 @@ Deno.serve(async (req: Request) => {
       { onConflict: "id" },
     );
 
-    // token_hash для входа на клиенте (verifyOtp) — присутствует всегда
+    // token_hash для входа на клиенте (verifyOtp) — по текущему e-mail пользователя.
     const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
       type: "magiclink",
       email,
