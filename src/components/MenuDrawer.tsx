@@ -5,7 +5,6 @@ import Icon, { type IconName } from "./Icon.tsx";
 
 const AUTHOR_EMAIL = "neiromantra@ya.ru";
 const ADD_CHANNEL_URL = "https://forms.yandex.ru/u/6a401bffe010db1391853844";
-const ADD_FEED_URL = "https://forms.yandex.ru/u/6a401c3395add55677591691";
 
 export default function MenuDrawer() {
   const [open, setOpen] = useState(false);
@@ -50,7 +49,7 @@ export default function MenuDrawer() {
             <div className="drawer-sep" />
             <nav className="drawer-nav">
               <a className="drawer-item" href={ADD_CHANNEL_URL}><Icon name="plus" size={18} /><span>Добавить канал</span></a>
-              <a className="drawer-item" href={ADD_FEED_URL}><Icon name="plus" size={18} /><span>Добавить подборку</span></a>
+              <Item icon="plus" label="Добавить подборку" onClick={() => go(session ? "/my/new" : "/login")} />
               <Item icon="doc" label="Политика конфиденциальности" onClick={() => go("/privacy")} />
               <Item icon="doc" label="Обработка перс. данных" onClick={() => go("/data-policy")} />
               <a className="drawer-item" href={`mailto:${AUTHOR_EMAIL}`}><Icon name="mail" size={18} /><span>Связаться с автором</span></a>
