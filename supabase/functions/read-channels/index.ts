@@ -58,13 +58,17 @@ function normalize(input: string): string | null {
   return s.length >= 3 && s.length <= 64 ? s : null;
 }
 
+const NAMED: Record<string, string> = {
+  nbsp: " ", mdash: "—", ndash: "–", hellip: "…", laquo: "«", raquo: "»",
+  quot: '"', apos: "'", ldquo: "“", rdquo: "”", lsquo: "‘", rsquo: "’",
+  bull: "•", middot: "·", deg: "°", copy: "©", reg: "®", trade: "™",
+  lt: "<", gt: ">",
+};
 function decodeEntities(s: string): string {
   return s
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => { try { return String.fromCodePoint(parseInt(h, 16)); } catch { return _; } })
+    .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(Number(n)); } catch { return _; } })
+    .replace(/&([a-z]+);/gi, (m, name) => NAMED[name.toLowerCase()] ?? m)
     .replace(/&amp;/g, "&");
 }
 
