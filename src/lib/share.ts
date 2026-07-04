@@ -17,9 +17,15 @@ export async function shareLink(url: string, title?: string): Promise<void> {
   }
 }
 
-// Ссылка на ленту в приложении (HashRouter).
+// Ссылка на ленту. «Чистый» адрес /feed/:id (без #): сервер отдаёт по нему
+// мета-теги ленты для превью в соцсетях/мессенджерах, а человека сразу
+// перекидывает в SPA (#/feed/:id).
 export function feedUrl(id: number): string {
-  return `${location.origin}/#/feed/${id}`;
+  return `${location.origin}/feed/${id}`;
+}
+// Ссылка на страницу канала (сервер отдаёт превью, человека — в SPA).
+export function channelUrl(channel: string): string {
+  return `${location.origin}/channel/${channel}`;
 }
 // Ссылка на отдельный пост в приложении.
 export function postUrl(channel: string, msgId: number): string {
