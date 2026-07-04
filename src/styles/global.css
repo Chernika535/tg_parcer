@@ -25,16 +25,20 @@
 /* Тёмная тема: инвертируем «структуру» (фон/текст/обводки/тени), яркие
    акценты (лайм/розовый/циан) оставляем — они хорошо читаются на тёмном. */
 :root[data-theme="dark"] {
-  --paper: #17171c;
+  --paper: #1b1b20;          /* приглушённый чёрный, не «угольный» */
   --ink: #ece7db;            /* теперь светлый — текст, обводки, тени */
   --text: #ece7db;
-  --muted: #9c988c;
-  --surface: #232329;
-  --surface-2: #2c2c34;
+  --muted: #9a968c;
+  --surface: #26262d;        /* карточки — чуть светлее фона */
+  --surface-2: #303039;
   --border: #ece7db;
-  --dot: rgba(255, 255, 255, 0.05);
-  /* --on-accent остаётся тёмным: текст на лайме/циане */
+  --dot: rgba(255, 255, 255, 0.035);
+  /* --on-accent остаётся тёмным: текст на лайме/циане/розовом и светлых плашках */
 }
+
+/* Нижняя панель — тёмная в обеих темах (в светлой это var(--ink)); в тёмной
+   не даём ей стать светлой, оставляем приподнятую тёмную плашку. */
+:root[data-theme="dark"] .tabbar { background: #2b2b33; border-color: #45454f; box-shadow: 3px 3px 0 #000; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body, #root { height: 100%; }
@@ -189,12 +193,12 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .cloud-tag {
   border: 3px solid var(--ink); border-radius: 50%; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  color: var(--ink); background: var(--lime); box-shadow: var(--shadow-sm);
+  color: var(--on-accent); background: var(--lime); box-shadow: var(--shadow-sm);
   font-family: var(--head); font-weight: 800; line-height: 1.05; padding: 6px; text-align: center;
   transition: transform 0.1s ease;
 }
 .cloud-tag:nth-child(3n) { background: var(--pink); color: #fff; }
-.cloud-tag:nth-child(3n+1) { background: var(--cyan); color: var(--ink); }
+.cloud-tag:nth-child(3n+1) { background: var(--cyan); color: var(--on-accent); }
 .cloud-tag:hover { transform: rotate(-3deg); }
 .cloud-tag:active { transform: scale(0.95); }
 .cloud-tag-name { word-break: break-word; max-width: 92%; }
