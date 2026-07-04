@@ -311,6 +311,13 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .ln { color: var(--pink); font-weight: 700; text-decoration: underline; word-break: break-word; }
 .ava { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: var(--surface-2); border: 2px solid var(--ink); }
 .ava-ph { display: flex; align-items: center; justify-content: center; color: var(--ink); font-family: var(--head); font-weight: 800; font-size: 13px; }
+.ava-link { flex: 0 0 auto; display: inline-flex; line-height: 0; }
+
+/* Список каналов в раскрытии «Подробнее» и карточке канала */
+.chan-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--surface-2); color: var(--ink); text-decoration: none; }
+.chan-row:first-child { border-top: none; }
+.chan-ava { border-radius: 50%; object-fit: cover; border: 2px solid var(--ink); flex: 0 0 auto; background: var(--surface-2); }
+.chan-desc { font-size: 12px; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 .fav-btn { background: none; border: none; cursor: pointer; color: var(--ink); padding: 2px; flex: 0 0 auto; margin-left: auto; }
 .fav-btn.on { color: var(--pink); }

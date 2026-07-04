@@ -5,6 +5,7 @@ import Icon from "./components/Icon.tsx";
 import PublicFeeds from "./pages/PublicFeeds.tsx";
 import Landing from "./pages/Landing.tsx";
 import PostView from "./pages/PostView.tsx";
+import ChannelView from "./pages/ChannelView.tsx";
 import TagStream from "./pages/TagStream.tsx";
 import MyFeeds from "./pages/MyFeeds.tsx";
 import FeedView from "./pages/FeedView.tsx";
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/feeds" element={<PublicFeeds />} />
         <Route path="/feed/:id" element={<FeedView />} />
         <Route path="/post/:channel/:msgId" element={<PostView />} />
+        <Route path="/channel/:channel" element={<ChannelView />} />
         <Route path="/login" element={<Login />} />
         <Route path="/tags" element={<Tags />} />
         <Route path="/tag/:tag" element={<TagStream />} />

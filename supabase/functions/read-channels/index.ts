@@ -109,7 +109,7 @@ function attr(block: string, re: RegExp): string | undefined {
   return m?.[1];
 }
 
-function channelMeta(html: string): { title?: string; avatar?: string } {
+function channelMeta(html: string): { title?: string; avatar?: string; description?: string; subscribers?: string } {
   const head = html.slice(0, html.indexOf('class="tgme_channel_history') + 1 || 4000);
   const title = attr(head, /tgme_channel_info_header_title[^>]*>\s*<[^>]*>([^<]+)/i)
     || attr(head, /tgme_header_title[^>]*>\s*<[^>]*>([^<]+)/i)
@@ -117,7 +117,30 @@ function channelMeta(html: string): { title?: string; avatar?: string } {
   const avatar = attr(head, /tgme_page_photo_image[^>]*>\s*<img[^>]+src="([^"]+)"/i)
     || attr(html, /tgme_widget_message_owner_photo[^>]*>\s*<img[^>]+src="([^"]+)"/i)
     || attr(html, /<img[^>]*class="tgme_widget_message_user_photo[^"]*"[^>]+src="([^"]+)"/i);
-  return { title: title ? decodeEntities(title.trim()) : undefined, avatar };
+  const descRaw = html.match(/tgme_channel_info_description[^>]*>([\s\S]*?)<\/div>/i)?.[1];
+  const subscribers = attr(html, /tgme_channel_info_counter[^>]*>\s*<span class="counter_value"[^>]*>([^<]+)<\/span>\s*<span class="counter_type"[^>]*>subscribers/i);
+  return {
+    title: title ? decodeEntities(title.trim()) : undefined,
+    avatar,
+    description: descRaw ? htmlToText(descRaw) : undefined,
+    subscribers: subscribers ? subscribers.trim() : undefined,
+  };
+}
+
+// Только мета-инфо канала (название, ник, аватар, описание, подписчики) — без постов.
+async function fetchChannelInfo(username: string): Promise<Record<string, unknown> | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    const res = await fetch(`https://t.me/s/${username}`, { headers: { "user-agent": UA }, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+    if (!res.ok) return null;
+    const html = await res.text();
+    if (!html.includes("tgme_")) return null;
+    const m = channelMeta(html);
+    return { username, title: m.title, avatar: prox(m.avatar), description: m.description, subscribers: m.subscribers };
+  } catch {
+    return null;
+  }
 }
 
 function extractMedia(block: string): Media[] {
@@ -236,18 +259,27 @@ Deno.serve(async (req: Request) => {
   try {
     let raw: string[] = [];
     let imgbase = "";
+    let infoOnly = false;
     if (req.method === "GET") {
       const sp = new URL(req.url).searchParams;
       raw = (sp.get("channels") ?? "").split(",");
       imgbase = sp.get("imgbase") ?? "";
+      infoOnly = sp.get("info") === "1";
     } else {
-      const body = (await req.json().catch(() => ({}))) as { channels?: string[]; imgbase?: string };
+      const body = (await req.json().catch(() => ({}))) as { channels?: string[]; imgbase?: string; info?: boolean };
       raw = body.channels ?? [];
       imgbase = body.imgbase ?? "";
+      infoOnly = !!body.info;
     }
     if (imgbase) IMG_BASE = imgbase;
     const channels = [...new Set(raw.map(normalize).filter(Boolean) as string[])];
-    if (channels.length === 0) return jsonResponse({ posts: [], unavailable: [] });
+    if (channels.length === 0) return jsonResponse(infoOnly ? { channels: [] } : { posts: [], unavailable: [] });
+
+    // Режим «только инфо о каналах» (для карточек каналов и раскрытия состава ленты).
+    if (infoOnly) {
+      const infos = await Promise.all(channels.map(fetchChannelInfo));
+      return jsonResponse({ channels: infos.filter(Boolean) });
+    }
 
     const posts: Post[] = [];
     const unavailable: string[] = [];

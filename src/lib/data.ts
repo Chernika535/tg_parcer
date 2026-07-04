@@ -447,3 +447,26 @@ export async function readChannels(
   });
   return data as { posts: Post[]; unavailable: string[] };
 }
+
+export type ChannelInfo = {
+  username: string;
+  title?: string;
+  avatar?: string;
+  description?: string;
+  subscribers?: string;
+};
+
+// Мета-инфо о каналах (без постов): название, ник, аватар, описание из их ТГ.
+export async function channelsInfo(channels: string[]): Promise<ChannelInfo[]> {
+  if (channels.length === 0) return [];
+  try {
+    const data = (await invokeFnGet("read-channels", {
+      channels: channels.join(","),
+      imgbase: appConfig().supabaseUrl,
+      info: "1",
+    })) as { channels?: ChannelInfo[] };
+    return data.channels ?? [];
+  } catch {
+    return [];
+  }
+}

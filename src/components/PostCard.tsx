@@ -1,10 +1,18 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { Post, Media } from "../lib/data.ts";
 import { loadPostMedia } from "../lib/data.ts";
 import Icon from "./Icon.tsx";
 import { shareLink, postUrl } from "../lib/share.ts";
 import { linkify } from "../lib/linkify.tsx";
 import AddChannelButton from "./AddChannelButton.tsx";
+
+// Полные дата и время публикации поста (подпись внизу карточки).
+function fullDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("ru-RU", {
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -98,14 +106,16 @@ export default function PostCard({
   return (
     <article className="card fade-in">
       <div className="post-head">
-        {post.channelAvatar ? (
-          <RImg className="ava" src={post.channelAvatar} />
-        ) : (
-          <div className="ava ava-ph">@</div>
-        )}
-        <a className="post-title" href={`https://t.me/${post.channel}`} target="_blank" rel="noreferrer">
+        <Link to={`/channel/${post.channel}`} className="ava-link" aria-label="Страница канала">
+          {post.channelAvatar ? (
+            <RImg className="ava" src={post.channelAvatar} />
+          ) : (
+            <div className="ava ava-ph">@</div>
+          )}
+        </Link>
+        <Link className="post-title" to={`/channel/${post.channel}`}>
           {post.channelTitle || `@${post.channel}`}
-        </a>
+        </Link>
         <span className="post-meta">@{post.channel} · {relativeTime(post.postedAt)}</span>
         <AddChannelButton channel={post.channel} />
         <button
@@ -154,7 +164,7 @@ export default function PostCard({
       ))}
 
       <div className="row spread" style={{ marginTop: 8 }}>
-        <span />
+        <span className="muted" style={{ fontSize: 12 }}>{fullDateTime(post.postedAt)}</span>
         <a href={post.link} target="_blank" rel="noreferrer" className="muted">Открыть в Telegram ↗</a>
       </div>
     </article>

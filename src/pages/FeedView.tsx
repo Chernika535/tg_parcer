@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, favoriteLinks, addFavorite, removeFavorite, type Feed, type Post } from "../lib/data.ts";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, favoriteLinks, addFavorite, removeFavorite, channelsInfo, type Feed, type Post, type ChannelInfo } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -64,6 +64,26 @@ export default function FeedView() {
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [showChannels, setShowChannels] = useState(false);
+  const [chanInfo, setChanInfo] = useState<ChannelInfo[] | null>(null);
+  const [chanLoading, setChanLoading] = useState(false);
+
+  // Раскрытие состава ленты («Подробнее») — подтягиваем инфо о каналах лениво.
+  async function toggleChannels() {
+    const next = !showChannels;
+    setShowChannels(next);
+    if (next && !chanInfo && feed && feed.channels.length) {
+      setChanLoading(true);
+      const list = await channelsInfo(feed.channels);
+      // Сохраняем порядок как в ленте; для не подтянувшихся — заглушка по нику.
+      const byName = new Map(list.map((c) => [c.username.toLowerCase(), c]));
+      const norm = (c: string) => c.trim().toLowerCase()
+        .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
+        .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
+      setChanInfo(feed.channels.map((c) => byName.get(norm(c)) ?? { username: norm(c) }));
+      setChanLoading(false);
+    }
+  }
 
   const GUEST_MSG = "Чтобы читать каналы, контент которых защищён от копирования, вам необходимо войти в свой аккаунт. Для гостей доступны только каналы с публичными превью.";
 
@@ -118,6 +138,8 @@ export default function FeedView() {
   const load = useCallback(async () => {
     setErr("");
     setMtNote("");
+    setShowChannels(false);
+    setChanInfo(null);
     // Если есть кэш — показываем его сразу и обновляем в фоне (без большого спиннера).
     const cached = feedCache.get(feedId) ?? loadPersisted(feedId);
     if (cached && cached.length) {
@@ -216,6 +238,33 @@ export default function FeedView() {
       <TopBar title={feed?.title || "Лента"} onBack={() => nav(-1)} />
       <div className="content">
         {feed?.description && <div className="card post-text" style={{ padding: 14 }}>{linkify(feed.description)}</div>}
+
+        {feed && feed.channels.length > 0 && (
+          <div className="card" style={{ padding: 14 }}>
+            <button className="btn ghost sm" onClick={toggleChannels} style={{ padding: 0 }}>
+              {showChannels ? "Свернуть ▲" : `Подробнее: каналы (${feed.channels.length}) ▾`}
+            </button>
+            {showChannels && (
+              <div style={{ marginTop: 10 }}>
+                {chanLoading && !chanInfo && <div className="muted">Загружаю список каналов…</div>}
+                {chanInfo?.map((c) => (
+                  <Link key={c.username} to={`/channel/${c.username}`} className="chan-row">
+                    {c.avatar ? (
+                      <img src={c.avatar} alt="" width={40} height={40} className="chan-ava" />
+                    ) : (
+                      <div className="ava ava-ph" style={{ width: 40, height: 40 }}>@</div>
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700 }}>{c.title || `@${c.username}`}</div>
+                      <div className="muted" style={{ fontSize: 12 }}>@{c.username}</div>
+                      {c.description && <div className="muted chan-desc">{c.description}</div>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="row spread">
           <span className="muted">{feed ? `${feed.channels.length} каналов` : ""}</span>
