@@ -388,6 +388,60 @@ export async function updateMyProfile(fields: { display_name?: string; photo_url
 export async function uploadAvatar(file: File): Promise<string> {
   return uploadCover(file);
 }
+// Загрузка медиа для поста (в тот же публичный bucket) — бот шлёт в Telegram по URL.
+export async function uploadMedia(file: File | Blob, ext = "bin"): Promise<string> {
+  const name = file instanceof File ? file.name : `rec.${ext}`;
+  return uploadCover(new File([file], name, { type: (file as File).type || "application/octet-stream" }));
+}
+
+// ---- Кабинет автора: постинг в свои каналы через бота ----
+export type AuthorChannel = { id: number; chat_id: string; username: string | null; title: string | null };
+export type PostMedia = { type: "photo" | "video" | "voice"; url: string };
+export type ScheduledPost = {
+  id: number; chat_id: string; text: string | null; parse_mode: string | null;
+  media: PostMedia[]; disable_preview: boolean; publish_at: string; status: string; error: string | null;
+};
+export type ComposePayload = {
+  chat_id: string; text?: string; parse_mode?: string | null; media?: PostMedia[]; disable_preview?: boolean;
+};
+
+export async function verifyChannel(channel: string): Promise<{ chat_id: string; title?: string; username?: string; description?: string }> {
+  const d = (await invokeFn("bot", { action: "verify", channel })) as { error?: string } & Record<string, unknown>;
+  if (d.error) throw new Error(d.error);
+  return d as { chat_id: string; title?: string; username?: string; description?: string };
+}
+export async function linkChannel(channel: string): Promise<void> {
+  const d = (await invokeFn("bot", { action: "link", channel })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+export async function authorChannels(): Promise<AuthorChannel[]> {
+  const d = (await invokeFn("bot", { action: "list" })) as { channels?: AuthorChannel[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.channels ?? [];
+}
+export async function unlinkChannel(id: number): Promise<void> {
+  await invokeFn("bot", { action: "unlink", id }).catch(() => {});
+}
+export async function sendPostNow(input: ComposePayload): Promise<void> {
+  const d = (await invokeFn("bot", { action: "send", input }, 40000)) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+export async function schedulePost(input: ComposePayload & { publish_at: string }): Promise<void> {
+  const d = (await invokeFn("bot", { action: "schedule", input })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+export async function scheduledPosts(): Promise<ScheduledPost[]> {
+  const d = (await invokeFn("bot", { action: "scheduled_list" })) as { posts?: ScheduledPost[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.posts ?? [];
+}
+export async function cancelScheduled(id: number): Promise<void> {
+  await invokeFn("bot", { action: "scheduled_cancel", id }).catch(() => {});
+}
+export async function updateChannelInfo(input: { chat_id: string; title?: string; description?: string; photo_url?: string }): Promise<void> {
+  const d = (await invokeFn("bot", { action: "channel_update", input }, 40000)) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
 
 // Строка сессии читающего аккаунта — для чтения закрытых каналов в браузере.
 export async function getReadSession(): Promise<string | null> {
