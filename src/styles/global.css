@@ -18,6 +18,22 @@
   --shadow: 6px 7px 0 var(--ink);
   --shadow-sm: 3px 3px 0 var(--ink);
   --head: "Unbounded", system-ui, sans-serif;
+  --on-accent: #111016;      /* тёмный текст поверх ярких акцентов (лайм/циан) */
+  --dot: rgba(0, 0, 0, 0.06); /* фоновые точки */
+}
+
+/* Тёмная тема: инвертируем «структуру» (фон/текст/обводки/тени), яркие
+   акценты (лайм/розовый/циан) оставляем — они хорошо читаются на тёмном. */
+:root[data-theme="dark"] {
+  --paper: #17171c;
+  --ink: #ece7db;            /* теперь светлый — текст, обводки, тени */
+  --text: #ece7db;
+  --muted: #9c988c;
+  --surface: #232329;
+  --surface-2: #2c2c34;
+  --border: #ece7db;
+  --dot: rgba(255, 255, 255, 0.05);
+  /* --on-accent остаётся тёмным: текст на лайме/циане */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -26,7 +42,7 @@ body {
   font-family: "Onest", system-ui, -apple-system, sans-serif;
   color: var(--text);
   background-color: var(--paper);
-  background-image: radial-gradient(rgba(0, 0, 0, 0.06) 1.5px, transparent 1.5px);
+  background-image: radial-gradient(var(--dot) 1.5px, transparent 1.5px);
   background-size: 22px 22px;
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
@@ -96,7 +112,7 @@ a { color: var(--ink); text-decoration: none; font-weight: 700; }
 .btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink); }
 .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
 .btn:disabled { opacity: 0.5; box-shadow: var(--shadow-sm); transform: none; }
-.btn.accent { background: var(--lime); color: var(--ink); }
+.btn.accent { background: var(--lime); color: var(--on-accent); }
 .btn.secondary { background: var(--surface); color: var(--ink); }
 .btn.danger { background: var(--pink); color: #fff; }
 .btn.ghost { background: transparent; color: var(--ink); border-color: transparent; box-shadow: none; padding: 7px 10px; }
@@ -129,7 +145,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 }
 .tabbar a svg { display: block; }
 .tabbar a span { display: block; }
-.tabbar a.active { color: var(--ink); background: var(--lime); }
+.tabbar a.active { color: var(--on-accent); background: var(--lime); }
 
 /* Центральная кнопка-облако */
 .tabbar a.tab-cloud {
@@ -138,7 +154,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
   background: var(--pink); color: #fff; border: 2px solid var(--ink);
   box-shadow: var(--shadow-sm);
 }
-.tabbar a.tab-cloud.active { background: var(--lime); color: var(--ink); }
+.tabbar a.tab-cloud.active { background: var(--lime); color: var(--on-accent); }
 .tabbar a.tab-cloud svg { margin: 0; }
 
 /* Гамбургер */
@@ -202,10 +218,13 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--surface); border: 2.5px solid var(--ink);
   border-radius: var(--pill); padding: 4px 12px; font-size: 12.5px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; flex: 0 0 auto;
 }
+button.chip { cursor: pointer; }
 .chip-btn { cursor: pointer; }
-.chip-active { background: var(--ink); color: #fff; }
-.chip-public { background: var(--lime); color: var(--ink); }
+.chip-active { background: var(--ink); color: var(--paper); }
+.folder-select { width: auto; padding: 5px 10px; font-size: 13px; border-width: 2px; border-radius: var(--r-sm); }
+.chip-public { background: var(--lime); color: var(--on-accent); }
 .chip-private { background: var(--surface); color: var(--muted); }
 
 /* Чекбоксы */
@@ -264,7 +283,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
 .sheet-item:disabled { opacity: .6; }
 .tabs-row { display: flex; gap: 6px; margin-bottom: 12px; }
 .seg { flex: 1; padding: 9px 6px; border: 3px solid var(--ink); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); font-weight: 800; cursor: pointer; font-size: 13px; }
-.seg.on { background: var(--lime); box-shadow: 3px 3px 0 var(--ink); }
+.seg.on { background: var(--lime); color: var(--on-accent); box-shadow: 3px 3px 0 var(--ink); }
 .feed-cover-badges { position: absolute; left: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
 .feed-like { position: absolute; right: 8px; top: 8px; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
 .feed-like.on { background: var(--pink); color: #fff; }
@@ -276,7 +295,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px
   padding: 3px 9px; border-radius: var(--pill); font-size: 11px; font-weight: 800;
   border: 2px solid var(--ink); color: var(--ink);
 }
-.tag-badge.official { background: var(--lime); }
+.tag-badge.official { background: var(--lime); color: var(--on-accent); }
 .tag-badge.admin { background: var(--pink); color: #fff; }
 .feed-card-body { padding: 14px; }
 .feed-card-title { font-family: var(--head); font-weight: 800; font-size: 16px; cursor: pointer; letter-spacing: -0.3px; }

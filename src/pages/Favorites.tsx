@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   listFavorites,
   removeFavorite,
+  setFavoriteFolder,
   favoriteFeeds,
   removeFeedFav,
   favTags,
@@ -22,6 +23,7 @@ export default function Favorites() {
   const nav = useNavigate();
 
   const [posts, setPosts] = useState<Post[] | null>(null);
+  const [folder, setFolder] = useState<string | "ALL" | "NONE">("ALL");
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [stream, setStream] = useState<Post[] | null>(null);
   const [tags, setTags] = useState<string[] | null>(null);
@@ -53,6 +55,18 @@ export default function Favorites() {
     await removeFavorite(post.link);
     setPosts((prev) => (prev ?? []).filter((p) => p.link !== post.link));
   }
+  async function changeFolder(post: Post, value: string) {
+    let folderName: string | null;
+    if (value === "__new__") {
+      const name = prompt("Название папки:")?.trim();
+      if (!name) return;
+      folderName = name;
+    } else {
+      folderName = value === "" ? null : value;
+    }
+    setPosts((prev) => (prev ?? []).map((p) => (p.link === post.link ? { ...p, folder: folderName } : p)));
+    try { await setFavoriteFolder(post.link, folderName); } catch { /* откат не критичен */ }
+  }
   async function unfavFeed(f: Feed) {
     await removeFeedFav(f.id);
     setFeeds((prev) => (prev ?? []).filter((x) => x.id !== f.id));
@@ -76,13 +90,44 @@ export default function Favorites() {
 
         {err && <ErrorState message={err} onRetry={() => { setErr(""); setPosts(null); setFeeds(null); setStream(null); }} />}
 
-        {tab === "posts" && (
-          <>
-            {!posts && !err && <Loading />}
-            {posts && posts.length === 0 && <Empty>Пока пусто. Нажимайте ♥ на постах.</Empty>}
-            {posts?.map((p) => <PostCard key={p.link} post={p} isFav onToggleFav={unfavPost} />)}
-          </>
-        )}
+        {tab === "posts" && (() => {
+          const folders = [...new Set((posts ?? []).map((p) => p.folder).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
+          const shown = (posts ?? []).filter((p) =>
+            folder === "ALL" ? true : folder === "NONE" ? !p.folder : p.folder === folder,
+          );
+          return (
+            <>
+              {!posts && !err && <Loading />}
+              {posts && posts.length === 0 && <Empty>Пока пусто. Нажимайте ♥ на постах.</Empty>}
+              {posts && posts.length > 0 && (
+                <div className="chip-row" style={{ marginBottom: 4 }}>
+                  <button className={`chip ${folder === "ALL" ? "chip-active" : ""}`} onClick={() => setFolder("ALL")}>Все</button>
+                  {folders.map((f) => (
+                    <button key={f} className={`chip ${folder === f ? "chip-active" : ""}`} onClick={() => setFolder(f)}>{f}</button>
+                  ))}
+                  <button className={`chip ${folder === "NONE" ? "chip-active" : ""}`} onClick={() => setFolder("NONE")}>Без папки</button>
+                </div>
+              )}
+              {shown.map((p) => (
+                <div key={p.link}>
+                  <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 4 }}>
+                    <span className="muted" style={{ fontSize: 12 }}>Папка:</span>
+                    <select
+                      className="folder-select"
+                      value={p.folder ?? ""}
+                      onChange={(e) => changeFolder(p, e.target.value)}
+                    >
+                      <option value="">Без папки</option>
+                      {folders.map((f) => <option key={f} value={f}>{f}</option>)}
+                      <option value="__new__">＋ Новая папка…</option>
+                    </select>
+                  </div>
+                  <PostCard post={p} isFav onToggleFav={unfavPost} />
+                </div>
+              ))}
+            </>
+          );
+        })()}
 
         {tab === "feeds" && (
           <>

@@ -233,11 +233,13 @@ function parsePosts(html: string, username: string): Post[] {
   return posts.slice(-20);
 }
 
-async function fetchChannelInner(username: string): Promise<Post[]> {
+async function fetchChannelInner(username: string, before?: number): Promise<Post[]> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-    const res = await fetch(`https://t.me/s/${username}`, { headers: { "user-agent": UA }, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+    // ?before=<msgId> отдаёт окно постов СТАРШЕ указанного — для подгрузки «ещё».
+    const url = before && before > 0 ? `https://t.me/s/${username}?before=${before}` : `https://t.me/s/${username}`;
+    const res = await fetch(url, { headers: { "user-agent": UA }, signal: ctrl.signal }).finally(() => clearTimeout(timer));
     if (!res.ok) return [];
     const html = await res.text();
     if (!html.includes("tgme_")) return [];
@@ -247,9 +249,9 @@ async function fetchChannelInner(username: string): Promise<Post[]> {
   }
 }
 
-function fetchChannel(username: string): Promise<Post[]> {
+function fetchChannel(username: string, before?: number): Promise<Post[]> {
   return Promise.race([
-    fetchChannelInner(username),
+    fetchChannelInner(username, before),
     new Promise<Post[]>((resolve) => setTimeout(() => resolve([]), HARD_MS)),
   ]);
 }
@@ -260,18 +262,44 @@ Deno.serve(async (req: Request) => {
     let raw: string[] = [];
     let imgbase = "";
     let infoOnly = false;
+    let cursors: { channel?: string; before?: number }[] = [];
     if (req.method === "GET") {
       const sp = new URL(req.url).searchParams;
       raw = (sp.get("channels") ?? "").split(",");
       imgbase = sp.get("imgbase") ?? "";
       infoOnly = sp.get("info") === "1";
     } else {
-      const body = (await req.json().catch(() => ({}))) as { channels?: string[]; imgbase?: string; info?: boolean };
+      const body = (await req.json().catch(() => ({}))) as {
+        channels?: string[]; imgbase?: string; info?: boolean;
+        cursors?: { channel?: string; before?: number }[];
+      };
       raw = body.channels ?? [];
       imgbase = body.imgbase ?? "";
       infoOnly = !!body.info;
+      cursors = body.cursors ?? [];
     }
     if (imgbase) IMG_BASE = imgbase;
+
+    // Пагинация «ещё посты»: для каждого канала грузим окно старше указанного msgId.
+    if (cursors.length > 0) {
+      const items = cursors
+        .map((c) => ({ ch: normalize(c.channel ?? ""), before: Number(c.before) || 0 }))
+        .filter((c) => c.ch) as { ch: string; before: number }[];
+      const out: Post[] = [];
+      let j = 0;
+      async function cworker() {
+        while (j < items.length) {
+          const it = items[j++];
+          const p = await fetchChannel(it.ch, it.before);
+          // Оставляем только посты СТАРШЕ курсора (на всякий случай отфильтруем сам курсор).
+          out.push(...p.filter((x) => !it.before || x.msgId < it.before));
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, cworker));
+      out.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
+      return jsonResponse({ posts: out, unavailable: [] });
+    }
+
     const channels = [...new Set(raw.map(normalize).filter(Boolean) as string[])];
     if (channels.length === 0) return jsonResponse(infoOnly ? { channels: [] } : { posts: [], unavailable: [] });
 

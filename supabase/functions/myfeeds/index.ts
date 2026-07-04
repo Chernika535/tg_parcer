@@ -174,16 +174,32 @@ Deno.serve(async (req: Request) => {
     if (b.action === "fav_list") {
       const { data, error } = await db
         .from("favorites")
-        .select("data")
+        .select("data, folder")
         .eq("user_id", uid)
         .order("created_at", { ascending: false });
       if (error) return json({ error: error.message }, 500);
-      return json({ posts: (data ?? []).map((r: { data: unknown }) => r.data) });
+      // Папку домешиваем в объект поста, чтобы клиент показал её без второго запроса.
+      return json({
+        posts: (data ?? []).map((r: { data: Record<string, unknown>; folder: string | null }) => ({
+          ...(r.data as Record<string, unknown>),
+          folder: r.folder ?? null,
+        })),
+      });
     }
     if (b.action === "fav_add") {
-      const post = b.input as { link?: string } | undefined;
+      const post = b.input as { link?: string; folder?: string | null } | undefined;
       if (!post?.link) return json({ error: "нет поста" }, 400);
-      const { error } = await db.from("favorites").upsert({ user_id: uid, link: post.link, data: post });
+      const row: Record<string, unknown> = { user_id: uid, link: post.link, data: post };
+      if (post.folder !== undefined) row.folder = post.folder || null;
+      const { error } = await db.from("favorites").upsert(row);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+    if (b.action === "fav_set_folder") {
+      const { link, folder } = (b.input ?? {}) as { link?: string; folder?: string | null };
+      if (!link) return json({ error: "нет ссылки" }, 400);
+      const { error } = await db.from("favorites")
+        .update({ folder: folder || null }).eq("user_id", uid).eq("link", link);
       if (error) return json({ error: error.message }, 500);
       return json({ ok: true });
     }

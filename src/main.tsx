@@ -4,7 +4,11 @@ import { HashRouter } from "react-router-dom";
 import App from "./App.tsx";
 import { initApp } from "./lib/supabase.ts";
 import { AuthProvider } from "./lib/auth.tsx";
+import { applyTheme, getTheme } from "./lib/theme.ts";
 import "./styles/global.css";
+
+// Тема — до первого рендера, чтобы не мигало светлым.
+applyTheme(getTheme());
 
 // Жёстко вычищаем старые service worker'ы и их кэш. Раньше SW кэшировал JS
 // «навсегда» (CacheFirst), и телефон крутил устаревший код, который ходил на

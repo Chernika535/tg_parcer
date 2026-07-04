@@ -2,14 +2,22 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth.tsx";
 import Icon, { type IconName } from "./Icon.tsx";
+import { getTheme, setTheme, type Theme } from "../lib/theme.ts";
 
 const AUTHOR_EMAIL = "neiromantra@ya.ru";
 const ADD_CHANNEL_URL = "https://forms.yandex.ru/u/6a401bffe010db1391853844";
 
 export default function MenuDrawer() {
   const [open, setOpen] = useState(false);
+  const [theme, setThemeState] = useState<Theme>(getTheme());
   const { session, isAdmin, signOut } = useAuth();
   const nav = useNavigate();
+
+  function toggleTheme() {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    setThemeState(next);
+  }
 
   function go(to: string) {
     setOpen(false);
@@ -54,6 +62,12 @@ export default function MenuDrawer() {
               <Item icon="doc" label="Обработка перс. данных" onClick={() => go("/data-policy")} />
               <a className="drawer-item" href={`mailto:${AUTHOR_EMAIL}`}><Icon name="mail" size={18} /><span>Связаться с автором</span></a>
             </nav>
+
+            <div className="drawer-sep" />
+            <button className="drawer-item" onClick={toggleTheme}>
+              <span aria-hidden style={{ fontSize: 18, width: 18, textAlign: "center" }}>{theme === "dark" ? "☀️" : "🌙"}</span>
+              <span>{theme === "dark" ? "Светлая тема" : "Тёмная тема"}</span>
+            </button>
 
             {session && (
               <>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, favoriteLinks, addFavorite, removeFavorite, channelsInfo, type Feed, type Post, type ChannelInfo } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, readChannelsBefore, favoriteLinks, addFavorite, removeFavorite, channelsInfo, type Feed, type Post, type ChannelInfo } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -64,6 +64,8 @@ export default function FeedView() {
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [noMore, setNoMore] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
   const [chanInfo, setChanInfo] = useState<ChannelInfo[] | null>(null);
   const [chanLoading, setChanLoading] = useState(false);
@@ -135,9 +137,32 @@ export default function FeedView() {
     [readClosed],
   );
 
+  // «Ещё посты»: для каждого канала берём самый старый показанный msgId и грузим
+  // окно старше него. Работает для открытых каналов (t.me/s ?before=).
+  async function loadMore() {
+    if (!posts || posts.length === 0 || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const oldest = new Map<string, number>();
+      for (const p of posts) {
+        const c = normCh(p.channel);
+        const m = oldest.get(c);
+        if (m === undefined || p.msgId < m) oldest.set(c, p.msgId);
+      }
+      const cursors = [...oldest.entries()].map(([channel, before]) => ({ channel, before }));
+      const { posts: more } = await readChannelsBefore(cursors);
+      const fresh = more.filter((m) => !posts.some((p) => p.channel === m.channel && p.msgId === m.msgId));
+      if (fresh.length === 0) setNoMore(true);
+      else fresh.forEach(mergePost);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   const load = useCallback(async () => {
     setErr("");
     setMtNote("");
+    setNoMore(false);
     setShowChannels(false);
     setChanInfo(null);
     // Если есть кэш — показываем его сразу и обновляем в фоне (без большого спиннера).
@@ -320,6 +345,16 @@ export default function FeedView() {
             onToggleFav={session ? toggleFav : undefined}
           />
         ))}
+
+        {posts && posts.length > 0 && !openLoading && !mtLoading && (
+          noMore ? (
+            <div className="muted" style={{ textAlign: "center", padding: "14px 0" }}>Больше постов нет</div>
+          ) : (
+            <button className="btn secondary" style={{ margin: "8px auto", display: "block" }} onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? "Загружаю…" : "Ещё посты"}
+            </button>
+          )
+        )}
       </div>
     </>
   );

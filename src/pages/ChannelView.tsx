@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
-  channelsInfo, readChannels, readChannelsMTServer, readChannelsMT,
+  channelsInfo, readChannels, readChannelsMTServer, readChannelsMT, readChannelsBefore,
   loadPublic, favoriteLinks, addFavorite, removeFavorite,
   type Post, type ChannelInfo, type Feed,
 } from "../lib/data.ts";
@@ -27,7 +27,23 @@ export default function ChannelView() {
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [inFeeds, setInFeeds] = useState<Feed[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [noMore, setNoMore] = useState(false);
   const [fav, setFav] = useState<Set<string>>(new Set());
+
+  async function loadMore() {
+    if (!posts || posts.length === 0 || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const before = Math.min(...posts.map((p) => p.msgId));
+      const { posts: more } = await readChannelsBefore([{ channel: ch, before }]);
+      const fresh = more.filter((m) => !posts.some((p) => p.msgId === m.msgId));
+      if (fresh.length === 0) setNoMore(true);
+      else fresh.forEach(mergePost);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const mergePost = useCallback((p: Post) => {
     setPosts((prev) => {
@@ -118,6 +134,16 @@ export default function ChannelView() {
         {posts?.map((p) => (
           <PostCard key={`${p.channel}/${p.msgId}`} post={p} isFav={fav.has(p.link)} onToggleFav={session ? toggleFav : undefined} />
         ))}
+
+        {posts && posts.length > 0 && !loadingPosts && (
+          noMore ? (
+            <div className="muted" style={{ textAlign: "center", padding: "14px 0" }}>Больше постов нет</div>
+          ) : (
+            <button className="btn secondary" style={{ margin: "8px auto", display: "block" }} onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? "Загружаю…" : "Ещё посты"}
+            </button>
+          )
+        )}
       </div>
     </>
   );

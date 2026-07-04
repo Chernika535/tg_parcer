@@ -125,6 +125,7 @@ export type Post = {
   views?: string;
   channelTitle?: string;
   channelAvatar?: string;
+  folder?: string | null; // папка избранного (только для сохранённых постов)
 };
 
 function db() {
@@ -276,6 +277,12 @@ export async function addFavorite(post: Post): Promise<void> {
 
 export async function removeFavorite(link: string): Promise<void> {
   await invokeFn("myfeeds", { action: "fav_remove", input: { link } }).catch(() => {});
+}
+
+// Переложить избранный пост в папку (folder=null — «Без папки»).
+export async function setFavoriteFolder(link: string, folder: string | null): Promise<void> {
+  const d = (await invokeFn("myfeeds", { action: "fav_set_folder", input: { link, folder } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
 }
 
 // ---- Избранные ЛЕНТЫ ----
@@ -446,6 +453,23 @@ export async function readChannels(
     imgbase: appConfig().supabaseUrl,
   });
   return data as { posts: Post[]; unavailable: string[] };
+}
+
+// Подгрузка более ранних постов («ещё посты»): для каждого канала — окно старше
+// его самого старого уже показанного msgId. Работает для открытых каналов (t.me/s).
+export async function readChannelsBefore(
+  cursors: { channel: string; before: number }[],
+): Promise<{ posts: Post[] }> {
+  if (cursors.length === 0) return { posts: [] };
+  try {
+    const data = (await invokeFn("read-channels", {
+      cursors,
+      imgbase: appConfig().supabaseUrl,
+    }, 25000)) as { posts?: Post[] };
+    return { posts: data.posts ?? [] };
+  } catch {
+    return { posts: [] };
+  }
 }
 
 export type ChannelInfo = {
