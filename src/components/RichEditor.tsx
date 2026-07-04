@@ -38,13 +38,16 @@ function serialize(node: Node): string {
   return out;
 }
 
-export default function RichEditor({ onChange, placeholder }: { onChange: (html: string) => void; placeholder?: string }) {
+export default function RichEditor({ onChange, placeholder, initialHtml }: { onChange: (html: string) => void; placeholder?: string; initialHtml?: string }) {
   const ref = useRef<HTMLDivElement>(null);
 
   function emit() {
     if (ref.current) onChange(serialize(ref.current).replace(/\n{3,}/g, "\n\n").trim());
   }
-  useEffect(() => { emit(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (initialHtml && ref.current) ref.current.innerHTML = initialHtml;
+    emit();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function cmd(command: string, value?: string) {
     ref.current?.focus();

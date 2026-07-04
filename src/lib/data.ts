@@ -444,6 +444,10 @@ export async function scheduledPosts(): Promise<ScheduledPost[]> {
 export async function cancelScheduled(id: number): Promise<void> {
   await invokeFn("bot", { action: "scheduled_cancel", id }).catch(() => {});
 }
+export async function updateScheduled(id: number, input: ComposePayload & { publish_at: string }): Promise<void> {
+  const d = (await invokeFn("bot", { action: "scheduled_update", id, input })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
 export async function updateChannelInfo(input: { chat_id: string; title?: string; description?: string; photo_url?: string }): Promise<void> {
   const d = (await invokeFn("bot", { action: "channel_update", input }, 40000)) as { error?: string };
   if (d.error) throw new Error(d.error);

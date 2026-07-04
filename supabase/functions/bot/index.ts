@@ -3,6 +3,7 @@
 // Привязать канал можно только если бот там админ с правом публикации И сам автор —
 // админ/создатель канала (проверяем через getChatMember). Всё под JWT автора (RLS).
 import { createClient } from "npm:@supabase/supabase-js@2.108.2";
+import { makeSender, type Media } from "../_shared/send.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -26,82 +27,7 @@ async function tg(method: string, body: Record<string, unknown>): Promise<{ ok: 
   return await r.json();
 }
 
-type Media = { type: "photo" | "video" | "voice" | "audio" | "document"; url: string; name?: string; title?: string; performer?: string };
-
-// Отправка поста в канал: альбом из фото/видео, затем аудио/файлы/голосовые
-// отдельными сообщениями. Текст-подпись отдаём первому подходящему медиа, иначе —
-// отдельным сообщением. Возвращает {ok} | {error}.
-async function sendPost(
-  chatId: string,
-  text: string,
-  parseMode: string | null,
-  media: Media[],
-  disablePreview: boolean,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const pm = parseMode || undefined;
-    if (!media.length) {
-      const res = await tg("sendMessage", {
-        chat_id: chatId, text: text || " ", parse_mode: pm,
-        link_preview_options: disablePreview ? { is_disabled: true } : undefined,
-      });
-      return res.ok ? { ok: true } : { ok: false, error: res.description };
-    }
-
-    const visuals = media.filter((m) => m.type === "photo" || m.type === "video");
-    const singles = media.filter((m) => m.type === "voice" || m.type === "audio" || m.type === "document");
-    let captionUsed = false;
-    const cap = () => (!captionUsed && text ? ((captionUsed = true), text) : undefined);
-    let firstErr = "";
-    const fail = (d?: string) => { if (!firstErr && d) firstErr = d; };
-
-    // 1) Фото/видео — альбомом (или одиночно).
-    if (visuals.length === 1) {
-      const m = visuals[0];
-      const method = m.type === "photo" ? "sendPhoto" : "sendVideo";
-      const key = m.type === "photo" ? "photo" : "video";
-      const c = cap();
-      const r = await tg(method, { chat_id: chatId, [key]: m.url, caption: c, parse_mode: c ? pm : undefined });
-      if (!r.ok) fail(r.description);
-    } else if (visuals.length > 1) {
-      const c = cap();
-      const group = visuals.slice(0, 10).map((m, i) => ({
-        type: m.type, media: m.url,
-        caption: i === 0 && c ? c : undefined, parse_mode: i === 0 && c ? pm : undefined,
-      }));
-      const r = await tg("sendMediaGroup", { chat_id: chatId, media: group });
-      if (!r.ok) fail(r.description);
-    }
-
-    // 2) Аудио/файлы/голосовые — по одному. У голосового подпись поддерживается,
-    // поэтому текст+голос уходят одним сообщением.
-    for (const m of singles) {
-      if (m.type === "voice") {
-        const c = cap();
-        const r = await tg("sendVoice", { chat_id: chatId, voice: m.url, caption: c, parse_mode: c ? pm : undefined });
-        if (!r.ok) fail(r.description);
-      } else if (m.type === "audio") {
-        const c = cap();
-        const r = await tg("sendAudio", { chat_id: chatId, audio: m.url, title: m.title, performer: m.performer, caption: c, parse_mode: c ? pm : undefined });
-        if (!r.ok) fail(r.description);
-      } else {
-        const c = cap();
-        const r = await tg("sendDocument", { chat_id: chatId, document: m.url, caption: c, parse_mode: c ? pm : undefined });
-        if (!r.ok) fail(r.description);
-      }
-    }
-
-    // 3) Если текст никуда не влез (например, только голосовое) — отдельным сообщением.
-    if (text && !captionUsed) {
-      const r = await tg("sendMessage", { chat_id: chatId, text, parse_mode: pm });
-      if (!r.ok) fail(r.description);
-    }
-
-    return firstErr ? { ok: false, error: firstErr } : { ok: true };
-  } catch (e) {
-    return { ok: false, error: (e as Error).message };
-  }
-}
+const sendPost = makeSender(BOT_TOKEN, SUPABASE_URL);
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -220,6 +146,25 @@ Deno.serve(async (req: Request) => {
     if (b.action === "scheduled_cancel") {
       if (!b.id) return json({ error: "нет id" }, 400);
       await db.from("scheduled_posts").delete().eq("owner_id", uid).eq("id", b.id);
+      return json({ ok: true });
+    }
+
+    if (b.action === "scheduled_update") {
+      if (!b.id) return json({ error: "нет id" }, 400);
+      const p = (b.input ?? {}) as { chat_id?: string; text?: string; parse_mode?: string | null; media?: unknown[]; disable_preview?: boolean; publish_at?: string };
+      if (p.chat_id && !(await owns(p.chat_id))) return json({ error: "канал не привязан" }, 400);
+      if (p.publish_at && new Date(p.publish_at).getTime() <= Date.now()) return json({ error: "время публикации должно быть в будущем" }, 400);
+      if (!p.text && !(p.media && p.media.length)) return json({ error: "пустой пост" }, 400);
+      // Обновляем только ЗАПЛАНИРОВАННЫЕ (не отправленные) и снова ставим в очередь.
+      const { data, error } = await db.from("scheduled_posts")
+        .update({
+          chat_id: p.chat_id, text: p.text ?? null, parse_mode: p.parse_mode ?? null,
+          media: p.media ?? [], disable_preview: !!p.disable_preview, publish_at: p.publish_at,
+          status: "pending", error: null,
+        })
+        .eq("owner_id", uid).eq("id", b.id).neq("status", "sent").select("id");
+      if (error) return json({ error: error.message }, 500);
+      if (!data || !data.length) return json({ error: "пост не найден или уже отправлен" }, 400);
       return json({ ok: true });
     }
 

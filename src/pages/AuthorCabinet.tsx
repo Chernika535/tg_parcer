@@ -4,9 +4,15 @@ import RichEditor from "../components/RichEditor.tsx";
 import VoiceRecorder from "../components/VoiceRecorder.tsx";
 import {
   authorChannels, linkChannel, unlinkChannel, sendPostNow, schedulePost,
-  scheduledPosts, cancelScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
+  scheduledPosts, cancelScheduled, updateScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
   type AuthorChannel, type PostMedia, type ScheduledPost,
 } from "../lib/data.ts";
+
+// ISO (UTC) → значение для input[type=datetime-local] в местном времени.
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
 
 export default function AuthorCabinet() {
   const [channels, setChannels] = useState<AuthorChannel[] | null>(null);
@@ -24,7 +30,9 @@ export default function AuthorCabinet() {
   const [when, setWhen] = useState("");
   const [sending, setSending] = useState(false);
   const [showRec, setShowRec] = useState(false);
-  const [editorKey, setEditorKey] = useState(0); // remount редактора для очистки
+  const [editorKey, setEditorKey] = useState(0); // remount редактора для очистки/загрузки
+  const [initialHtml, setInitialHtml] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   async function reload() {
     const chs = await authorChannels().catch((e) => { setMsg(e.message); return []; });
@@ -75,7 +83,31 @@ export default function AuthorCabinet() {
   }
 
   function resetComposer() {
-    setHtml(""); setMedia([]); setEditorKey((k) => k + 1);
+    setHtml(""); setMedia([]); setInitialHtml(""); setEditingId(null);
+    setShowRec(false); setEditorKey((k) => k + 1);
+  }
+  // Загрузить запланированный пост в редактор.
+  function startEdit(p: ScheduledPost) {
+    setChatId(p.chat_id);
+    setHtml(p.text || "");
+    setInitialHtml(p.text || "");
+    setMedia(p.media || []);
+    setNoPreview(p.disable_preview);
+    setWhen(toLocalInput(p.publish_at));
+    setEditingId(p.id);
+    setEditorKey((k) => k + 1);
+    setMsg("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  async function doSaveEdit() {
+    if (editingId == null || !when) { setMsg("Укажите дату и время"); return; }
+    setSending(true); setMsg("");
+    try {
+      await updateScheduled(editingId, { ...payload(), publish_at: new Date(when).toISOString() });
+      resetComposer(); setWhen(""); setMsg("Изменения сохранены ✓");
+      setScheduled(await scheduledPosts().catch(() => []));
+    } catch (e) { setMsg("Ошибка: " + (e as Error).message); }
+    finally { setSending(false); }
   }
   function payload() {
     return { chat_id: chatId, text: html.trim() || undefined, parse_mode: "HTML" as const, media, disable_preview: noPreview };
@@ -153,14 +185,17 @@ export default function AuthorCabinet() {
         {/* Композер */}
         {channels && channels.length > 0 && (
           <div className="card">
-            <h3 style={{ marginTop: 0 }}>Новый пост</h3>
+            <div className="row spread">
+              <h3 style={{ marginTop: 0 }}>{editingId ? "Редактирование поста" : "Новый пост"}</h3>
+              {editingId && <button className="btn ghost sm" onClick={resetComposer}>Отменить</button>}
+            </div>
             <div className="field">
               <label>Канал</label>
               <select className="folder-select" style={{ width: "100%" }} value={chatId} onChange={(e) => setChatId(e.target.value)}>
                 {channels.map((c) => <option key={c.id} value={c.chat_id}>{c.title || c.chat_id}</option>)}
               </select>
             </div>
-            <RichEditor key={editorKey} onChange={setHtml} placeholder="Текст поста — выделите текст и нажмите Ж/К/…" />
+            <RichEditor key={editorKey} initialHtml={initialHtml} onChange={setHtml} placeholder="Текст поста — выделите текст и нажмите Ж/К/…" />
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }}>
               <label className="btn secondary sm" style={{ cursor: "pointer" }}>
@@ -207,16 +242,28 @@ export default function AuthorCabinet() {
               Не показывать превью ссылок
             </label>
 
-            <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-              <button className="btn" onClick={doSend} disabled={sending || empty}>{sending ? "…" : "Опубликовать сейчас"}</button>
-            </div>
-            <div className="field" style={{ marginTop: 10 }}>
-              <label>Отложенная публикация</label>
-              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={{ width: "auto", flex: 1 }} />
-                <button className="btn secondary" onClick={doSchedule} disabled={sending || empty || !when}>Запланировать</button>
+            {editingId ? (
+              <div className="field" style={{ marginTop: 10 }}>
+                <label>Дата и время публикации</label>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={{ width: "auto", flex: 1 }} />
+                  <button className="btn" onClick={doSaveEdit} disabled={sending || empty || !when}>{sending ? "…" : "Сохранить"}</button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                  <button className="btn" onClick={doSend} disabled={sending || empty}>{sending ? "…" : "Опубликовать сейчас"}</button>
+                </div>
+                <div className="field" style={{ marginTop: 10 }}>
+                  <label>Отложенная публикация</label>
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                    <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={{ width: "auto", flex: 1 }} />
+                    <button className="btn secondary" onClick={doSchedule} disabled={sending || empty || !when}>Запланировать</button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -237,9 +284,15 @@ export default function AuthorCabinet() {
                       <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 260 }}>
                         {(p.text || "").replace(/<[^>]+>/g, "") || (p.media.length ? "[медиа]" : "—")}
                       </div>
+                      {p.media && p.media.length > 0 && (
+                        <div className="muted" style={{ fontSize: 12 }}>{p.media.map(mediaLabel).join(", ")}</div>
+                      )}
                       {p.error && <div className="muted" style={{ fontSize: 12, color: "var(--pink)" }}>Ошибка: {p.error}</div>}
                     </div>
-                    <button className="btn ghost sm" onClick={async () => { await cancelScheduled(p.id); setScheduled(await scheduledPosts().catch(() => [])); }}>Удалить</button>
+                    <div className="row" style={{ gap: 6, flex: "0 0 auto" }}>
+                      {p.status !== "sent" && <button className="btn ghost sm" onClick={() => startEdit(p)}>Изменить</button>}
+                      <button className="btn ghost sm" onClick={async () => { if (confirm("Удалить пост?")) { await cancelScheduled(p.id); setScheduled(await scheduledPosts().catch(() => [])); } }}>Удалить</button>
+                    </div>
                   </div>
                 </div>
               );
