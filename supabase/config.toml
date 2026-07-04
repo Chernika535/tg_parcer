@@ -24,3 +24,11 @@ verify_jwt = false
 
 [functions.myfeeds]
 verify_jwt = false
+
+# Кабинет автора. Функция сама проверяет JWT автора (как myfeeds), поэтому
+# на шлюзе verify_jwt отключаем. bot-cron дёргает планировщик — без JWT.
+[functions.bot]
+verify_jwt = false
+
+[functions.bot-cron]
+verify_jwt = false
