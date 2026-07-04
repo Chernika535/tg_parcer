@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { TopBar, Loading } from "../components/States.tsx";
+import RichEditor from "../components/RichEditor.tsx";
+import VoiceRecorder from "../components/VoiceRecorder.tsx";
 import {
   authorChannels, linkChannel, unlinkChannel, sendPostNow, schedulePost,
   scheduledPosts, cancelScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
@@ -16,12 +18,13 @@ export default function AuthorCabinet() {
 
   // Композер
   const [chatId, setChatId] = useState("");
-  const [text, setText] = useState("");
+  const [html, setHtml] = useState("");
   const [media, setMedia] = useState<PostMedia[]>([]);
   const [noPreview, setNoPreview] = useState(false);
   const [when, setWhen] = useState("");
   const [sending, setSending] = useState(false);
-  const taRef = useRef<HTMLTextAreaElement>(null);
+  const [showRec, setShowRec] = useState(false);
+  const [editorKey, setEditorKey] = useState(0); // remount редактора для очистки
 
   async function reload() {
     const chs = await authorChannels().catch((e) => { setMsg(e.message); return []; });
@@ -43,68 +46,39 @@ export default function AuthorCabinet() {
     finally { setBusy(false); }
   }
 
-  // Форматирование: оборачиваем выделение в HTML-тег (parse_mode=HTML).
-  function wrap(tag: string, attr = "") {
-    const ta = taRef.current;
-    if (!ta) return;
-    const s = ta.selectionStart, e = ta.selectionEnd;
-    const sel = text.slice(s, e) || "текст";
-    const open = attr ? `<${tag} ${attr}>` : `<${tag}>`;
-    const next = text.slice(0, s) + open + sel + `</${tag}>` + text.slice(e);
-    setText(next);
-    setTimeout(() => { ta.focus(); ta.selectionStart = s + open.length; ta.selectionEnd = s + open.length + sel.length; }, 0);
-  }
-  function addLink() {
-    const url = prompt("Ссылка (https://…):")?.trim();
-    if (!url) return;
-    wrap("a", `href="${url.replace(/"/g, "&quot;")}"`);
-  }
-
-  async function addFile(type: "photo" | "video", file: File) {
+  // Прикрепление файла. Для музыки берём название из имени файла, для документа — имя.
+  async function addFile(type: PostMedia["type"], file: File) {
     setBusy(true); setMsg("");
     try {
       const url = await uploadMedia(file);
-      setMedia((m) => [...m, { type, url }]);
+      const base = file.name.replace(/\.[^.]+$/, "");
+      const extra = type === "audio" ? { title: base } : type === "document" ? { name: file.name } : {};
+      setMedia((m) => [...m, { type, url, ...extra }]);
     } catch (e) { setMsg("Загрузка не удалась: " + (e as Error).message); }
     finally { setBusy(false); }
   }
 
-  // Запись голосового прямо в браузере.
-  const recRef = useRef<MediaRecorder | null>(null);
-  const [recording, setRecording] = useState(false);
-  async function toggleRec() {
-    if (recording) { recRef.current?.stop(); return; }
+  async function onVoice(blob: Blob) {
+    setShowRec(false); setBusy(true); setMsg("");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus") ? "audio/ogg;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
-      const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      const chunks: Blob[] = [];
-      mr.ondataavailable = (ev) => ev.data.size && chunks.push(ev.data);
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        setRecording(false);
-        setBusy(true);
-        try {
-          const blob = new Blob(chunks, { type: mime || "audio/ogg" });
-          const url = await uploadMedia(blob, "ogg");
-          setMedia((m) => [...m, { type: "voice", url }]);
-        } catch (e) { setMsg("Голосовое не загрузилось: " + (e as Error).message); }
-        finally { setBusy(false); }
-      };
-      recRef.current = mr; mr.start(); setRecording(true);
-    } catch (e) { setMsg("Нет доступа к микрофону: " + (e as Error).message); }
+      const url = await uploadMedia(blob, "ogg");
+      setMedia((m) => [...m, { type: "voice", url }]);
+    } catch (e) { setMsg("Голосовое не загрузилось: " + (e as Error).message); }
+    finally { setBusy(false); }
   }
 
+  function resetComposer() {
+    setHtml(""); setMedia([]); setEditorKey((k) => k + 1);
+  }
   function payload() {
-    return { chat_id: chatId, text: text.trim() || undefined, parse_mode: "HTML" as const, media, disable_preview: noPreview };
+    return { chat_id: chatId, text: html.trim() || undefined, parse_mode: "HTML" as const, media, disable_preview: noPreview };
   }
   async function doSend() {
     if (!chatId) return;
     setSending(true); setMsg("");
     try {
       await sendPostNow(payload());
-      setText(""); setMedia([]); setMsg("Опубликовано ✓");
+      resetComposer(); setMsg("Опубликовано ✓");
     } catch (e) { setMsg("Ошибка: " + (e as Error).message); }
     finally { setSending(false); }
   }
@@ -113,13 +87,16 @@ export default function AuthorCabinet() {
     setSending(true); setMsg("");
     try {
       await schedulePost({ ...payload(), publish_at: new Date(when).toISOString() });
-      setText(""); setMedia([]); setWhen(""); setMsg("Запланировано ✓");
+      resetComposer(); setWhen(""); setMsg("Запланировано ✓");
       setScheduled(await scheduledPosts().catch(() => []));
     } catch (e) { setMsg("Ошибка: " + (e as Error).message); }
     finally { setSending(false); }
   }
 
-  const empty = !text.trim() && media.length === 0;
+  const empty = !html.trim() && media.length === 0;
+  const mediaLabel = (m: PostMedia) =>
+    m.type === "photo" ? "🖼 фото" : m.type === "video" ? "🎬 видео" : m.type === "voice" ? "🎤 голос"
+    : m.type === "audio" ? `🎵 ${m.title || "музыка"}` : `📎 ${m.name || "файл"}`;
 
   return (
     <>
@@ -176,15 +153,7 @@ export default function AuthorCabinet() {
                 {channels.map((c) => <option key={c.id} value={c.chat_id}>{c.title || c.chat_id}</option>)}
               </select>
             </div>
-            <div className="row" style={{ gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-              <button className="btn ghost sm" onClick={() => wrap("b")}><b>Ж</b></button>
-              <button className="btn ghost sm" onClick={() => wrap("i")}><i>К</i></button>
-              <button className="btn ghost sm" onClick={() => wrap("u")}><u>П</u></button>
-              <button className="btn ghost sm" onClick={() => wrap("s")}><s>З</s></button>
-              <button className="btn ghost sm" onClick={() => wrap("code")}>{"</>"}</button>
-              <button className="btn ghost sm" onClick={addLink}>🔗 ссылка</button>
-            </div>
-            <textarea ref={taRef} rows={6} placeholder="Текст поста (поддерживается форматирование)" value={text} onChange={(e) => setText(e.target.value)} />
+            <RichEditor key={editorKey} onChange={setHtml} placeholder="Текст поста — выделите текст и нажмите Ж/К/…" />
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }}>
               <label className="btn secondary sm" style={{ cursor: "pointer" }}>
@@ -193,16 +162,22 @@ export default function AuthorCabinet() {
               <label className="btn secondary sm" style={{ cursor: "pointer" }}>
                 🎬 Видео<input type="file" accept="video/*" hidden onChange={(e) => e.target.files?.[0] && addFile("video", e.target.files[0])} />
               </label>
-              <button className={`btn sm ${recording ? "danger" : "secondary"}`} onClick={toggleRec}>
-                {recording ? "⏹ Остановить запись" : "🎤 Записать голосовое"}
-              </button>
+              <label className="btn secondary sm" style={{ cursor: "pointer" }}>
+                🎵 Музыка<input type="file" accept="audio/*" hidden onChange={(e) => e.target.files?.[0] && addFile("audio", e.target.files[0])} />
+              </label>
+              <label className="btn secondary sm" style={{ cursor: "pointer" }}>
+                📎 Файл<input type="file" hidden onChange={(e) => e.target.files?.[0] && addFile("document", e.target.files[0])} />
+              </label>
+              {!showRec && <button className="btn secondary sm" onClick={() => setShowRec(true)}>🎤 Голосовое</button>}
             </div>
+
+            {showRec && <div style={{ marginTop: 8 }}><VoiceRecorder onDone={onVoice} onCancel={() => setShowRec(false)} /></div>}
 
             {media.length > 0 && (
               <div className="tags" style={{ marginTop: 8 }}>
                 {media.map((m, i) => (
                   <span key={i} className="tag">
-                    {m.type === "photo" ? "🖼 фото" : m.type === "video" ? "🎬 видео" : "🎤 голос"}
+                    {mediaLabel(m)}
                     <button className="chip-x" onClick={() => setMedia((arr) => arr.filter((_, j) => j !== i))}>✕</button>
                   </span>
                 ))}

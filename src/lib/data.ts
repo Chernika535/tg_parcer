@@ -396,7 +396,13 @@ export async function uploadMedia(file: File | Blob, ext = "bin"): Promise<strin
 
 // ---- Кабинет автора: постинг в свои каналы через бота ----
 export type AuthorChannel = { id: number; chat_id: string; username: string | null; title: string | null };
-export type PostMedia = { type: "photo" | "video" | "voice"; url: string };
+export type PostMedia = {
+  type: "photo" | "video" | "voice" | "audio" | "document";
+  url: string;
+  name?: string;      // имя файла (для document)
+  title?: string;     // название трека (для audio)
+  performer?: string; // исполнитель (для audio)
+};
 export type ScheduledPost = {
   id: number; chat_id: string; text: string | null; parse_mode: string | null;
   media: PostMedia[]; disable_preview: boolean; publish_at: string; status: string; error: string | null;

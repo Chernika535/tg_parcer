@@ -26,9 +26,11 @@ async function tg(method: string, body: Record<string, unknown>): Promise<{ ok: 
   return await r.json();
 }
 
-type Media = { type: "photo" | "video" | "voice"; url: string };
+type Media = { type: "photo" | "video" | "voice" | "audio" | "document"; url: string; name?: string; title?: string; performer?: string };
 
-// Отправка поста в канал (текст/медиа/альбом). Возвращает {ok} | {error}.
+// Отправка поста в канал: альбом из фото/видео, затем аудио/файлы/голосовые
+// отдельными сообщениями. Текст-подпись отдаём первому подходящему медиа, иначе —
+// отдельным сообщением. Возвращает {ok} | {error}.
 async function sendPost(
   chatId: string,
   text: string,
@@ -45,28 +47,55 @@ async function sendPost(
       });
       return res.ok ? { ok: true } : { ok: false, error: res.description };
     }
-    const voice = media.find((m) => m.type === "voice");
-    if (voice) {
-      // Голосовое — отдельным сообщением (без подписи), текст (если есть) — перед ним.
-      if (text) await tg("sendMessage", { chat_id: chatId, text, parse_mode: pm });
-      const res = await tg("sendVoice", { chat_id: chatId, voice: voice.url });
-      return res.ok ? { ok: true } : { ok: false, error: res.description };
-    }
-    const visual = media.filter((m) => m.type === "photo" || m.type === "video");
-    if (visual.length === 1) {
-      const m = visual[0];
+
+    const visuals = media.filter((m) => m.type === "photo" || m.type === "video");
+    const singles = media.filter((m) => m.type === "voice" || m.type === "audio" || m.type === "document");
+    let captionUsed = false;
+    const cap = () => (!captionUsed && text ? ((captionUsed = true), text) : undefined);
+    let firstErr = "";
+    const fail = (d?: string) => { if (!firstErr && d) firstErr = d; };
+
+    // 1) Фото/видео — альбомом (или одиночно).
+    if (visuals.length === 1) {
+      const m = visuals[0];
       const method = m.type === "photo" ? "sendPhoto" : "sendVideo";
       const key = m.type === "photo" ? "photo" : "video";
-      const res = await tg(method, { chat_id: chatId, [key]: m.url, caption: text || undefined, parse_mode: pm });
-      return res.ok ? { ok: true } : { ok: false, error: res.description };
+      const c = cap();
+      const r = await tg(method, { chat_id: chatId, [key]: m.url, caption: c, parse_mode: c ? pm : undefined });
+      if (!r.ok) fail(r.description);
+    } else if (visuals.length > 1) {
+      const c = cap();
+      const group = visuals.slice(0, 10).map((m, i) => ({
+        type: m.type, media: m.url,
+        caption: i === 0 && c ? c : undefined, parse_mode: i === 0 && c ? pm : undefined,
+      }));
+      const r = await tg("sendMediaGroup", { chat_id: chatId, media: group });
+      if (!r.ok) fail(r.description);
     }
-    // Альбом: подпись — у первого элемента.
-    const group = visual.slice(0, 10).map((m, i) => ({
-      type: m.type, media: m.url,
-      caption: i === 0 && text ? text : undefined, parse_mode: i === 0 && text ? pm : undefined,
-    }));
-    const res = await tg("sendMediaGroup", { chat_id: chatId, media: group });
-    return res.ok ? { ok: true } : { ok: false, error: res.description };
+
+    // 2) Аудио/файлы/голосовые — по одному. Голосовое и видео без подписи.
+    for (const m of singles) {
+      if (m.type === "voice") {
+        const r = await tg("sendVoice", { chat_id: chatId, voice: m.url });
+        if (!r.ok) fail(r.description);
+      } else if (m.type === "audio") {
+        const c = cap();
+        const r = await tg("sendAudio", { chat_id: chatId, audio: m.url, title: m.title, performer: m.performer, caption: c, parse_mode: c ? pm : undefined });
+        if (!r.ok) fail(r.description);
+      } else {
+        const c = cap();
+        const r = await tg("sendDocument", { chat_id: chatId, document: m.url, caption: c, parse_mode: c ? pm : undefined });
+        if (!r.ok) fail(r.description);
+      }
+    }
+
+    // 3) Если текст никуда не влез (например, только голосовое) — отдельным сообщением.
+    if (text && !captionUsed) {
+      const r = await tg("sendMessage", { chat_id: chatId, text, parse_mode: pm });
+      if (!r.ok) fail(r.description);
+    }
+
+    return firstErr ? { ok: false, error: firstErr } : { ok: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
