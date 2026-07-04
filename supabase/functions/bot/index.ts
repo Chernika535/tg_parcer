@@ -73,10 +73,12 @@ async function sendPost(
       if (!r.ok) fail(r.description);
     }
 
-    // 2) Аудио/файлы/голосовые — по одному. Голосовое и видео без подписи.
+    // 2) Аудио/файлы/голосовые — по одному. У голосового подпись поддерживается,
+    // поэтому текст+голос уходят одним сообщением.
     for (const m of singles) {
       if (m.type === "voice") {
-        const r = await tg("sendVoice", { chat_id: chatId, voice: m.url });
+        const c = cap();
+        const r = await tg("sendVoice", { chat_id: chatId, voice: m.url, caption: c, parse_mode: c ? pm : undefined });
         if (!r.ok) fail(r.description);
       } else if (m.type === "audio") {
         const c = cap();

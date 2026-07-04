@@ -66,6 +66,15 @@ export default function RichEditor({ onChange, placeholder }: { onChange: (html:
 
   return (
     <div className="rich">
+      <div
+        ref={ref}
+        className="rich-area"
+        contentEditable
+        data-ph={placeholder || "Текст поста…"}
+        onInput={emit}
+        suppressContentEditableWarning
+      />
+      {/* Панель под полем — на телефоне её не перекрывает меню браузера. */}
       <div className="rich-toolbar">
         <button type="button" className="rich-btn" title="Жирный" onClick={() => cmd("bold")}><b>Ж</b></button>
         <button type="button" className="rich-btn" title="Курсив" onClick={() => cmd("italic")}><i>К</i></button>
@@ -76,14 +85,6 @@ export default function RichEditor({ onChange, placeholder }: { onChange: (html:
         <button type="button" className="rich-btn" title="Ссылка" onClick={addLink}>🔗</button>
         <button type="button" className="rich-btn" title="Убрать формат" onClick={() => cmd("removeFormat")}>✕</button>
       </div>
-      <div
-        ref={ref}
-        className="rich-area"
-        contentEditable
-        data-ph={placeholder || "Текст поста…"}
-        onInput={emit}
-        suppressContentEditableWarning
-      />
     </div>
   );
 }

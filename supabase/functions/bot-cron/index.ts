@@ -43,7 +43,7 @@ async function sendPost(chatId: string, text: string, pm: string | null, media: 
     if (!r.ok) fail(r.description);
   }
   for (const m of singles) {
-    if (m.type === "voice") { const r = await tg("sendVoice", { chat_id: chatId, voice: m.url }); if (!r.ok) fail(r.description); }
+    if (m.type === "voice") { const c = cap(); const r = await tg("sendVoice", { chat_id: chatId, voice: m.url, caption: c, parse_mode: c ? parse : undefined }); if (!r.ok) fail(r.description); }
     else if (m.type === "audio") { const c = cap(); const r = await tg("sendAudio", { chat_id: chatId, audio: m.url, title: m.title, performer: m.performer, caption: c, parse_mode: c ? parse : undefined }); if (!r.ok) fail(r.description); }
     else { const c = cap(); const r = await tg("sendDocument", { chat_id: chatId, document: m.url, caption: c, parse_mode: c ? parse : undefined }); if (!r.ok) fail(r.description); }
   }

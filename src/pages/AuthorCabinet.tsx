@@ -46,14 +46,21 @@ export default function AuthorCabinet() {
     finally { setBusy(false); }
   }
 
-  // Прикрепление файла. Для музыки берём название из имени файла, для документа — имя.
-  async function addFile(type: PostMedia["type"], file: File) {
+  // Прикрепление файлов (можно несколько). Фото/видео — максимум 10 на пост.
+  async function addFiles(type: PostMedia["type"], files: FileList | null) {
+    if (!files || !files.length) return;
     setBusy(true); setMsg("");
+    const isVisual = type === "photo" || type === "video";
+    let room = 10 - media.filter((m) => m.type === "photo" || m.type === "video").length;
     try {
-      const url = await uploadMedia(file);
-      const base = file.name.replace(/\.[^.]+$/, "");
-      const extra = type === "audio" ? { title: base } : type === "document" ? { name: file.name } : {};
-      setMedia((m) => [...m, { type, url, ...extra }]);
+      for (const file of Array.from(files)) {
+        if (isVisual && room <= 0) { setMsg("В одном посте максимум 10 фото/видео"); break; }
+        const url = await uploadMedia(file);
+        const base = file.name.replace(/\.[^.]+$/, "");
+        const extra = type === "audio" ? { title: base } : type === "document" ? { name: file.name } : {};
+        setMedia((m) => [...m, { type, url, ...extra }]);
+        if (isVisual) room--;
+      }
     } catch (e) { setMsg("Загрузка не удалась: " + (e as Error).message); }
     finally { setBusy(false); }
   }
@@ -157,16 +164,16 @@ export default function AuthorCabinet() {
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }}>
               <label className="btn secondary sm" style={{ cursor: "pointer" }}>
-                🖼 Фото<input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && addFile("photo", e.target.files[0])} />
+                🖼 Фото<input type="file" accept="image/*" multiple hidden onChange={(e) => { addFiles("photo", e.target.files); e.target.value = ""; }} />
               </label>
               <label className="btn secondary sm" style={{ cursor: "pointer" }}>
-                🎬 Видео<input type="file" accept="video/*" hidden onChange={(e) => e.target.files?.[0] && addFile("video", e.target.files[0])} />
+                🎬 Видео<input type="file" accept="video/*" multiple hidden onChange={(e) => { addFiles("video", e.target.files); e.target.value = ""; }} />
               </label>
               <label className="btn secondary sm" style={{ cursor: "pointer" }}>
-                🎵 Музыка<input type="file" accept="audio/*" hidden onChange={(e) => e.target.files?.[0] && addFile("audio", e.target.files[0])} />
+                🎵 Музыка<input type="file" accept="audio/*" multiple hidden onChange={(e) => { addFiles("audio", e.target.files); e.target.value = ""; }} />
               </label>
               <label className="btn secondary sm" style={{ cursor: "pointer" }}>
-                📎 Файл<input type="file" hidden onChange={(e) => e.target.files?.[0] && addFile("document", e.target.files[0])} />
+                📎 Файл<input type="file" multiple hidden onChange={(e) => { addFiles("document", e.target.files); e.target.value = ""; }} />
               </label>
               {!showRec && <button className="btn secondary sm" onClick={() => setShowRec(true)}>🎤 Голосовое</button>}
             </div>
@@ -174,13 +181,24 @@ export default function AuthorCabinet() {
             {showRec && <div style={{ marginTop: 8 }}><VoiceRecorder onDone={onVoice} onCancel={() => setShowRec(false)} /></div>}
 
             {media.length > 0 && (
-              <div className="tags" style={{ marginTop: 8 }}>
-                {media.map((m, i) => (
-                  <span key={i} className="tag">
-                    {mediaLabel(m)}
-                    <button className="chip-x" onClick={() => setMedia((arr) => arr.filter((_, j) => j !== i))}>✕</button>
-                  </span>
-                ))}
+              <div className="media-previews">
+                {media.map((m, i) => {
+                  const rm = () => setMedia((arr) => arr.filter((_, j) => j !== i));
+                  if (m.type === "photo" || m.type === "video") {
+                    return (
+                      <div key={i} className="mp-thumb">
+                        {m.type === "photo"
+                          ? <img src={m.url} alt="" />
+                          : <video src={m.url} muted playsInline preload="metadata" />}
+                        {m.type === "video" && <span className="mp-badge">▶</span>}
+                        <button className="mp-x" onClick={rm} aria-label="Убрать">✕</button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <span key={i} className="tag">{mediaLabel(m)}<button className="chip-x" onClick={rm}>✕</button></span>
+                  );
+                })}
               </div>
             )}
 
