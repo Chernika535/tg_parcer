@@ -5,15 +5,24 @@ import RichEditor from "../components/RichEditor.tsx";
 import VoiceRecorder from "../components/VoiceRecorder.tsx";
 import PostPreview from "../components/PostPreview.tsx";
 import { appConfig } from "../lib/supabase.ts";
+import { useAuth } from "../lib/auth.tsx";
 
 // Инструкция «как привязать канал» с ником нашего бота и кнопкой-диплинком,
 // которая сразу открывает Telegram для добавления бота админом в канал.
 function BotLinkHelp() {
   const bot = appConfig().botUsername;
+  const { profile } = useAuth();
   const rights = "post_messages+edit_messages+delete_messages+pin_messages+change_info";
   const addLink = `https://t.me/${bot}?startchannel&admin=${rights}`;
   return (
     <div className="bot-help">
+      {!profile?.telegram_id && (
+        <div className="bot-warn">
+          ⚠️ Вы зарегистрированы по e-mail. Сначала привяжите Telegram-аккаунт, который
+          админ этих каналов — это в разделе <Link to="/account" style={{ textDecoration: "underline" }}>Аккаунт</Link>.
+          Иначе мы не сможем подтвердить, что канал ваш.
+        </div>
+      )}
       <div style={{ fontWeight: 700, marginBottom: 4 }}>Как привязать канал</div>
       <ol className="bot-steps">
         <li>Нажмите «Добавить бота в канал» — Telegram предложит выбрать ваш канал и добавит бота <b>@{bot}</b> админом с нужными правами.</li>

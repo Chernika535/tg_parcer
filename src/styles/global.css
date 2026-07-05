@@ -373,6 +373,8 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 /* Инструкция по привязке канала */
 .bot-help { background: var(--surface-2); border: 2px solid var(--ink); border-radius: var(--r-sm); padding: 12px 14px; }
 .bot-steps { margin: 4px 0 10px; padding-left: 18px; display: grid; gap: 5px; font-size: 13.5px; line-height: 1.4; }
+.bot-warn { background: var(--pink); color: #fff; border: 2px solid var(--ink); border-radius: var(--r-sm); padding: 10px 12px; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+.bot-warn a { color: #fff; }
 .sort-sel { border: 2px solid var(--ink); border-radius: 999px; padding: 4px 10px; background: var(--paper); font-weight: 700; font-size: 12.5px; }
 /* Мини-шит «добавить канал в ленту» */
 .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; z-index: 60; }
