@@ -6,6 +6,7 @@ import Icon from "./Icon.tsx";
 import { shareLink, postUrl } from "../lib/share.ts";
 import { linkify } from "../lib/linkify.tsx";
 import AddChannelButton from "./AddChannelButton.tsx";
+import Lightbox from "./Lightbox.tsx";
 
 // Компактная дата-время публикации: «05.07.26 в 12:23».
 function shortDateTime(iso: string): string {
@@ -105,6 +106,7 @@ export default function PostCard({
   likeCount?: number; // показываем только если передан (автору канала)
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const long = post.text.length > LIMIT;
   const shown = expanded || !long ? post.text : post.text.slice(0, LIMIT) + "…";
   const photos = post.media.filter((m) => m.type === "photo" || m.type === "sticker");
@@ -145,12 +147,13 @@ export default function PostCard({
       {photos.length > 0 && (
         <div className={`media-grid n${Math.min(photos.length, 4)}`}>
           {photos.map((m, i) => (
-            <a key={i} href={post.link} target="_blank" rel="noreferrer" className="media-img-wrap">
+            <button key={i} type="button" className="media-img-wrap" onClick={() => setLightbox((m as { url: string }).url)} aria-label="Открыть фото">
               <RImg src={(m as { url: string }).url} />
-            </a>
+            </button>
           ))}
         </div>
       )}
+      {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
 
       {post.media.map((m, i) => (
         <MediaBlock key={i} m={m} link={post.link} channel={post.channel} msgId={post.msgId} />
