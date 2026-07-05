@@ -14,7 +14,11 @@ import "./styles/global.css";
   const PRIMARY = "polistay.online";
   const h = location.hostname;
   const local = h === "localhost" || h.startsWith("127.") || h.startsWith("192.168.") || h.endsWith(".local");
-  if (h && h !== PRIMARY && !local) {
+  // Страницу восстановления НЕ редиректим: кэш лент лежит в localStorage того
+  // домена, где ленту открывали (localStorage у каждого домена свой). Так можно
+  // зайти на старый домен и достать из него данные.
+  const recover = location.hash.includes("recover") || location.search.includes("nored");
+  if (h && h !== PRIMARY && !local && !recover) {
     location.replace("https://" + PRIMARY + location.pathname + location.search + location.hash);
   }
 })();
