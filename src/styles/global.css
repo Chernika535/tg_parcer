@@ -123,7 +123,7 @@ a { color: var(--ink); text-decoration: none; font-weight: 700; }
 .btn.ghost:hover { transform: none; box-shadow: none; text-decoration: underline; }
 .btn.sm { padding: 7px 14px; font-size: 13px; border-width: 2.5px; }
 
-input[type="text"], input[type="number"], input[type="time"], input[type="password"], select, textarea {
+input[type="text"], input[type="number"], input[type="time"], input[type="datetime-local"], input[type="email"], input[type="password"], select, textarea {
   width: 100%; background: var(--surface); border: 3px solid var(--ink);
   border-radius: var(--r-sm); padding: 11px 14px; font-size: 15px; color: var(--text);
   font-family: "Onest", sans-serif; font-weight: 600; outline: none;
@@ -352,6 +352,27 @@ button.chip { cursor: pointer; }
 .chan-item { border: 2px solid var(--ink); border-left: 7px solid var(--lime); border-radius: var(--r-sm); padding: 12px 14px; background: var(--surface-2); box-shadow: var(--shadow-sm); }
 .chan-item-title { font-family: var(--head); font-weight: 800; font-size: 16px; }
 .chan-item-link { font-size: 12px; color: var(--muted); text-decoration: underline; display: inline-block; margin-top: 2px; }
+
+/* Кастомный чекбокс в стиле сервиса */
+input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; width: 24px; height: 24px; flex: 0 0 auto;
+  border: 3px solid var(--ink); border-radius: 7px; background: var(--surface); cursor: pointer;
+  position: relative; box-shadow: var(--shadow-sm); transition: background 0.1s;
+}
+input[type="checkbox"]:checked { background: var(--lime); }
+input[type="checkbox"]:checked::after {
+  content: ""; position: absolute; left: 7px; top: 2px; width: 6px; height: 12px;
+  border: solid var(--on-accent); border-width: 0 3px 3px 0; transform: rotate(45deg);
+}
+.check-row { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; font-weight: 600; }
+/* Дата/время публикации */
+input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
+:root[data-theme="dark"] input[type="datetime-local"] { color-scheme: dark; }
+.schedule-row { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+.schedule-row input[type="datetime-local"] { flex: 1 1 180px; }
+/* Инструкция по привязке канала */
+.bot-help { background: var(--surface-2); border: 2px solid var(--ink); border-radius: var(--r-sm); padding: 12px 14px; }
+.bot-steps { margin: 4px 0 10px; padding-left: 18px; display: grid; gap: 5px; font-size: 13.5px; line-height: 1.4; }
 .sort-sel { border: 2px solid var(--ink); border-radius: 999px; padding: 4px 10px; background: var(--paper); font-weight: 700; font-size: 12.5px; }
 /* Мини-шит «добавить канал в ленту» */
 .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; z-index: 60; }

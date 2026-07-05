@@ -4,6 +4,29 @@ import { TopBar, Loading } from "../components/States.tsx";
 import RichEditor from "../components/RichEditor.tsx";
 import VoiceRecorder from "../components/VoiceRecorder.tsx";
 import PostPreview from "../components/PostPreview.tsx";
+import { appConfig } from "../lib/supabase.ts";
+
+// Инструкция «как привязать канал» с ником нашего бота и кнопкой-диплинком,
+// которая сразу открывает Telegram для добавления бота админом в канал.
+function BotLinkHelp() {
+  const bot = appConfig().botUsername;
+  const rights = "post_messages+edit_messages+delete_messages+pin_messages+change_info";
+  const addLink = `https://t.me/${bot}?startchannel&admin=${rights}`;
+  return (
+    <div className="bot-help">
+      <div style={{ fontWeight: 700, marginBottom: 4 }}>Как привязать канал</div>
+      <ol className="bot-steps">
+        <li>Нажмите «Добавить бота в канал» — Telegram предложит выбрать ваш канал и добавит бота <b>@{bot}</b> админом с нужными правами.</li>
+        <li>Если добавляете вручную: канал → «Администраторы» → добавьте <b>@{bot}</b> с правом «Публикация сообщений».</li>
+        <li>Вернитесь сюда и введите @username канала.</li>
+      </ol>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <a className="btn sm" href={addLink} target="_blank" rel="noreferrer">Добавить бота в канал ↗</a>
+        <button className="btn ghost sm" onClick={() => { navigator.clipboard?.writeText("@" + bot); }}>Скопировать @{bot}</button>
+      </div>
+    </div>
+  );
+}
 import {
   authorChannels, linkChannel, unlinkChannel, sendPostNow, schedulePost,
   scheduledPosts, cancelScheduled, updateScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
@@ -154,15 +177,14 @@ export default function AuthorCabinet() {
         {/* Онбординг — только пока нет ни одного канала */}
         {channels && channels.length === 0 && (
           <>
-            <div className="card" style={{ fontSize: 14 }}>
-              <h3 style={{ marginTop: 0 }}>Публикуйте в свои каналы без VPN</h3>
-              Добавьте бота <b>@tgparsertgfeed_bot</b> администратором канала (с правом
-              «Публикация сообщений»), затем привяжите канал. Публиковать можно только в
-              каналы, где вы сами админ.
-            </div>
             <div className="card">
-              <h3 style={{ marginTop: 0 }}>Привязать канал</h3>
-              <div className="field">
+              <h3 style={{ marginTop: 0 }}>Публикуйте в свои каналы без VPN</h3>
+              <p className="muted" style={{ fontSize: 14, marginBottom: 12 }}>
+                Публиковать можно только в каналы, где вы сами админ.
+              </p>
+              <BotLinkHelp />
+              <div className="field" style={{ marginTop: 12 }}>
+                <label>@username канала</label>
                 <input type="text" placeholder="@username канала" value={linkInput} onChange={(e) => setLinkInput(e.target.value)} />
               </div>
               <button className="btn" onClick={doLink} disabled={busy}>{busy ? "Проверяю…" : "Проверить и привязать"}</button>
@@ -225,16 +247,16 @@ export default function AuthorCabinet() {
               </div>
             )}
 
-            <label className="row" style={{ gap: 8, marginTop: 8, fontSize: 14 }}>
-              <input type="checkbox" style={{ width: "auto" }} checked={noPreview} onChange={(e) => setNoPreview(e.target.checked)} />
+            <label className="check-row" style={{ marginTop: 12 }}>
+              <input type="checkbox" checked={noPreview} onChange={(e) => setNoPreview(e.target.checked)} />
               Не показывать превью ссылок
             </label>
 
             {editingId ? (
               <div className="field" style={{ marginTop: 10 }}>
                 <label>Дата и время публикации</label>
-                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={{ width: "auto", flex: 1 }} />
+                <div className="schedule-row">
+                  <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
                   <button className="btn" onClick={doSaveEdit} disabled={sending || empty || !when}>{sending ? "…" : "Сохранить"}</button>
                 </div>
               </div>
@@ -245,8 +267,8 @@ export default function AuthorCabinet() {
                 </div>
                 <div className="field" style={{ marginTop: 10 }}>
                   <label>Отложенная публикация</label>
-                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                    <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={{ width: "auto", flex: 1 }} />
+                  <div className="schedule-row">
+                    <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
                     <button className="btn secondary" onClick={doSchedule} disabled={sending || empty || !when}>Запланировать</button>
                   </div>
                 </div>
@@ -318,7 +340,8 @@ export default function AuthorCabinet() {
             </div>
             <details className="fold" style={{ marginTop: 12, border: "none", background: "none" }}>
               <summary style={{ padding: "6px 0" }}>+ Привязать ещё канал</summary>
-              <div className="field" style={{ marginTop: 6 }}>
+              <BotLinkHelp />
+              <div className="field" style={{ marginTop: 8 }}>
                 <input type="text" placeholder="@username канала" value={linkInput} onChange={(e) => setLinkInput(e.target.value)} />
               </div>
               <button className="btn sm" onClick={doLink} disabled={busy}>{busy ? "Проверяю…" : "Проверить и привязать"}</button>
