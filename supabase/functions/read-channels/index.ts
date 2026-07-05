@@ -98,14 +98,18 @@ function htmlToText(html: string): string {
 }
 
 // Убираем «хвост» из реакций Telegram (эмодзи+число), если он попал в текст.
-const REACT_LINE = /^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]+\s*\d+[\s,]*)+$/u;
+// ВАЖНО: один класс символов с одним квантором — без вложенных «+» (иначе ReDoS
+// на длинных эмодзи-строках вешал функцию).
+const REACT_ONLY = /^[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}\d\s,]+$/u;
+function isReactionLine(line: string): boolean {
+  const t = line.trim();
+  if (t === "") return true;
+  if (!/\d/.test(t)) return false;    // реакция всегда со счётчиком
+  return REACT_ONLY.test(t);          // только эмодзи+цифры+пробелы
+}
 function stripReactions(text: string): string {
   const lines = text.split("\n");
-  while (lines.length) {
-    const last = lines[lines.length - 1].trim();
-    if (last === "" || REACT_LINE.test(last)) lines.pop();
-    else break;
-  }
+  while (lines.length && isReactionLine(lines[lines.length - 1])) lines.pop();
   return lines.join("\n").trimEnd();
 }
 
