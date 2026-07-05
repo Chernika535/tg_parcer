@@ -157,12 +157,20 @@ export async function getFeedById(id: number): Promise<Feed | null> {
     const d = (await invokeFnGet("feeds", { action: "get", id: String(id) })) as { feed?: Feed | null; error?: string };
     if (!d.error && d.feed) return d.feed;
   } catch {
-    /* пробуем как свою ниже */
+    /* пробуем ниже */
   }
-  // Приватная/своя/любая (для админа) лента — через функцию по JWT (RLS решает доступ).
+  // Своя/любая (для админа) приватная лента — через функцию по JWT.
+  if (getAccessToken()) {
+    try {
+      const d = (await invokeFn("myfeeds", { action: "get_any", id })) as { feed?: Feed | null };
+      if (d.feed) return d.feed;
+    } catch { /* пробуем ниже */ }
+  }
+  // Надёжный запасной путь: берём из общего списка публичных лент (та же функция,
+  // что работает на главной/в списке лент) — на случай сбоя точечного get.
   try {
-    const d = (await invokeFn("myfeeds", { action: "get_any", id })) as { feed?: Feed | null };
-    return d.feed ?? null;
+    const { feeds } = await loadPublic();
+    return feeds.find((f) => f.id === id) ?? null;
   } catch {
     return null;
   }

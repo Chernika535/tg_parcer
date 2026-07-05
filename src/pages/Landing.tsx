@@ -49,9 +49,9 @@ export default function Landing() {
       </section>
 
       {/* Свежие ленты — горизонтальная карусель, закреплённые первыми */}
-      {examples.length > 0 && (
-        <section>
-          <h2 className="sec-title" style={{ marginBottom: 8 }}>Свежие ленты</h2>
+      <section>
+        <h2 className="sec-title" style={{ marginBottom: 8 }}>Свежие ленты</h2>
+        {examples.length > 0 ? (
           <div className="hscroll">
             {examples.map((f) => (
               <button key={f.id} className="hcard" onClick={() => nav(`/feed/${f.id}`)}>
@@ -61,9 +61,11 @@ export default function Landing() {
               </button>
             ))}
           </div>
-          <button className="btn ghost sm" style={{ marginTop: 4 }} onClick={() => nav("/feeds")}>Все ленты →</button>
-        </section>
-      )}
+        ) : (
+          <p className="muted">Загружаю ленты…</p>
+        )}
+        <button className="btn" style={{ marginTop: 10 }} onClick={() => nav("/feeds")}>Все ленты →</button>
+      </section>
 
       {/* Популярные теги */}
       {topTags.length > 0 && (

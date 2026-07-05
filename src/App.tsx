@@ -71,7 +71,7 @@ function TabBar() {
     <nav className="tabbar">
       <NavLink to="/feeds"><Icon name="feed" size={16} /><span>Ленты</span></NavLink>
       <NavLink to="/favorites" className="tab-cloud" aria-label="Избранное">
-        <Icon name="heart" size={18} />
+        <Icon name="star" size={18} />
       </NavLink>
       <NavLink to="/my"><Icon name="folder" size={16} /><span>Мои</span></NavLink>
     </nav>

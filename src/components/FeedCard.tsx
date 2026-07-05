@@ -29,7 +29,7 @@ export default function FeedCard({
             onClick={(e) => { e.stopPropagation(); onToggleLike(); }}
             aria-label="В избранные ленты"
           >
-            <Icon name="heart" size={18} />
+            <Icon name="star" size={18} />
           </button>
         )}
         <div className="feed-cover-badges">

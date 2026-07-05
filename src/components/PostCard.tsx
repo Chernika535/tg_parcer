@@ -156,8 +156,13 @@ export default function PostCard({
         <MediaBlock key={i} m={m} link={post.link} channel={post.channel} msgId={post.msgId} />
       ))}
 
-      {/* Действия с ПОСТОМ — внизу, чтобы не мотать к началу длинного поста. */}
+      {/* Действия с ПОСТОМ — внизу, чтобы не мотать к началу длинного поста.
+          Слева дата и ссылка, справа кнопки. */}
       <div className="post-foot">
+        <div className="post-foot-meta">
+          <span>{shortDateTime(post.postedAt)}</span>
+          <a href={post.link} target="_blank" rel="noreferrer">в Telegram ↗</a>
+        </div>
         <div className="post-actions">
           <button
             className="fav-btn"
@@ -180,10 +185,6 @@ export default function PostCard({
           {onPin && (
             <button className="fav-btn" onClick={() => onPin(post)} aria-label="Закрепить в канале" title="Закрепить в канале">📌</button>
           )}
-        </div>
-        <div className="post-foot-meta">
-          <span>{shortDateTime(post.postedAt)}</span>
-          <a href={post.link} target="_blank" rel="noreferrer">в Telegram ↗</a>
         </div>
       </div>
     </article>

@@ -45,7 +45,7 @@ export default function MenuDrawer() {
               <Item icon="feed" label="Все ленты" onClick={() => go("/feeds")} />
               <Item icon="folder" label="Мои ленты" onClick={() => go("/my")} />
               <Item icon="cloud" label="Теги" onClick={() => go("/tags")} />
-              {session && <Item icon="heart" label="Избранное" onClick={() => go("/favorites")} />}
+              {session && <Item icon="star" label="Избранное" onClick={() => go("/favorites")} />}
               {session && <Item icon="plus" label="Кабинет автора" onClick={() => go("/author")} />}
               {isAdmin && <Item icon="shield" label="Модерация" onClick={() => go("/admin")} />}
               <Item
