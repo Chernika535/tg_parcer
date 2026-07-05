@@ -126,6 +126,7 @@ export default function Admin() {
 }
 
 const PERIODS: { label: string; days: number }[] = [
+  { label: "24 часа", days: 1 },
   { label: "7 дней", days: 7 },
   { label: "30 дней", days: 30 },
   { label: "90 дней", days: 90 },
@@ -142,59 +143,112 @@ function Stat({ label, value, sub }: { label: string; value: number | string; su
   );
 }
 
+const PAGE = 10;
+
 function RankList({ title, rows, kind }: {
   title: string;
   rows: { target: string; views: number; uniques: number; title?: string }[];
   kind: "feed" | "channel" | "post";
 }) {
   const nav = useNavigate();
+  const [filter, setFilter] = useState("");
+  const [limit, setLimit] = useState(PAGE);
   const go = (t: string) => {
     if (kind === "feed") nav(`/feed/${t}`);
     else if (kind === "channel") nav(`/channel/${t}`);
     else window.open(t, "_blank");
   };
+  const name = (r: { target: string; title?: string }) =>
+    kind === "feed" ? (r.title || `#${r.target}`) : kind === "channel" ? `@${r.target}` : r.target;
+
+  // Позиция в рейтинге сохраняется даже при поиске (нумеруем ДО фильтра).
+  const numbered = rows.map((r, i) => ({ ...r, pos: i + 1 }));
+  const q = filter.trim().toLowerCase();
+  const filtered = q ? numbered.filter((r) => name(r).toLowerCase().includes(q)) : numbered;
+  const visible = q ? filtered : filtered.slice(0, limit);
+
   return (
     <div className="card" style={{ marginTop: 12 }}>
-      <div style={{ fontWeight: 800, marginBottom: 8 }}>{title}</div>
+      <div className="row spread" style={{ marginBottom: 8 }}>
+        <span style={{ fontWeight: 800 }}>{title}</span>
+        <span className="muted" style={{ fontSize: 12 }}>всего {rows.length}</span>
+      </div>
+      {rows.length > PAGE && (
+        <input className="rank-filter" type="text" placeholder="Поиск в списке…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+      )}
       {rows.length === 0 && <div className="muted" style={{ fontSize: 13 }}>Пока нет данных.</div>}
-      {rows.map((r, i) => (
+      {visible.map((r) => (
         <button key={r.target} className="rank-row" onClick={() => go(r.target)}>
-          <span className="rank-pos">{i + 1}</span>
-          <span className="rank-name">
-            {kind === "feed" ? (r.title || `#${r.target}`) : kind === "channel" ? `@${r.target}` : r.target}
-          </span>
+          <span className="rank-pos">{r.pos}</span>
+          <span className="rank-name">{name(r)}</span>
           <span className="rank-val">{r.views} <span className="muted">/ {r.uniques} чел.</span></span>
         </button>
       ))}
+      {!q && filtered.length > limit && (
+        <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setLimit((l) => l + 25)}>
+          Показать ещё ({filtered.length - limit})
+        </button>
+      )}
+      {!q && limit > PAGE && filtered.length <= limit && (
+        <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => setLimit(PAGE)}>Свернуть</button>
+      )}
     </div>
   );
 }
 
 function AnalyticsPanel() {
   const [days, setDays] = useState(30);
+  const [custom, setCustom] = useState(false);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [applied, setApplied] = useState<{ from: string; to: string } | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const load = useMemo(() => () => {
     setLoading(true); setErr("");
-    adminAnalytics(days)
+    const opts = applied
+      ? { from: applied.from ? new Date(applied.from + "T00:00:00").toISOString() : undefined,
+          to: applied.to ? new Date(applied.to + "T23:59:59").toISOString() : undefined }
+      : { days };
+    adminAnalytics(opts)
       .then(setStats)
       .catch((e) => setErr((e as Error).message))
       .finally(() => setLoading(false));
-  }, [days]);
+  }, [days, applied]);
 
-  const periodWord = days > 0 ? `за ${days} дн.` : "за всё время";
+  useEffect(() => { load(); }, [load]);
+
+  const pickPreset = (d: number) => { setCustom(false); setApplied(null); setDays(d); };
+  const apply = () => { if (from || to) setApplied({ from, to }); };
+
+  const periodWord = applied
+    ? `${applied.from || "начало"} — ${applied.to || "сейчас"}`
+    : days > 0 ? `за ${days === 1 ? "24 часа" : days + " дн."}` : "за всё время";
 
   return (
     <>
-      <div className="tabs-row" style={{ marginBottom: 12 }}>
+      <div className="tabs-row" style={{ marginBottom: 10 }}>
         {PERIODS.map((p) => (
-          <button key={p.days} className={`seg ${days === p.days ? "on" : ""}`} onClick={() => setDays(p.days)}>{p.label}</button>
+          <button key={p.days} className={`seg ${!applied && !custom && days === p.days ? "on" : ""}`} onClick={() => pickPreset(p.days)}>{p.label}</button>
         ))}
+        <button className={`seg ${custom || applied ? "on" : ""}`} onClick={() => setCustom((v) => !v)}>Свой период</button>
       </div>
 
-      {err && <ErrorState message={err} onRetry={() => setDays((d) => d)} />}
+      {custom && (
+        <div className="card row" style={{ gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label style={{ flex: "1 1 130px" }}>С
+            <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+          </label>
+          <label style={{ flex: "1 1 130px" }}>По
+            <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+          </label>
+          <button className="btn sm" onClick={apply} disabled={!from && !to}>Применить</button>
+        </div>
+      )}
+
+      {err && <ErrorState message={err} onRetry={load} />}
       {loading && !stats && <Loading />}
 
       {stats && (

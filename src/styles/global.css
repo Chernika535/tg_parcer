@@ -582,3 +582,4 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .rank-pos { font-family: var(--head); font-weight: 900; font-size: 15px; color: var(--muted); min-width: 20px; }
 .rank-name { flex: 1 1 auto; font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rank-val { flex: 0 0 auto; font-weight: 800; font-size: 13px; }
+.rank-filter { width: 100%; margin-bottom: 6px; padding: 7px 10px; font-size: 13px; border: 2px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); }

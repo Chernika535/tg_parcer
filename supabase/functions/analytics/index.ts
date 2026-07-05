@@ -22,10 +22,11 @@ function svcClient() {
   return createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 }
 
-// Считаем строки таблицы с фильтром created_at >= since (или всё время).
-async function countSince(svc: ReturnType<typeof svcClient>, table: string, col: string, sinceISO: string | null) {
+// Считаем строки таблицы в диапазоне [fromISO, toISO] (любая граница необязательна).
+async function countRange(svc: ReturnType<typeof svcClient>, table: string, col: string, fromISO: string | null, toISO: string | null) {
   let q = svc.from(table).select("*", { count: "exact", head: true });
-  if (sinceISO) q = q.gte(col, sinceISO);
+  if (fromISO) q = q.gte(col, fromISO);
+  if (toISO) q = q.lte(col, toISO);
   const { count } = await q;
   return count ?? 0;
 }
@@ -34,7 +35,8 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const b = (await req.json()) as {
-      action?: string; kind?: string; target?: string; session?: string; days?: number;
+      action?: string; kind?: string; target?: string; session?: string;
+      days?: number; from?: string; to?: string;
     };
 
     // ---- Запись события (публично, но только валидные виды) ----
@@ -75,12 +77,19 @@ Deno.serve(async (req: Request) => {
       if (!SERVICE_ROLE) return json({ error: "функция не сконфигурирована (service role)" }, 500);
       const svc = svcClient();
 
+      // Период: либо кастомный диапазон from/to, либо последние `days` суток
+      // (days = 0 → всё время). from/to имеют приоритет.
       const days = Number(b.days ?? 30);
-      const sinceISO = days > 0 ? new Date(Date.now() - days * 86400_000).toISOString() : null;
+      const parseISO = (v?: string) => { if (!v) return null; const d = new Date(v); return isNaN(d.getTime()) ? null : d.toISOString(); };
+      const customFrom = parseISO(b.from);
+      const customTo = parseISO(b.to);
+      const fromISO = customFrom ?? (days > 0 ? new Date(Date.now() - days * 86400_000).toISOString() : null);
+      const toISO = customTo;
 
       // События просмотров за период (виды + цель + сессия).
-      let ev = svc.from("analytics_events").select("kind, target, session").limit(100000);
-      if (sinceISO) ev = ev.gte("ts", sinceISO);
+      let ev = svc.from("analytics_events").select("kind, target, session").limit(200000);
+      if (fromISO) ev = ev.gte("ts", fromISO);
+      if (toISO) ev = ev.lte("ts", toISO);
       const { data: events } = await ev;
 
       type Agg = { views: number; sessions: Set<string> };
@@ -102,11 +111,12 @@ Deno.serve(async (req: Request) => {
           m.set(e.target, a);
         }
       }
+      // Отдаём весь рейтинг (до 500 строк) — админу важны и середина, и низ.
       const rank = (m: Map<string, Agg>) =>
         [...m.entries()]
           .map(([target, a]) => ({ target, views: a.views, uniques: a.sessions.size }))
           .sort((x, y) => y.views - x.views || y.uniques - x.uniques)
-          .slice(0, 10);
+          .slice(0, 500);
 
       // Обогащаем топ лент названиями, топ каналов — как есть (ник).
       const feedTop = rank(top.feed);
@@ -119,21 +129,22 @@ Deno.serve(async (req: Request) => {
       const feedTopNamed = feedTop.map((f) => ({ ...f, title: titles[f.target] ?? `#${f.target}` }));
 
       // Новые регистрации / авторы / каналы / посты / избранное / лайки за период.
-      const newUsers = await countSince(svc, "profiles", "created_at", sinceISO);
-      const newChannels = await countSince(svc, "author_channels", "created_at", sinceISO);
-      const postsPublished = await countSince(svc, "posted_messages", "sent_at", sinceISO);
-      const newFavorites = await countSince(svc, "favorites", "created_at", sinceISO);
-      const newLikes = await countSince(svc, "post_likes", "created_at", sinceISO);
+      const newUsers = await countRange(svc, "profiles", "created_at", fromISO, toISO);
+      const newChannels = await countRange(svc, "author_channels", "created_at", fromISO, toISO);
+      const postsPublished = await countRange(svc, "posted_messages", "sent_at", fromISO, toISO);
+      const newFavorites = await countRange(svc, "favorites", "created_at", fromISO, toISO);
+      const newLikes = await countRange(svc, "post_likes", "created_at", fromISO, toISO);
 
       // Новые авторы = уникальные владельцы, привязавшие канал за период.
       let acQ = svc.from("author_channels").select("owner_id").limit(100000);
-      if (sinceISO) acQ = acQ.gte("created_at", sinceISO);
+      if (fromISO) acQ = acQ.gte("created_at", fromISO);
+      if (toISO) acQ = acQ.lte("created_at", toISO);
       const { data: ac } = await acQ;
       const newAuthors = new Set((ac ?? []).map((r: { owner_id: string }) => r.owner_id)).size;
 
       // Всего в базе (без периода) — для контекста.
-      const totalUsers = await countSince(svc, "profiles", "created_at", null);
-      const totalChannels = await countSince(svc, "author_channels", "created_at", null);
+      const totalUsers = await countRange(svc, "profiles", "created_at", null, null);
+      const totalChannels = await countRange(svc, "author_channels", "created_at", null, null);
 
       return json({
         stats: {

@@ -692,8 +692,8 @@ export type AdminStats = {
   topFeeds: RankRow[]; topChannels: RankRow[]; topPosts: RankRow[];
 };
 
-export async function adminAnalytics(days: number): Promise<AdminStats> {
-  const d = (await invokeFn("analytics", { action: "stats", days })) as { stats?: AdminStats; error?: string };
+export async function adminAnalytics(opts: { days?: number; from?: string; to?: string }): Promise<AdminStats> {
+  const d = (await invokeFn("analytics", { action: "stats", ...opts })) as { stats?: AdminStats; error?: string };
   if (!d.stats) throw new Error(d.error || "нет данных");
   return d.stats;
 }
