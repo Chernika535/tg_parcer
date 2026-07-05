@@ -109,6 +109,7 @@ export type Media =
   | { type: "video"; url?: string; thumb?: string }
   | { type: "roundvideo"; url?: string; thumb?: string }
   | { type: "voice"; url?: string }
+  | { type: "audio"; url?: string; title?: string; performer?: string }
   | { type: "sticker"; url: string }
   | { type: "document"; title: string; extra?: string }
   | { type: "link"; href?: string; site?: string; title?: string; description?: string; image?: string }

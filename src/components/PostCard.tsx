@@ -223,6 +223,35 @@ function LoadableVideo({ thumb, link, channel, msgId, round }: { thumb?: string;
   );
 }
 
+// Аудио/голосовое без прямой ссылки (t.me/s не отдаёт файл) — догружаем по кнопке
+// через MTProto (loadPostMedia) и проигрываем.
+function LoadableAudio({ kind, label, link, channel, msgId }: { kind: "voice" | "audio"; label?: string; link: string; channel: string; msgId: number }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "toobig" | "error">("idle");
+  async function load() {
+    setState("loading");
+    const r = await loadPostMedia(channel, msgId);
+    if (r.url) { setUrl(r.url); setState("idle"); }
+    else if (r.tooBig) setState("toobig");
+    else setState("error");
+  }
+  if (url) return <RAudio url={url} />;
+  const idleLabel = kind === "voice" ? "▶ Прослушать голосовое" : `▶ ${label || "Прослушать аудио"}`;
+  return (
+    <div className="media-doc" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      {state === "idle" && <button className="btn secondary sm" onClick={load}>{idleLabel}</button>}
+      {state === "loading" && <span className="muted">Загружаю аудио…</span>}
+      {state === "toobig" && <a href={link} target="_blank" rel="noreferrer">Файл большой — открыть в Telegram ↗</a>}
+      {state === "error" && (
+        <>
+          <button className="btn ghost sm" onClick={load}>↻ Повторить</button>
+          <a href={link} target="_blank" rel="noreferrer" className="muted">или в Telegram ↗</a>
+        </>
+      )}
+    </div>
+  );
+}
+
 function MediaBlock({ m, link, channel, msgId }: { m: Media; link: string; channel: string; msgId: number }) {
   if (m.type === "video" || m.type === "roundvideo") {
     if (m.url) {
@@ -232,7 +261,11 @@ function MediaBlock({ m, link, channel, msgId }: { m: Media; link: string; chann
     return <LoadableVideo thumb={m.thumb} link={link} channel={channel} msgId={msgId} round={m.type === "roundvideo"} />;
   }
   if (m.type === "voice") {
-    return m.url ? <RAudio url={m.url} /> : null;
+    return m.url ? <RAudio url={m.url} /> : <LoadableAudio kind="voice" link={link} channel={channel} msgId={msgId} />;
+  }
+  if (m.type === "audio") {
+    const label = [m.performer, m.title].filter(Boolean).join(" — ") || "Аудио";
+    return m.url ? <RAudio url={m.url} /> : <LoadableAudio kind="audio" label={label} link={link} channel={channel} msgId={msgId} />;
   }
   if (m.type === "document") {
     return (

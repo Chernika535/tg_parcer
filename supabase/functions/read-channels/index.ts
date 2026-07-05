@@ -17,6 +17,7 @@ type Media =
   | { type: "video"; url?: string; thumb?: string }
   | { type: "roundvideo"; url?: string; thumb?: string }
   | { type: "voice"; url?: string }
+  | { type: "audio"; url?: string; title?: string; performer?: string }
   | { type: "sticker"; url: string }
   | { type: "document"; title: string; extra?: string }
   | { type: "link"; href?: string; site?: string; title?: string; description?: string; image?: string };
@@ -185,13 +186,23 @@ function extractMedia(block: string): Media[] {
   const voice = block.match(/<audio[^>]*tgme_widget_message_voice[^>]*src="([^"]+)"/i)?.[1]
     || block.match(/tgme_widget_message_voice[^>]*>[\s\S]*?<audio[^>]+src="([^"]+)"/i)?.[1];
   if (voice) media.push({ type: "voice", url: prox(voice) });
+  // Музыка/аудиофайлы: отдельный виджет tgme_widget_message_audio (с исполнителем/
+  // названием). Прямой ссылки на t.me/s обычно нет — догрузим по кнопке (MTProto).
+  const isAudioWidget = /tgme_widget_message_audio\b/i.test(block) && !voice;
+  const docTitle = attr(block, /tgme_widget_message_document_title[^>]*>([^<]+)/i);
+  const docIsAudio = !!docTitle && (/\.(mp3|m4a|ogg|opus|wav|flac|aac|weba)\b/i.test(docTitle) || /^audio\b/i.test(docTitle.trim()));
+  if (isAudioWidget || docIsAudio) {
+    const title = attr(block, /tgme_widget_message_audio_title[^>]*>([^<]+)/i) || docTitle;
+    const performer = attr(block, /tgme_widget_message_audio_performer[^>]*>([^<]+)/i);
+    const aurl = block.match(/tgme_widget_message_audio[\s\S]*?<audio[^>]+src="([^"]+)"/i)?.[1];
+    media.push({ type: "audio", url: prox(aurl), title: title ? decodeEntities(title.trim()) : undefined, performer: performer ? decodeEntities(performer.trim()) : undefined });
+  }
   // Стикеры
   const sticker = block.match(/tgme_widget_message_sticker[^>]*data-webp="([^"]+)"/i)?.[1]
     || block.match(/tgme_widget_message_tgsticker[\s\S]*?<img[^>]+src="([^"]+)"/i)?.[1];
   if (sticker) media.push({ type: "sticker", url: prox(sticker)! });
-  // Документы
-  const docTitle = attr(block, /tgme_widget_message_document_title[^>]*>([^<]+)/i);
-  if (docTitle) {
+  // Документы (кроме аудио, которое уже обработали выше)
+  if (docTitle && !docIsAudio) {
     const extra = attr(block, /tgme_widget_message_document_extra[^>]*>([^<]+)/i);
     media.push({ type: "document", title: decodeEntities(docTitle.trim()), extra: extra ? decodeEntities(extra.trim()) : undefined });
   }

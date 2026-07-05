@@ -51,6 +51,8 @@ type Media =
   | { type: "photo"; url: string }
   | { type: "video"; thumb?: string }
   | { type: "roundvideo"; thumb?: string }
+  | { type: "voice"; url?: string }
+  | { type: "audio"; url?: string; title?: string; performer?: string }
   | { type: "document"; title: string; extra?: string }
   | { type: "link"; href?: string; site?: string; title?: string; description?: string; image?: string };
 
@@ -196,7 +198,19 @@ Deno.serve(async (req: Request) => {
           out.push({ type: "roundvideo", thumb: dataUrl(await dl(m, { thumb: -1 }), "image/jpeg") });
         } else if (m.video || m.gif) {
           out.push({ type: "video", thumb: dataUrl(await dl(m, { thumb: -1 }), "image/jpeg") });
-        } else if (m.document && !m.voice && !m.audio && !m.sticker) {
+        } else if (m.voice) {
+          // Голосовое — без данных, догрузим по кнопке (MTProto one-mode).
+          out.push({ type: "voice" });
+        } else if (m.audio) {
+          const a = m.audio;
+          let title: string | undefined, performer: string | undefined;
+          for (const at of a.attributes ?? []) {
+            if (at.title) title = at.title;
+            if (at.performer) performer = at.performer;
+            if (at.fileName && !title) title = at.fileName;
+          }
+          out.push({ type: "audio", title, performer });
+        } else if (m.document && !m.sticker) {
           const doc = m.document;
           let name = "файл";
           for (const a of doc.attributes ?? []) if (a.fileName) name = a.fileName;
