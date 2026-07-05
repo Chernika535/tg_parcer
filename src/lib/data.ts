@@ -650,3 +650,50 @@ export async function channelsInfo(channels: string[]): Promise<ChannelInfo[]> {
     return [];
   }
 }
+
+// ---- Аналитика (обезличенные события; сводка — только админ) ----
+
+// Устойчивый анонимный id браузера — чтобы считать УНИКАЛЬНЫХ посетителей,
+// не привязываясь к личности.
+function analyticsSid(): string {
+  try {
+    let s = localStorage.getItem("tf_sid");
+    if (!s) { s = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("tf_sid", s); }
+    return s;
+  } catch { return "anon"; }
+}
+
+// Записать просмотр. Дедуплицируем по «вид:цель:день», чтобы один браузер
+// считался раз в сутки на цель (меньше запросов, чище цифры). Fire-and-forget.
+export function track(kind: "site" | "feed" | "channel" | "post", target?: string): void {
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    const key = `${kind}:${target ?? ""}:${day}`;
+    const raw = localStorage.getItem("tf_trk");
+    const seen: Record<string, number> = raw ? JSON.parse(raw) : {};
+    if (seen[key]) return;
+    seen[key] = 1;
+    const keys = Object.keys(seen);
+    localStorage.setItem("tf_trk", keys.length > 3000 ? "{}" : JSON.stringify(seen));
+  } catch { /* приватный режим — просто отправим без дедупа */ }
+  invokeFn("analytics", { action: "track", kind, target, session: analyticsSid() }, 5000).catch(() => {});
+}
+
+export type RankRow = { target: string; views: number; uniques: number; title?: string };
+export type AdminStats = {
+  days: number;
+  visitors: { views: number; uniques: number };
+  feedViews: { views: number; uniques: number };
+  channelViews: { views: number; uniques: number };
+  postViews: { views: number; uniques: number };
+  newUsers: number; newAuthors: number; newChannels: number;
+  postsPublished: number; newFavorites: number; newLikes: number;
+  totalUsers: number; totalChannels: number;
+  topFeeds: RankRow[]; topChannels: RankRow[]; topPosts: RankRow[];
+};
+
+export async function adminAnalytics(days: number): Promise<AdminStats> {
+  const d = (await invokeFn("analytics", { action: "stats", days })) as { stats?: AdminStats; error?: string };
+  if (!d.stats) throw new Error(d.error || "нет данных");
+  return d.stats;
+}

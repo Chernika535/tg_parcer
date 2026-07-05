@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   channelsInfo, readChannels, readChannelsMTServer, readChannelsMT, readChannelsBefore,
   loadPublic, favoriteLinks, addFavorite, removeFavorite,
-  pinnedPost, pinPost, unpinPost, authorChannels, channelStats,
+  pinnedPost, pinPost, unpinPost, authorChannels, channelStats, track,
   type Post, type ChannelInfo, type Feed,
 } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
@@ -61,6 +61,8 @@ export default function ChannelView() {
       return [...arr];
     });
   }, []);
+
+  useEffect(() => { if (ch) track("channel", ch); }, [ch]);
 
   useEffect(() => {
     channelsInfo([ch]).then((list) => setInfo(list[0] ?? { username: ch }));

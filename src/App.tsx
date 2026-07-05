@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { Routes, Route, NavLink, Navigate } from "react-router-dom";
 import { useAuth } from "./lib/auth.tsx";
+import { track } from "./lib/data.ts";
 import { Loading } from "./components/States.tsx";
 import Icon from "./components/Icon.tsx";
 import PublicFeeds from "./pages/PublicFeeds.tsx";
@@ -25,6 +27,7 @@ import type { ReactElement } from "react";
 
 export default function App() {
   const { loading } = useAuth();
+  useEffect(() => { track("site"); }, []);
   if (loading) return <div className="app"><Loading /></div>;
 
   return (

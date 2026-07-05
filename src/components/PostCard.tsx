@@ -1,7 +1,7 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Post, Media } from "../lib/data.ts";
-import { loadPostMedia } from "../lib/data.ts";
+import { loadPostMedia, track } from "../lib/data.ts";
 import Icon from "./Icon.tsx";
 import { shareLink, postUrl } from "../lib/share.ts";
 import AddChannelButton from "./AddChannelButton.tsx";
@@ -122,12 +122,24 @@ export default function PostCard({
   likeCount?: number; // показываем только если передан (автору канала)
 }) {
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const rootRef = useRef<HTMLElement>(null);
   const photos = post.media.filter((m) => m.type === "photo" || m.type === "sticker");
+
+  // Считаем просмотр поста, только когда он реально попал в область видимости.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((ents) => {
+      if (ents.some((e) => e.isIntersecting)) { track("post", post.link); io.disconnect(); }
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [post.link]);
   // Нечего показать (опрос, гео, контакт и т.п.) — текста нет и медиа не извлеклось.
   const nothing = !post.text && post.media.filter((m) => m.type !== "unsupported").length === 0;
 
   return (
-    <article className="card fade-in">
+    <article className="card fade-in" ref={rootRef}>
       <div className="post-head">
         <Link to={`/channel/${post.channel}`} className="ava-link" aria-label="Страница канала">
           {post.channelAvatar ? (

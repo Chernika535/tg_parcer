@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.bot-cron]
 verify_jwt = false
+
+[functions.analytics]
+verify_jwt = false
