@@ -19,10 +19,17 @@ export default function Landing() {
   const { session } = useAuth();
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [pins, setPins] = useState<Pin[]>([]);
+  const [feedsErr, setFeedsErr] = useState("");
+  const [loadingFeeds, setLoadingFeeds] = useState(true);
 
-  useEffect(() => {
-    loadPublic().then((d) => { setFeeds(d.feeds); setPins(d.pins); }).catch(() => {});
-  }, []);
+  function loadFeeds() {
+    setFeedsErr(""); setLoadingFeeds(true);
+    loadPublic()
+      .then((d) => { setFeeds(d.feeds); setPins(d.pins); })
+      .catch((e) => setFeedsErr((e as Error).message || "не удалось загрузить"))
+      .finally(() => setLoadingFeeds(false));
+  }
+  useEffect(() => { loadFeeds(); }, []);
 
   // Популярные теги — топ-10 по числу подборок.
   const topTags = useMemo(() => {
@@ -61,8 +68,15 @@ export default function Landing() {
               </button>
             ))}
           </div>
-        ) : (
+        ) : feedsErr ? (
+          <div className="card" style={{ fontSize: 13 }}>
+            <span style={{ color: "var(--pink)" }}>Не удалось загрузить ленты:</span> {feedsErr}
+            <button className="btn ghost sm" style={{ marginLeft: 8 }} onClick={loadFeeds}>Повторить</button>
+          </div>
+        ) : loadingFeeds ? (
           <p className="muted">Загружаю ленты…</p>
+        ) : (
+          <p className="muted">Пока нет опубликованных лент.</p>
         )}
         <button className="btn" style={{ marginTop: 10 }} onClick={() => nav("/feeds")}>Все ленты →</button>
       </section>

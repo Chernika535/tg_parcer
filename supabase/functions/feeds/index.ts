@@ -34,7 +34,7 @@ Deno.serve(async (req: Request) => {
     if (body.action === "public") {
       const { data, error } = await db
         .from("feeds")
-        .select("*, owner:profiles(display_name, username)")
+        .select("*")
         .eq("visibility", "public")
         .eq("status", "approved")
         .order("created_at", { ascending: false });
@@ -47,7 +47,7 @@ Deno.serve(async (req: Request) => {
       if (!body.id) return json({ error: "нет id" }, 400);
       const { data, error } = await db
         .from("feeds")
-        .select("*, owner:profiles(display_name, username)")
+        .select("*")
         .eq("id", body.id)
         .maybeSingle();
       if (error) return json({ error: error.message }, 500);
