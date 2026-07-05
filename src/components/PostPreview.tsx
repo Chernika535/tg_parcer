@@ -17,7 +17,16 @@ export default function PostPreview({
         {avatar ? <img className="ava" alt="" src={avatar} /> : <div className="ava ava-ph">@</div>}
         <span className="post-title">{channelName}</span>
       </div>
-      {html && <div className="post-text" dangerouslySetInnerHTML={{ __html: html.replace(/\n/g, "<br>") }} />}
+      {html && (
+        <div
+          className="post-text"
+          onClick={(e) => {
+            const t = (e.target as HTMLElement).closest(".tg-spoiler");
+            if (t) t.classList.toggle("revealed");
+          }}
+          dangerouslySetInnerHTML={{ __html: html.replace(/\n/g, "<br>") }}
+        />
+      )}
       {visuals.length > 0 && (
         <div className={`media-grid n${Math.min(visuals.length, 4)}`}>
           {visuals.map((m, i) => (

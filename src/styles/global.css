@@ -256,6 +256,9 @@ button.chip { cursor: pointer; }
 .rich-area:empty::before { content: attr(data-ph); color: var(--muted); }
 .rich-area a { color: var(--pink); text-decoration: underline; }
 .rich-area .tg-spoiler, .tg-spoiler { background: var(--ink); color: transparent; border-radius: 4px; }
+/* Скрытый текст в превью — открывается по клику. */
+.post-text .tg-spoiler { cursor: pointer; }
+.post-text .tg-spoiler.revealed { background: transparent; color: inherit; }
 .rich-area code, .rich-area pre { font-family: ui-monospace, monospace; background: var(--surface-2); padding: 0 4px; border-radius: 4px; }
 
 /* Запись голосового */
