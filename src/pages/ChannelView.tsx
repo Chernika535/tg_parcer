@@ -74,13 +74,15 @@ export default function ChannelView() {
     // Если это мой канал (бот-админ) — включаем управление закреплением.
     setMyChatId(null);
     setStats(null);
-    if (session) authorChannels().then((chs) => {
-      const mine = chs.find((c) => (c.username || "").toLowerCase() === ch);
-      if (mine) {
-        setMyChatId(mine.chat_id);
-        channelStats(ch).then(setStats).catch(() => {});
-      }
-    }).catch(() => {});
+    if (session) {
+      // Пин-контролы — только для своего канала (бот-админ).
+      authorChannels().then((chs) => {
+        const mine = chs.find((c) => (c.username || "").toLowerCase() === ch);
+        if (mine) setMyChatId(mine.chat_id);
+      }).catch(() => {});
+      // Статистику сервер отдаёт автору канала ИЛИ админу (иначе null).
+      channelStats(ch).then(setStats).catch(() => {});
+    }
   }, [ch, session]);
 
   async function doPin(post: Post) {
@@ -145,12 +147,12 @@ export default function ChannelView() {
           <a className="btn secondary sm" style={{ marginTop: 10 }} href={`https://t.me/${ch}`} target="_blank" rel="noreferrer">
             Открыть канал в Telegram ↗
           </a>
-          {myChatId && stats && (
+          {stats && (
             <div className="chan-stats">
               <div className="chan-stat"><span className="chan-stat-num">{stats.likesTotal}</span><span className="chan-stat-lbl">лайков постов</span></div>
               <div className="chan-stat"><span className="chan-stat-num">{stats.favorites}</span><span className="chan-stat-lbl">постов в избранном</span></div>
               <div className="chan-stat"><span className="chan-stat-num">{stats.privateFeeds}</span><span className="chan-stat-lbl">в личных подборках</span></div>
-              <div className="chan-stat-note">Видно только вам как автору канала</div>
+              <div className="chan-stat-note">{myChatId ? "Видно вам как автору канала" : "Видно вам как администратору"}</div>
             </div>
           )}
         </div>
@@ -178,7 +180,7 @@ export default function ChannelView() {
               onToggleFav={session ? toggleFav : undefined}
               isLiked={liked.has(pinned.link)}
               onToggleLike={session ? toggleLike : undefined}
-              likeCount={myChatId ? (stats?.likesByLink[pinned.link] ?? 0) : undefined}
+              likeCount={stats ? (stats.likesByLink[pinned.link] ?? 0) : undefined}
             />
           </div>
         )}
@@ -194,7 +196,7 @@ export default function ChannelView() {
             onPin={myChatId ? doPin : undefined}
             isLiked={liked.has(p.link)}
             onToggleLike={session ? toggleLike : undefined}
-            likeCount={myChatId ? (stats?.likesByLink[p.link] ?? 0) : undefined}
+            likeCount={stats ? (stats.likesByLink[p.link] ?? 0) : undefined}
           />
         ))}
 

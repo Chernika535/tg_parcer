@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { allPublicFeeds, moderateFeed, deleteFeed, type Feed } from "../lib/data.ts";
+import { allPublicFeeds, moderateFeed, deleteFeed, allChannels, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 
-type Tab = "pending" | "approved" | "rejected";
+type Tab = "pending" | "approved" | "rejected" | "channels";
 
 export default function Admin() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
+  const [channels, setChannels] = useState<{ username: string; feeds: number }[] | null>(null);
+  const [chQuery, setChQuery] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState<number | null>(null);
   const [tab, setTab] = useState<Tab>("pending");
@@ -21,6 +23,9 @@ export default function Admin() {
     }
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (tab === "channels" && !channels) allChannels().then(setChannels).catch((e) => setErr(e.message));
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function decide(f: Feed, decision: "approved" | "rejected") {
     setBusy(f.id);
@@ -58,13 +63,36 @@ export default function Admin() {
           <button className={`seg ${tab === "pending" ? "on" : ""}`} onClick={() => setTab("pending")}>На модерации ({counts.pending})</button>
           <button className={`seg ${tab === "approved" ? "on" : ""}`} onClick={() => setTab("approved")}>Одобренные ({counts.approved})</button>
           <button className={`seg ${tab === "rejected" ? "on" : ""}`} onClick={() => setTab("rejected")}>Отклонённые ({counts.rejected})</button>
+          <button className={`seg ${tab === "channels" ? "on" : ""}`} onClick={() => setTab("channels")}>Каналы</button>
         </div>
 
-        {err && <ErrorState message={err} onRetry={load} />}
-        {!feeds && !err && <Loading />}
-        {feeds && shown.length === 0 && <Empty>Здесь пусто.</Empty>}
+        {/* Все каналы — только для админа, со статистикой на странице канала */}
+        {tab === "channels" && (
+          <>
+            <div className="field">
+              <input type="text" placeholder="Поиск канала…" value={chQuery} onChange={(e) => setChQuery(e.target.value)} />
+            </div>
+            {!channels && !err && <Loading />}
+            {channels && channels.length === 0 && <Empty>Каналов пока нет.</Empty>}
+            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+              Всего каналов: {channels?.length ?? 0}. Откройте канал, чтобы увидеть лайки, избранное и в скольких личных подборках он есть.
+            </div>
+            {(channels ?? [])
+              .filter((c) => !chQuery.trim() || c.username.includes(chQuery.trim().toLowerCase()))
+              .map((c) => (
+                <button key={c.username} className="card row spread" style={{ width: "100%", textAlign: "left", cursor: "pointer" }} onClick={() => nav(`/channel/${c.username}`)}>
+                  <span style={{ fontWeight: 700 }}>@{c.username}</span>
+                  <span className="muted" style={{ fontSize: 12 }}>в {c.feeds} лентах →</span>
+                </button>
+              ))}
+          </>
+        )}
 
-        {shown.map((f) => (
+        {tab !== "channels" && err && <ErrorState message={err} onRetry={load} />}
+        {tab !== "channels" && !feeds && !err && <Loading />}
+        {tab !== "channels" && feeds && shown.length === 0 && <Empty>Здесь пусто.</Empty>}
+
+        {tab !== "channels" && shown.map((f) => (
           <div key={f.id} className="card">
             <div className="grow" onClick={() => nav(`/feed/${f.id}`)}>
               <div style={{ fontWeight: 700 }}>{f.title}</div>

@@ -231,14 +231,15 @@ Deno.serve(async (req: Request) => {
       return r.ok ? json({ ok: true }) : json({ error: r.description }, 400);
     }
 
-    // Статистика канала — видит только его автор (кто привязал канал у нас).
+    // Статистика канала — видит его автор ИЛИ администратор сервиса.
     // Считаем по всем пользователям, поэтому нужен service-role (минуя RLS).
     if (b.action === "channel_stats") {
       const uname = normCh(((b.input ?? {}) as { username?: string }).username ?? "");
       if (!uname) return json({ stats: null });
-      // Проверяем, что это канал текущего пользователя (по нику в его привязках).
       const { data: mine } = await db.from("author_channels").select("id").eq("owner_id", uid).ilike("username", uname).maybeSingle();
-      if (!mine) return json({ stats: null });
+      const { data: prof } = await db.from("profiles").select("role").eq("id", uid).maybeSingle();
+      const isAdmin = prof?.role === "admin";
+      if (!mine && !isAdmin) return json({ stats: null });
       if (!SERVICE_ROLE) return json({ stats: null });
       const svc = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
       // Постов канала в избранном (у всех пользователей).
@@ -254,6 +255,31 @@ Deno.serve(async (req: Request) => {
       const likesByLink: Record<string, number> = {};
       for (const r of (likeRows ?? []) as { link: string }[]) likesByLink[r.link] = (likesByLink[r.link] || 0) + 1;
       return json({ stats: { favorites: favCount ?? 0, privateFeeds: inPrivate, likesTotal: (likeRows ?? []).length, likesByLink } });
+    }
+
+    // Список всех каналов (для админа) — из всех лент + привязанных авторами.
+    if (b.action === "all_channels") {
+      const { data: prof } = await db.from("profiles").select("role").eq("id", uid).maybeSingle();
+      if (prof?.role !== "admin") return json({ error: "только для админа" }, 403);
+      if (!SERVICE_ROLE) return json({ channels: [] });
+      const svc = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+      const map = new Map<string, { username: string; feeds: number }>();
+      const { data: feeds } = await svc.from("feeds").select("channels");
+      for (const f of feeds ?? []) {
+        for (const c of ((f.channels ?? []) as string[])) {
+          const u = normCh(c);
+          if (!u) continue;
+          const e = map.get(u) ?? { username: u, feeds: 0 };
+          e.feeds++; map.set(u, e);
+        }
+      }
+      const { data: authored } = await svc.from("author_channels").select("username");
+      for (const a of authored ?? []) {
+        const u = normCh((a.username ?? "") as string);
+        if (u && !map.has(u)) map.set(u, { username: u, feeds: 0 });
+      }
+      const list = [...map.values()].sort((a, b) => b.feeds - a.feeds || a.username.localeCompare(b.username));
+      return json({ channels: list });
     }
 
     // Закреплённый пост канала (для своих каналов — через бота, надёжно).

@@ -533,6 +533,13 @@ export async function channelStats(username: string): Promise<ChannelStats | nul
   }
 }
 
+// Все каналы (для админа): ник + в скольких лентах встречается.
+export async function allChannels(): Promise<{ username: string; feeds: number }[]> {
+  const d = (await invokeFn("bot", { action: "all_channels" })) as { channels?: { username: string; feeds: number }[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.channels ?? [];
+}
+
 // ---- Локальные лайки постов ----
 export async function likeLinks(): Promise<string[]> {
   if (!getAccessToken()) return [];
