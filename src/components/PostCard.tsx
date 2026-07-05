@@ -1,12 +1,41 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Post, Media } from "../lib/data.ts";
 import { loadPostMedia } from "../lib/data.ts";
 import Icon from "./Icon.tsx";
 import { shareLink, postUrl } from "../lib/share.ts";
-import { linkify } from "../lib/linkify.tsx";
 import AddChannelButton from "./AddChannelButton.tsx";
 import Lightbox from "./Lightbox.tsx";
+
+// Тело поста: готовый безопасный HTML (форматирование Telegram сохранено на
+// стороне парсера). Длинный текст сворачиваем по высоте, спойлеры — по клику.
+function PostText({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflow, setOverflow] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && !expanded) setOverflow(el.scrollHeight > el.clientHeight + 4);
+  }, [html, expanded]);
+  return (
+    <>
+      <div
+        ref={ref}
+        className={`post-text ${expanded ? "" : "clamp"}`}
+        onClick={(e) => {
+          const t = (e.target as HTMLElement).closest(".tg-spoiler");
+          if (t) t.classList.toggle("revealed");
+        }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {(overflow || expanded) && (
+        <button className="btn ghost sm" onClick={() => setExpanded((v) => !v)}>
+          {expanded ? "Свернуть" : "Показать ещё"}
+        </button>
+      )}
+    </>
+  );
+}
 
 // Компактная дата-время публикации: «05.07.26 в 12:23».
 function shortDateTime(iso: string): string {
@@ -15,7 +44,6 @@ function shortDateTime(iso: string): string {
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${String(d.getFullYear()).slice(2)} в ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-const LIMIT = 360;
 
 // Добавляет «кэш-бастер» к http-адресу, чтобы повтор реально перезапросил файл.
 function bust(url: string, n: number): string {
@@ -93,10 +121,7 @@ export default function PostCard({
   onToggleLike?: (post: Post) => void;
   likeCount?: number; // показываем только если передан (автору канала)
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
-  const long = post.text.length > LIMIT;
-  const shown = expanded || !long ? post.text : post.text.slice(0, LIMIT) + "…";
   const photos = post.media.filter((m) => m.type === "photo" || m.type === "sticker");
   // Нечего показать (опрос, гео, контакт и т.п.) — текста нет и медиа не извлеклось.
   const nothing = !post.text && post.media.filter((m) => m.type !== "unsupported").length === 0;
@@ -125,12 +150,7 @@ export default function PostCard({
         </a>
       )}
 
-      {post.text && <div className="post-text">{linkify(shown)}</div>}
-      {long && (
-        <button className="btn ghost sm" onClick={() => setExpanded((e) => !e)}>
-          {expanded ? "Свернуть" : "Показать ещё"}
-        </button>
-      )}
+      {post.text && <PostText html={post.text} />}
 
       {photos.length > 0 && (
         <div className={`media-grid n${Math.min(photos.length, 4)}`}>

@@ -40,6 +40,60 @@ function stripReactions(text: string): string {
   return lines.join("\n").trimEnd();
 }
 
+// Экранируем текст как HTML (защита от инъекций — фронт рендерит через innerHTML).
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// MTProto-сущности форматирования → безопасный HTML (b/i/u/s/code/blockquote/
+// spoiler/ссылки). Смещения Telegram считаются в кодовых единицах UTF-16 = как в JS.
+// deno-lint-ignore no-explicit-any
+function entitiesToHtml(text: string, entities: any[]): string {
+  if (!text) return "";
+  if (!entities?.length) return esc(text);
+  type Ins = { pos: number; open: boolean; order: number; html: string };
+  const ins: Ins[] = [];
+  let n = 0;
+  for (const e of entities) {
+    const start = e.offset ?? 0;
+    const end = start + (e.length ?? 0);
+    let o = "", c = "";
+    switch (e.className) {
+      case "MessageEntityBold": o = "<b>"; c = "</b>"; break;
+      case "MessageEntityItalic": o = "<i>"; c = "</i>"; break;
+      case "MessageEntityUnderline": o = "<u>"; c = "</u>"; break;
+      case "MessageEntityStrike": o = "<s>"; c = "</s>"; break;
+      case "MessageEntityCode": o = "<code>"; c = "</code>"; break;
+      case "MessageEntityPre": o = "<code>"; c = "</code>"; break;
+      case "MessageEntityBlockquote": o = "<blockquote>"; c = "</blockquote>"; break;
+      case "MessageEntitySpoiler": o = '<span class="tg-spoiler">'; c = "</span>"; break;
+      case "MessageEntityTextUrl":
+        o = `<a href="${esc(String(e.url ?? "")).replace(/"/g, "%22")}" target="_blank" rel="noreferrer">`; c = "</a>"; break;
+      case "MessageEntityUrl": {
+        const u = text.slice(start, end);
+        o = `<a href="${esc(u).replace(/"/g, "%22")}" target="_blank" rel="noreferrer">`; c = "</a>"; break;
+      }
+      default: continue;
+    }
+    ins.push({ pos: start, open: true, order: n, html: o });
+    ins.push({ pos: end, open: false, order: n, html: c });
+    n++;
+  }
+  // На одной позиции: сначала закрытия (позже открытые — раньше закрываются),
+  // затем открытия (в порядке появления) — корректная вложенность.
+  ins.sort((a, b) =>
+    a.pos - b.pos
+    || (a.open === b.open ? (a.open ? a.order - b.order : b.order - a.order) : (a.open ? 1 : -1)));
+  let out = "", prev = 0;
+  for (const t of ins) {
+    if (t.pos > prev) out += esc(text.slice(prev, t.pos));
+    out += t.html;
+    prev = t.pos;
+  }
+  out += esc(text.slice(prev));
+  return out;
+}
+
 function norm(input: string): string | null {
   let s = input.trim().toLowerCase();
   s = s.replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "");
@@ -101,7 +155,7 @@ Deno.serve(async (req: Request) => {
         return json({
           post: {
             channel: ch, msgId: m.id, postedAt: new Date((m.date ?? 0) * 1000).toISOString(),
-            text: stripReactions(m.message ?? ""), media: img ? [{ type: "photo", url: img }] : [],
+            text: stripReactions(entitiesToHtml(m.message ?? "", m.entities ?? [])), media: img ? [{ type: "photo", url: img }] : [],
             hasMedia: !!img, link: `https://t.me/${ch}/${m.id}`,
           },
         });
@@ -289,7 +343,8 @@ Deno.serve(async (req: Request) => {
 
         for (const key of order) {
           const group = groups.get(key)!;
-          const text = stripReactions(group.map((x) => x.message).find((t: string) => t && t.length) ?? "");
+          const withText = group.find((x) => x.message && x.message.length) ?? group[0];
+          const text = stripReactions(entitiesToHtml(withText.message ?? "", withText.entities ?? []));
           const head = group[0];
           const media: Media[] = [];
           for (const m of group) if (m.media) media.push(...(await extract(m)));

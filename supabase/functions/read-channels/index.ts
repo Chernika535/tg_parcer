@@ -98,6 +98,67 @@ function htmlToText(html: string): string {
     .trim();
 }
 
+// Экранируем текст как HTML (фронт рендерит тело поста через innerHTML).
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// HTML фрагмент из t.me/s → безопасный HTML с сохранением форматирования
+// (b/i/u/s/code/blockquote/spoiler/ссылки). Всё прочее вырезаем, текст экранируем.
+// Разрешённые теги временно кодируем символами приватной зоны Unicode (\uE0xx) —
+// их не бывает в тексте, поэтому экранирование текста их не задевает.
+const SN = (n: number) => String.fromCharCode(0xE000 + n);
+function htmlToRich(html: string): string {
+  const A_H = SN(1), A_T = SN(2), A_E = SN(3);   // ссылка: href / текст / конец
+  const SP0 = SN(4), SP1 = SN(5);                // спойлер откр/закр
+  const T = {
+    b: [SN(6), SN(7)], i: [SN(8), SN(9)], u: [SN(10), SN(11)],
+    s: [SN(12), SN(13)], c: [SN(14), SN(15)], q: [SN(16), SN(17)],
+  };
+
+  let s = html.replace(/<br\s*\/?>/gi, "\n");
+
+  // Ссылки: внешние сохраняем, внутренние (#хэштеги, tg://…) → просто текст.
+  s = s.replace(/<a\b[^>]*\bhref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href, inner) => {
+    const text = inner.replace(/<[^>]+>/g, "");
+    if (!/^https?:\/\//i.test(href)) return text;
+    return `${A_H}${href}${A_T}${text || href}${A_E}`;
+  });
+
+  // Спойлеры Telegram (класс содержит "spoiler") — весь span целиком.
+  s = s.replace(/<span[^>]*\bclass="[^"]*spoiler[^"]*"[^>]*>([\s\S]*?)<\/span>/gi,
+    (_m, inner) => `${SP0}${inner}${SP1}`);
+
+  // Форматирующие теги → маркеры.
+  const MAP: [RegExp, string][] = [
+    [/<(?:b|strong)\b[^>]*>/gi, T.b[0]], [/<\/(?:b|strong)>/gi, T.b[1]],
+    [/<(?:i|em)\b[^>]*>/gi, T.i[0]], [/<\/(?:i|em)>/gi, T.i[1]],
+    [/<(?:u|ins)\b[^>]*>/gi, T.u[0]], [/<\/(?:u|ins)>/gi, T.u[1]],
+    [/<(?:s|strike|del)\b[^>]*>/gi, T.s[0]], [/<\/(?:s|strike|del)>/gi, T.s[1]],
+    [/<(?:code|pre)\b[^>]*>/gi, T.c[0]], [/<\/(?:code|pre)>/gi, T.c[1]],
+    [/<blockquote\b[^>]*>/gi, T.q[0]], [/<\/blockquote>/gi, T.q[1]],
+  ];
+  for (const [reg, tok] of MAP) s = s.replace(reg, tok);
+
+  // Абзацы → перенос, прочие теги убираем, декодируем сущности и экранируем текст.
+  s = s.replace(/<\/(p|div)>/gi, "\n").replace(/<[^>]+>/g, "");
+  s = esc(decodeEntities(s));
+
+  // Возвращаем реальные безопасные теги.
+  const rx = (a: string) => new RegExp(a, "g");
+  s = s.replace(rx(`${A_H}([\\s\\S]*?)${A_T}([\\s\\S]*?)${A_E}`), (_m, href, text) =>
+    `<a href="${String(href).replace(/"/g, "%22")}" target="_blank" rel="noreferrer">${text}</a>`);
+  s = s.replace(rx(SP0), '<span class="tg-spoiler">').replace(rx(SP1), "</span>");
+  const TAGS: [string, string, string][] = [
+    [T.b[0], T.b[1], "b"], [T.i[0], T.i[1], "i"], [T.u[0], T.u[1], "u"],
+    [T.s[0], T.s[1], "s"], [T.c[0], T.c[1], "code"], [T.q[0], T.q[1], "blockquote"],
+  ];
+  for (const [o, c, tag] of TAGS) s = s.replace(rx(o), `<${tag}>`).replace(rx(c), `</${tag}>`);
+
+  return s.split("\n").map((l) => l.replace(/[ \t ]+/g, " ").trimEnd()).join("\n")
+    .replace(/\n{3,}/g, "\n\n").trim();
+}
+
 // Убираем «хвост» из реакций Telegram (эмодзи+число), если он попал в текст.
 // ВАЖНО: один класс символов с одним квантором — без вложенных «+» (иначе ReDoS
 // на длинных эмодзи-строках вешал функцию).
@@ -238,7 +299,7 @@ function parsePosts(html: string, username: string): Post[] {
     let text = "";
     const tm = block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>\s*(?:<div class="tgme_widget_message_(?:footer|reply|inline)|<\/div>)/i)
       || block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/i);
-    if (tm) text = stripReactions(htmlToText(tm[1]));
+    if (tm) text = stripReactions(htmlToRich(tm[1]));
 
     const media = extractMedia(block);
     const views = attr(block, /tgme_widget_message_views[^>]*>([^<]+)/i);
