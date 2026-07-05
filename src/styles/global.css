@@ -229,6 +229,22 @@ button.chip { cursor: pointer; }
 .chip-active { background: var(--ink); color: var(--paper); }
 .folder-select { width: auto; padding: 5px 10px; font-size: 13px; border-width: 2px; border-radius: var(--r-sm); }
 
+/* Папки избранного — цветные плитки-папки с подписью снизу */
+.folder-grid { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+.folder-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 78px; background: none; border: none; padding: 0; cursor: pointer; }
+.folder-box { position: relative; width: 68px; height: 52px; border: 3px solid var(--ink); border-radius: 4px 10px 10px 10px; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; margin-top: 8px; transition: transform .1s, box-shadow .1s; }
+.folder-box::before { content: ""; position: absolute; top: -9px; left: -3px; width: 30px; height: 12px; border: 3px solid var(--ink); border-bottom: none; border-radius: 6px 8px 0 0; background: inherit; }
+.folder-tile.on .folder-box { transform: translate(-1px, -1px); box-shadow: 5px 6px 0 var(--ink); }
+.folder-box.plain { background: var(--surface-2); }
+.folder-box.c0 { background: var(--lime); }
+.folder-box.c1 { background: var(--cyan); }
+.folder-box.c2 { background: var(--pink); }
+.folder-cnt { font-family: var(--head); font-weight: 900; font-size: 20px; color: var(--ink); }
+.folder-box.c0 .folder-cnt, .folder-box.c1 .folder-cnt { color: var(--on-accent); }
+.folder-box.c2 .folder-cnt { color: #fff; }
+.folder-name { font-size: 12px; font-weight: 700; text-align: center; line-height: 1.15; word-break: break-word; color: var(--text); }
+.folder-tile.on .folder-name { color: var(--pink); }
+
 /* Визуальный редактор поста */
 .rich { border: 3px solid var(--ink); border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
 .rich-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border-top: 2px solid var(--ink); background: var(--surface-2); }

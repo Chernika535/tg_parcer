@@ -101,15 +101,31 @@ export default function Favorites() {
             <>
               {!posts && !err && <Loading />}
               {posts && posts.length === 0 && <Empty>Пока пусто. Нажимайте ♥ на постах.</Empty>}
-              {posts && posts.length > 0 && (
-                <div className="chip-row" style={{ marginBottom: 4 }}>
-                  <button className={`chip ${folder === "ALL" ? "chip-active" : ""}`} onClick={() => setFolder("ALL")}>Все</button>
-                  {folders.map((f) => (
-                    <button key={f} className={`chip ${folder === f ? "chip-active" : ""}`} onClick={() => setFolder(f)}>{f}</button>
-                  ))}
-                  <button className={`chip ${folder === "NONE" ? "chip-active" : ""}`} onClick={() => setFolder("NONE")}>Без папки</button>
-                </div>
-              )}
+              {posts && posts.length > 0 && (() => {
+                const noneCount = (posts ?? []).filter((p) => !p.folder).length;
+                const countOf = (f: string) => (posts ?? []).filter((p) => p.folder === f).length;
+                return (
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="folder-grid">
+                      <button className={`folder-tile ${folder === "NONE" ? "on" : ""}`} onClick={() => setFolder(folder === "NONE" ? "ALL" : "NONE")}>
+                        <span className="folder-box plain"><span className="folder-cnt">{noneCount}</span></span>
+                        <span className="folder-name">Без папки</span>
+                      </button>
+                      {folders.map((f, i) => (
+                        <button key={f} className={`folder-tile ${folder === f ? "on" : ""}`} onClick={() => setFolder(folder === f ? "ALL" : f)}>
+                          <span className={`folder-box c${i % 3}`}><span className="folder-cnt">{countOf(f)}</span></span>
+                          <span className="folder-name">{f}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                      {folder === "ALL" ? "Показаны все избранные посты. Нажмите папку, чтобы открыть её." : (
+                        <button className="btn ghost sm" style={{ padding: 0 }} onClick={() => setFolder("ALL")}>← Показать все</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
               {shown.map((p) => (
                 <div key={p.link}>
                   <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 4 }}>

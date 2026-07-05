@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { loadPublic, readChannels, favTags, addFavTag, removeFavTag, type Post } from "../lib/data.ts";
+import { loadPublic, readChannels, favTags, addFavTag, removeFavTag, favoriteLinks, addFavorite, removeFavorite, type Post } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -16,6 +16,17 @@ export default function TagStream() {
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [count, setCount] = useState(0);
   const [fav, setFav] = useState(false);
+  const [postFav, setPostFav] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (session) favoriteLinks().then((l) => setPostFav(new Set(l))).catch(() => {});
+  }, [session]);
+
+  async function togglePostFav(post: Post) {
+    const next = new Set(postFav);
+    if (next.has(post.link)) { next.delete(post.link); setPostFav(next); await removeFavorite(post.link); }
+    else { next.add(post.link); setPostFav(next); await addFavorite(post); }
+  }
 
   useEffect(() => {
     (async () => {
@@ -63,7 +74,16 @@ export default function TagStream() {
 
         {!posts && <Loading label="Собираю ленту по тегу…" />}
         {posts && posts.length === 0 && <Empty>Постов по этому тегу пока нет.</Empty>}
-        {posts?.map((p) => <PostCard key={`${p.channel}/${p.msgId}`} post={p} isLiked={liked.has(p.link)} onToggleLike={session ? toggleLike : undefined} />)}
+        {posts?.map((p) => (
+          <PostCard
+            key={`${p.channel}/${p.msgId}`}
+            post={p}
+            isFav={postFav.has(p.link)}
+            onToggleFav={session ? togglePostFav : undefined}
+            isLiked={liked.has(p.link)}
+            onToggleLike={session ? toggleLike : undefined}
+          />
+        ))}
       </div>
     </>
   );
