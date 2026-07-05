@@ -7,6 +7,18 @@ import { AuthProvider } from "./lib/auth.tsx";
 import { applyTheme, getTheme } from "./lib/theme.ts";
 import "./styles/global.css";
 
+// Все домены, кроме основного, уводим на polistay.online. Делаем это в браузере
+// (location.hostname надёжен), а не на сервере — Onreza проксирует кастомные
+// домены и передаёт серверу внутренний host, из-за чего серверный редирект ломался.
+(() => {
+  const PRIMARY = "polistay.online";
+  const h = location.hostname;
+  const local = h === "localhost" || h.startsWith("127.") || h.startsWith("192.168.") || h.endsWith(".local");
+  if (h && h !== PRIMARY && !local) {
+    location.replace("https://" + PRIMARY + location.pathname + location.search + location.hash);
+  }
+})();
+
 // Тема — до первого рендера, чтобы не мигало светлым.
 applyTheme(getTheme());
 
