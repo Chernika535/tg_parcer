@@ -14,6 +14,7 @@ import Admin from "./pages/Admin.tsx";
 import Login from "./pages/Login.tsx";
 import Account from "./pages/Account.tsx";
 import AuthorCabinet from "./pages/AuthorCabinet.tsx";
+import RecoverFeeds from "./pages/RecoverFeeds.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import DataPolicy from "./pages/DataPolicy.tsx";
 import Tags from "./pages/Tags.tsx";
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/favorites" element={<RequireAuth><Favorites /></RequireAuth>} />
         <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
         <Route path="/author" element={<RequireAuth><AuthorCabinet /></RequireAuth>} />
+        <Route path="/recover" element={<RequireAuth><RecoverFeeds /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <TabBar />
