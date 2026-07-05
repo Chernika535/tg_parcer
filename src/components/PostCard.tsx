@@ -15,18 +15,6 @@ function shortDateTime(iso: string): string {
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${String(d.getFullYear()).slice(2)} в ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "только что";
-  if (m < 60) return `${m} мин`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} ч`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d} дн`;
-  return new Date(iso).toLocaleDateString("ru-RU");
-}
-
 const LIMIT = 360;
 
 // Добавляет «кэш-бастер» к http-адресу, чтобы повтор реально перезапросил файл.
@@ -126,7 +114,7 @@ export default function PostCard({
         <Link className="post-title" to={`/channel/${post.channel}`}>
           {post.channelTitle || `@${post.channel}`}
         </Link>
-        <span className="post-meta">@{post.channel} · {relativeTime(post.postedAt)}</span>
+        <span className="post-meta">@{post.channel}</span>
         {/* Плюсик относится к КАНАЛУ, поэтому остаётся в шапке. */}
         <AddChannelButton channel={post.channel} />
       </div>
@@ -255,6 +243,45 @@ function LoadableAudio({ kind, label, link, channel, msgId }: { kind: "voice" | 
   );
 }
 
+// Файл: не уводим в Telegram, а догружаем через MTProto и скачиваем прямо здесь.
+function LoadableDoc({ title, extra, link, channel, msgId }: { title: string; extra?: string; link: string; channel: string; msgId: number }) {
+  const [state, setState] = useState<"idle" | "loading" | "toobig" | "error">("idle");
+
+  async function download() {
+    setState("loading");
+    const r = await loadPostMedia(channel, msgId);
+    if (r.url) {
+      try {
+        const resp = await fetch(r.url);
+        if (!resp.ok) throw new Error();
+        const blob = await resp.blob();
+        const href = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = href; a.download = title || "file";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(href), 10_000);
+        setState("idle");
+      } catch { setState("error"); }
+    } else if (r.tooBig) setState("toobig");
+    else setState("error");
+  }
+
+  return (
+    <div className="media-doc" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <span>📎 {title}{extra ? <span className="muted"> · {extra}</span> : null}</span>
+      {state === "idle" && <button className="btn secondary sm" onClick={download}>⬇ Скачать</button>}
+      {state === "loading" && <span className="muted">Загружаю файл…</span>}
+      {state === "toobig" && <a href={link} target="_blank" rel="noreferrer">Файл большой — открыть в Telegram ↗</a>}
+      {state === "error" && (
+        <>
+          <button className="btn ghost sm" onClick={download}>↻ Повторить</button>
+          <a href={link} target="_blank" rel="noreferrer" className="muted">или в Telegram ↗</a>
+        </>
+      )}
+    </div>
+  );
+}
+
 function MediaBlock({ m, link, channel, msgId }: { m: Media; link: string; channel: string; msgId: number }) {
   if (m.type === "video" || m.type === "roundvideo") {
     if (m.url) {
@@ -271,12 +298,7 @@ function MediaBlock({ m, link, channel, msgId }: { m: Media; link: string; chann
     return m.url ? <RAudio url={m.url} /> : <LoadableAudio kind="audio" label={label} link={link} channel={channel} msgId={msgId} />;
   }
   if (m.type === "document") {
-    return (
-      <a href={link} target="_blank" rel="noreferrer" className="media-doc">
-        📎 {m.title}
-        {m.extra ? <span className="muted"> · {m.extra}</span> : null}
-      </a>
-    );
+    return <LoadableDoc title={m.title} extra={m.extra} link={link} channel={channel} msgId={msgId} />;
   }
   if (m.type === "link") {
     return (
