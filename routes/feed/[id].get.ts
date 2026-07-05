@@ -2,9 +2,6 @@
 // соцсетям и поисковикам увидеть заголовок/описание конкретной ленты — они режут
 // всё после #. Поэтому по «чистому» адресу /feed/:id сервер отдаёт HTML с мета-
 // тегами именно этой ленты (для ботов), а живого пользователя перекидывает в SPA.
-const SITE = "https://tgparser-feed.onreza.app";
-const DEFAULT_IMG = SITE + "/og-cover.png";
-
 function esc(s: string): string {
   return String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -22,10 +19,12 @@ type Feed = {
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id") ?? "";
   const hash = `/#/feed/${encodeURIComponent(id)}`;
+  const SITE = getRequestURL(event).origin; // работает на любом подключённом домене
+  const DEFAULT_IMG = SITE + "/og-cover.png";
 
   let feed: Feed | null = null;
   try {
-    const origin = getRequestURL(event).origin;
+    const origin = SITE;
     const cfg = (await $fetch("/config.json", { baseURL: origin }).catch(() => null)) as
       | { supabaseUrl?: string; supabaseAnonKey?: string }
       | null;

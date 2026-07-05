@@ -25,6 +25,18 @@ const cors = {
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...cors, "content-type": "application/json" } });
 
+// Убираем «хвост» из реакций Telegram (эмодзи+число), если попал в текст.
+const REACT_LINE = /^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]+\s*\d+[\s,]*)+$/u;
+function stripReactions(text: string): string {
+  const lines = (text ?? "").split("\n");
+  while (lines.length) {
+    const last = lines[lines.length - 1].trim();
+    if (last === "" || REACT_LINE.test(last)) lines.pop();
+    else break;
+  }
+  return lines.join("\n").trimEnd();
+}
+
 function norm(input: string): string | null {
   let s = input.trim().toLowerCase();
   s = s.replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "");
@@ -84,7 +96,7 @@ Deno.serve(async (req: Request) => {
         return json({
           post: {
             channel: ch, msgId: m.id, postedAt: new Date((m.date ?? 0) * 1000).toISOString(),
-            text: m.message ?? "", media: img ? [{ type: "photo", url: img }] : [],
+            text: stripReactions(m.message ?? ""), media: img ? [{ type: "photo", url: img }] : [],
             hasMedia: !!img, link: `https://t.me/${ch}/${m.id}`,
           },
         });
@@ -260,7 +272,7 @@ Deno.serve(async (req: Request) => {
 
         for (const key of order) {
           const group = groups.get(key)!;
-          const text = group.map((x) => x.message).find((t: string) => t && t.length) ?? "";
+          const text = stripReactions(group.map((x) => x.message).find((t: string) => t && t.length) ?? "");
           const head = group[0];
           const media: Media[] = [];
           for (const m of group) if (m.media) media.push(...(await extract(m)));

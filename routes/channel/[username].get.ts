@@ -1,8 +1,5 @@
 // SEO / превью ссылок для страницы канала (/channel/:username). Аналогично ленте:
 // боту отдаём мета-теги канала, живого пользователя перекидываем в SPA (#/channel/..).
-const SITE = "https://tgparser-feed.onreza.app";
-const DEFAULT_IMG = SITE + "/og-cover.png";
-
 function esc(s: string): string {
   return String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -15,10 +12,12 @@ export default defineEventHandler(async (event) => {
   const raw = getRouterParam(event, "username") ?? "";
   const uname = raw.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 64);
   const hash = `/#/channel/${encodeURIComponent(uname)}`;
+  const SITE = getRequestURL(event).origin;
+  const DEFAULT_IMG = SITE + "/og-cover.png";
 
   let info: ChannelInfo | null = null;
   try {
-    const origin = getRequestURL(event).origin;
+    const origin = SITE;
     const cfg = (await $fetch("/config.json", { baseURL: origin }).catch(() => null)) as
       | { supabaseUrl?: string; supabaseAnonKey?: string }
       | null;

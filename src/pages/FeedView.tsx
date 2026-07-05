@@ -12,6 +12,18 @@ import { useLikes } from "../lib/useLikes.ts";
 // (облегчённый, для мгновенного показа между сессиями).
 const feedCache = new Map<number, Post[]>();
 
+// Кэш самой ленты (название, описание, каналы) — чтобы при сбое сети не мигало
+// «лента не найдена» и не пропадали описание/состав.
+const feedMetaCache = new Map<number, Feed>();
+function loadFeedMeta(id: number): Feed | null {
+  if (feedMetaCache.has(id)) return feedMetaCache.get(id)!;
+  try { const s = localStorage.getItem("tf_feedmeta_" + id); return s ? (JSON.parse(s) as Feed) : null; } catch { return null; }
+}
+function saveFeedMeta(f: Feed) {
+  feedMetaCache.set(f.id, f);
+  try { localStorage.setItem("tf_feedmeta_" + f.id, JSON.stringify(f)); } catch { /* quota */ }
+}
+
 // Нормализуем ник канала для сравнения (лента может хранить @Name / ссылку).
 function normCh(c: string): string {
   return c.trim().toLowerCase()
@@ -176,10 +188,16 @@ export default function FeedView() {
       setPosts(null);
       setUnavailable([]);
     }
+    // Показываем кэшированную ленту сразу (название/описание/состав).
+    const cachedMeta = loadFeedMeta(feedId);
+    if (cachedMeta) setFeed(cachedMeta);
     try {
-      const f = await getFeedById(feedId);
+      const fresh = await getFeedById(feedId);
+      // Сеть подвела, но кэш есть — работаем на кэше, без пугающей ошибки.
+      const f = fresh ?? cachedMeta;
       if (!f) throw new Error("лента не найдена или недоступна");
       setFeed(f);
+      if (fresh) saveFeedMeta(fresh);
       // Убираем из показа посты каналов, которых больше нет в ленте (после удаления канала).
       const chan = new Set(f.channels.map(normCh));
       setPosts((prev) => (prev ? prev.filter((p) => chan.has(normCh(p.channel))) : prev));

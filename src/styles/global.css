@@ -329,6 +329,11 @@ button.chip { cursor: pointer; }
 .land-cta .sec-title { color: var(--on-accent); margin-top: 0; }
 .land-cta .muted { color: var(--on-accent); opacity: .8; margin-bottom: 12px; }
 .land-cta .btn { background: var(--ink); color: var(--paper); }
+/* Яркий призыв создавать ленты */
+.land-invite { margin-top: 22px; background: var(--pink); border: 3px solid var(--ink); border-radius: var(--r); box-shadow: var(--shadow); padding: 20px 18px; color: #fff; }
+.land-invite-title { font-family: var(--head); font-weight: 900; font-size: 22px; line-height: 1.05; }
+.land-invite p { margin: 8px 0 14px; font-size: 15px; font-weight: 600; }
+.land-invite .btn { background: var(--lime); color: var(--on-accent); }
 
 /* Закреплённый пост на странице канала */
 .pinned-wrap { border: 3px dashed var(--pink); border-radius: var(--r); padding: 8px; margin-bottom: 10px; }
@@ -444,6 +449,12 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .fav-btn.on { color: var(--pink); }
 .like-btn { display: inline-flex; align-items: center; gap: 3px; }
 .like-count { font-size: 12px; font-weight: 800; }
+/* Нижняя панель действий поста */
+.post-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 8px; border-top: 1.5px solid var(--surface-2); flex-wrap: wrap; }
+.post-actions { display: flex; align-items: center; gap: 14px; }
+.post-actions .fav-btn { padding: 0; }
+.post-foot-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.post-foot-meta a { color: var(--muted); }
 .fav-btn.on svg { fill: var(--pink); }
 
 .media-grid { display: grid; gap: 4px; margin: 10px 0; border-radius: var(--r-sm); overflow: hidden; border: 3px solid var(--ink); }

@@ -97,6 +97,18 @@ function htmlToText(html: string): string {
     .trim();
 }
 
+// Убираем «хвост» из реакций Telegram (эмодзи+число), если он попал в текст.
+const REACT_LINE = /^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]+\s*\d+[\s,]*)+$/u;
+function stripReactions(text: string): string {
+  const lines = text.split("\n");
+  while (lines.length) {
+    const last = lines[lines.length - 1].trim();
+    if (last === "" || REACT_LINE.test(last)) lines.pop();
+    else break;
+  }
+  return lines.join("\n").trimEnd();
+}
+
 function firstBg(block: string, re: RegExp): string | undefined {
   const m = block.match(re);
   if (!m) return undefined;
@@ -211,7 +223,7 @@ function parsePosts(html: string, username: string): Post[] {
     let text = "";
     const tm = block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>\s*(?:<div class="tgme_widget_message_(?:footer|reply|inline)|<\/div>)/i)
       || block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/i);
-    if (tm) text = htmlToText(tm[1]);
+    if (tm) text = stripReactions(htmlToText(tm[1]));
 
     const media = extractMedia(block);
     const views = attr(block, /tgme_widget_message_views[^>]*>([^<]+)/i);

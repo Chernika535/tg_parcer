@@ -7,11 +7,11 @@ import { shareLink, postUrl } from "../lib/share.ts";
 import { linkify } from "../lib/linkify.tsx";
 import AddChannelButton from "./AddChannelButton.tsx";
 
-// Полные дата и время публикации поста (подпись внизу карточки).
-function fullDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("ru-RU", {
-    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
-  });
+// Компактная дата-время публикации: «05.07.26 в 12:23».
+function shortDateTime(iso: string): string {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${String(d.getFullYear()).slice(2)} в ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function relativeTime(iso: string): string {
@@ -125,38 +125,8 @@ export default function PostCard({
           {post.channelTitle || `@${post.channel}`}
         </Link>
         <span className="post-meta">@{post.channel} · {relativeTime(post.postedAt)}</span>
+        {/* Плюсик относится к КАНАЛУ, поэтому остаётся в шапке. */}
         <AddChannelButton channel={post.channel} />
-        {onPin && (
-          <button className="fav-btn" onClick={() => onPin(post)} aria-label="Закрепить в канале" title="Закрепить в канале">📌</button>
-        )}
-        <button
-          className="fav-btn"
-          onClick={() => shareLink(postUrl(post.channel, post.msgId), post.channelTitle || `@${post.channel}`)}
-          aria-label="Поделиться постом"
-        >
-          <Icon name="share" size={17} />
-        </button>
-        {onToggleLike && (
-          <button
-            className={`fav-btn like-btn ${isLiked ? "on" : ""}`}
-            onClick={() => onToggleLike(post)}
-            aria-label="Нравится"
-            title="Нравится"
-          >
-            <Icon name="heart" size={18} />
-            {likeCount !== undefined && likeCount > 0 && <span className="like-count">{likeCount}</span>}
-          </button>
-        )}
-        {onToggleFav && (
-          <button
-            className={`fav-btn ${isFav ? "on" : ""}`}
-            onClick={() => onToggleFav(post)}
-            aria-label="В избранное"
-            title="В избранное"
-          >
-            <Icon name="star" size={18} />
-          </button>
-        )}
       </div>
 
       {nothing && (
@@ -186,9 +156,35 @@ export default function PostCard({
         <MediaBlock key={i} m={m} link={post.link} channel={post.channel} msgId={post.msgId} />
       ))}
 
-      <div className="row spread" style={{ marginTop: 8 }}>
-        <span className="muted" style={{ fontSize: 12 }}>{fullDateTime(post.postedAt)}</span>
-        <a href={post.link} target="_blank" rel="noreferrer" className="muted">Открыть в Telegram ↗</a>
+      {/* Действия с ПОСТОМ — внизу, чтобы не мотать к началу длинного поста. */}
+      <div className="post-foot">
+        <div className="post-actions">
+          <button
+            className="fav-btn"
+            onClick={() => shareLink(postUrl(post.channel, post.msgId), post.channelTitle || `@${post.channel}`)}
+            aria-label="Поделиться постом" title="Поделиться"
+          >
+            <Icon name="share" size={18} />
+          </button>
+          {onToggleLike && (
+            <button className={`fav-btn like-btn ${isLiked ? "on" : ""}`} onClick={() => onToggleLike(post)} aria-label="Нравится" title="Нравится">
+              <Icon name="heart" size={19} />
+              {likeCount !== undefined && likeCount > 0 && <span className="like-count">{likeCount}</span>}
+            </button>
+          )}
+          {onToggleFav && (
+            <button className={`fav-btn ${isFav ? "on" : ""}`} onClick={() => onToggleFav(post)} aria-label="В избранное" title="В избранное">
+              <Icon name="star" size={19} />
+            </button>
+          )}
+          {onPin && (
+            <button className="fav-btn" onClick={() => onPin(post)} aria-label="Закрепить в канале" title="Закрепить в канале">📌</button>
+          )}
+        </div>
+        <div className="post-foot-meta">
+          <span>{shortDateTime(post.postedAt)}</span>
+          <a href={post.link} target="_blank" rel="noreferrer">в Telegram ↗</a>
+        </div>
       </div>
     </article>
   );

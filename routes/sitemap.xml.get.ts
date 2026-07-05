@@ -1,10 +1,9 @@
 // Динамический sitemap: корень, список лент и каждая публичная лента (/feed/:id).
-// Обновляется сам по мере появления новых лент.
-const SITE = "https://tgparser-feed.onreza.app";
-
+// Обновляется сам по мере появления новых лент. Домен берём из запроса.
 type Feed = { id: number; updated_at?: string; created_at?: string };
 
 export default defineEventHandler(async (event) => {
+  const SITE = getRequestURL(event).origin;
   const urls: { loc: string; lastmod?: string }[] = [
     { loc: `${SITE}/` },
     { loc: `${SITE}/feeds` },
@@ -12,7 +11,7 @@ export default defineEventHandler(async (event) => {
   ];
 
   try {
-    const origin = getRequestURL(event).origin;
+    const origin = SITE;
     const cfg = (await $fetch("/config.json", { baseURL: origin }).catch(() => null)) as
       | { supabaseUrl?: string; supabaseAnonKey?: string }
       | null;
