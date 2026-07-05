@@ -307,13 +307,13 @@ export default function AuthorCabinet() {
               {scheduled.map((p) => {
                 const ch = channels?.find((c) => c.chat_id === p.chat_id);
                 return (
-                  <div key={p.id}>
-                    <div className="row spread" style={{ marginBottom: 6 }}>
-                      <span className="muted" style={{ fontSize: 12 }}>
+                  <div key={p.id} style={{ minWidth: 0 }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
                         🕒 {new Date(p.publish_at).toLocaleString("ru-RU")}
                         {p.status === "failed" && " · ошибка"}
-                      </span>
-                      <div className="row" style={{ gap: 6, flex: "0 0 auto" }}>
+                      </div>
+                      <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
                         <button className="btn ghost sm" onClick={() => startEdit(p)}>Изменить</button>
                         <button className="btn ghost sm" onClick={async () => { if (confirm("Удалить пост?")) { await cancelScheduled(p.id); setScheduled(await scheduledPosts().catch(() => [])); } }}>Удалить</button>
                       </div>

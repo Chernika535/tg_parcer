@@ -8,7 +8,8 @@ export default function PostPreview({
   const visuals = media.filter((m) => m.type === "photo" || m.type === "video");
   const others = media.filter((m) => m.type !== "photo" && m.type !== "video");
   const label = (m: PostMedia) =>
-    m.type === "voice" ? "🎤 голосовое" : m.type === "audio" ? `🎵 ${m.title || "музыка"}` : `📎 ${m.name || "файл"}`;
+    m.type === "voice" ? "🎤 голосовое" : m.type === "audio" ? `🎵 ${m.title || "музыка"}`
+    : m.type === "videonote" ? "⭕ кружок" : `📎 ${m.name || "файл"}`;
 
   return (
     <article className="card preview-card">
