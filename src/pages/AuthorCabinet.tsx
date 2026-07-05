@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { TopBar, Loading } from "../components/States.tsx";
 import RichEditor from "../components/RichEditor.tsx";
 import VoiceRecorder from "../components/VoiceRecorder.tsx";
+import CircleRecorder from "../components/CircleRecorder.tsx";
 import PostPreview from "../components/PostPreview.tsx";
 import { appConfig } from "../lib/supabase.ts";
 import { useAuth } from "../lib/auth.tsx";
@@ -66,6 +67,7 @@ export default function AuthorCabinet() {
   const [when, setWhen] = useState("");
   const [sending, setSending] = useState(false);
   const [showRec, setShowRec] = useState(false);
+  const [showCirc, setShowCirc] = useState(false);
   const [editorKey, setEditorKey] = useState(0); // remount редактора для очистки/загрузки
   const [initialHtml, setInitialHtml] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -116,6 +118,15 @@ export default function AuthorCabinet() {
       const url = await uploadMedia(blob, "ogg");
       setMedia((m) => [...m, { type: "voice", url }]);
     } catch (e) { setMsg("Голосовое не загрузилось: " + (e as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  async function onCircle(blob: Blob) {
+    setShowCirc(false); setBusy(true); setMsg("");
+    try {
+      const url = await uploadMedia(blob, "mp4");
+      setMedia((m) => [...m, { type: "videonote", url }]);
+    } catch (e) { setMsg("Кружок не загрузился: " + (e as Error).message); }
     finally { setBusy(false); }
   }
 
@@ -173,7 +184,7 @@ export default function AuthorCabinet() {
   const empty = !html.trim() && media.length === 0;
   const mediaLabel = (m: PostMedia) =>
     m.type === "photo" ? "🖼 фото" : m.type === "video" ? "🎬 видео" : m.type === "voice" ? "🎤 голос"
-    : m.type === "audio" ? `🎵 ${m.title || "музыка"}` : `📎 ${m.name || "файл"}`;
+    : m.type === "audio" ? `🎵 ${m.title || "музыка"}` : m.type === "videonote" ? "⭕ кружок" : `📎 ${m.name || "файл"}`;
 
   return (
     <>
@@ -230,9 +241,11 @@ export default function AuthorCabinet() {
                 📎 Файл<input type="file" multiple hidden onChange={(e) => { addFiles("document", e.target.files); e.target.value = ""; }} />
               </label>
               {!showRec && <button className="btn secondary sm" onClick={() => setShowRec(true)}>🎤 Голосовое</button>}
+              <button className="btn secondary sm" onClick={() => setShowCirc(true)}>⭕ Кружок</button>
             </div>
 
             {showRec && <div style={{ marginTop: 8 }}><VoiceRecorder onDone={onVoice} onCancel={() => setShowRec(false)} /></div>}
+            {showCirc && <CircleRecorder onDone={onCircle} onCancel={() => setShowCirc(false)} />}
 
             {media.length > 0 && (
               <div className="media-previews">

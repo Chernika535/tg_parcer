@@ -3,7 +3,7 @@
 // иначе ловим WEBPAGE_MEDIA_EMPTY), и ссылки на хранилище нормализуем на прямой
 // адрес Supabase (минуя прокси Onreza).
 export type Media = {
-  type: "photo" | "video" | "voice" | "audio" | "document";
+  type: "photo" | "video" | "voice" | "audio" | "document" | "videonote";
   url: string; name?: string; title?: string; performer?: string;
 };
 
@@ -73,7 +73,7 @@ export function makeSender(botToken: string, supabaseUrl: string) {
       }
 
       const visuals = media.filter((m) => m.type === "photo" || m.type === "video").slice(0, 10);
-      const singles = media.filter((m) => m.type === "voice" || m.type === "audio" || m.type === "document");
+      const singles = media.filter((m) => m.type === "voice" || m.type === "audio" || m.type === "document" || m.type === "videonote");
       let used = false;
       const cap = () => (!used && text ? ((used = true), text) : undefined);
       let firstErr = "";
@@ -100,6 +100,12 @@ export function makeSender(botToken: string, supabaseUrl: string) {
 
       // Голос/аудио/файлы — по одному, байтами. У голоса подпись поддерживается.
       for (const m of singles) {
+        // Кружок (video note) не поддерживает подпись — не «съедаем» текст.
+        if (m.type === "videonote") {
+          const r = await tgForm("sendVideoNote", { chat_id: chatId }, [{ field: "video_note", url: m.url, filename: "circle.mp4" }]);
+          if (!r.ok) fail(r.description); else collect(r.result);
+          continue;
+        }
         const before = used; const c = cap();
         let r;
         if (m.type === "voice") r = await tgForm("sendVoice", { chat_id: chatId, caption: c, parse_mode: c ? pm : undefined }, [{ field: "voice", url: m.url, filename: "voice.ogg" }]);
