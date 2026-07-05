@@ -3,12 +3,16 @@ import { useParams, useNavigate } from "react-router-dom";
 import { readChannels, readChannelsMTServer, readChannelsMT, type Post } from "../lib/data.ts";
 import { Loading, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
+import { useAuth } from "../lib/auth.tsx";
+import { useLikes } from "../lib/useLikes.ts";
 
 // Отдельная страница поста — для ссылок «поделиться постом» внутри сервиса.
 export default function PostView() {
   const { channel = "", msgId = "" } = useParams();
   const id = Number(msgId);
   const nav = useNavigate();
+  const { session } = useAuth();
+  const { liked, toggle: toggleLike } = useLikes(!!session);
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +47,7 @@ export default function PostView() {
       <TopBar title="Пост" onBack={() => nav(-1)} />
       <div className="content">
         {loading && <Loading label="Загружаю пост…" />}
-        {!loading && post && <PostCard post={post} />}
+        {!loading && post && <PostCard post={post} isLiked={liked.has(post.link)} onToggleLike={session ? toggleLike : undefined} />}
         {!loading && !post && (
           <Empty>
             Пост не найден в свежих записях канала.{" "}

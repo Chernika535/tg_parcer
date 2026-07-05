@@ -4,6 +4,7 @@ import { loadPublic, readChannels, favTags, addFavTag, removeFavTag, type Post }
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
+import { useLikes } from "../lib/useLikes.ts";
 
 // Лента из всех публичных лент с заданным тегом.
 export default function TagStream() {
@@ -11,6 +12,7 @@ export default function TagStream() {
   const t = tag.toLowerCase();
   const nav = useNavigate();
   const { session } = useAuth();
+  const { liked, toggle: toggleLike } = useLikes(!!session);
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [count, setCount] = useState(0);
   const [fav, setFav] = useState(false);
@@ -61,7 +63,7 @@ export default function TagStream() {
 
         {!posts && <Loading label="Собираю ленту по тегу…" />}
         {posts && posts.length === 0 && <Empty>Постов по этому тегу пока нет.</Empty>}
-        {posts?.map((p) => <PostCard key={`${p.channel}/${p.msgId}`} post={p} />)}
+        {posts?.map((p) => <PostCard key={`${p.channel}/${p.msgId}`} post={p} isLiked={liked.has(p.link)} onToggleLike={session ? toggleLike : undefined} />)}
       </div>
     </>
   );

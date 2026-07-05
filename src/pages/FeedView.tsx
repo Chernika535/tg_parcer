@@ -6,6 +6,7 @@ import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import { shareLink, feedUrl } from "../lib/share.ts";
 import { linkify } from "../lib/linkify.tsx";
+import { useLikes } from "../lib/useLikes.ts";
 
 // Кэш постов по ленте: в памяти (полный, с blob/data медиа) + в localStorage
 // (облегчённый, для мгновенного показа между сессиями).
@@ -54,6 +55,7 @@ export default function FeedView() {
   const feedId = Number(id);
   const nav = useNavigate();
   const { session } = useAuth();
+  const { liked, toggle: toggleLike } = useLikes(!!session);
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [feed, setFeed] = useState<Feed | null>(null);
   const [posts, setPosts] = useState<Post[] | null>(null);
@@ -343,6 +345,8 @@ export default function FeedView() {
             post={p}
             isFav={fav.has(p.link)}
             onToggleFav={session ? toggleFav : undefined}
+            isLiked={liked.has(p.link)}
+            onToggleLike={session ? toggleLike : undefined}
           />
         ))}
 

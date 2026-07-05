@@ -189,7 +189,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (b.action === "scheduled_list") {
-      const { data, error } = await db.from("scheduled_posts").select("*").eq("owner_id", uid).order("publish_at");
+      // Отправленные больше не показываем в «запланировано» — они уже в канале.
+      const { data, error } = await db.from("scheduled_posts").select("*").eq("owner_id", uid).neq("status", "sent").order("publish_at");
       if (error) return json({ error: error.message }, 500);
       return json({ posts: data ?? [] });
     }
@@ -248,7 +249,11 @@ Deno.serve(async (req: Request) => {
       for (const f of priv ?? []) {
         if (((f.channels ?? []) as string[]).some((c) => normCh(c) === uname)) inPrivate++;
       }
-      return json({ stats: { favorites: favCount ?? 0, privateFeeds: inPrivate } });
+      // Лайки: всего по каналу + разбивка по постам (link → count).
+      const { data: likeRows } = await svc.from("post_likes").select("link").eq("channel", uname);
+      const likesByLink: Record<string, number> = {};
+      for (const r of (likeRows ?? []) as { link: string }[]) likesByLink[r.link] = (likesByLink[r.link] || 0) + 1;
+      return json({ stats: { favorites: favCount ?? 0, privateFeeds: inPrivate, likesTotal: (likeRows ?? []).length, likesByLink } });
     }
 
     // Закреплённый пост канала (для своих каналов — через бота, надёжно).

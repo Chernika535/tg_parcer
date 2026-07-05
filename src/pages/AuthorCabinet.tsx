@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { TopBar, Loading } from "../components/States.tsx";
 import RichEditor from "../components/RichEditor.tsx";
 import VoiceRecorder from "../components/VoiceRecorder.tsx";
+import PostPreview from "../components/PostPreview.tsx";
 import {
   authorChannels, linkChannel, unlinkChannel, sendPostNow, schedulePost,
   scheduledPosts, cancelScheduled, updateScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
@@ -146,49 +147,27 @@ export default function AuthorCabinet() {
     <>
       <TopBar title="Кабинет автора" />
       <div className="content">
-        <div className="card" style={{ fontSize: 13 }}>
-          Постинг в ваши каналы через нашего бота — <b>без VPN</b>. Добавьте бота
-          <b> @tgparsertgfeed_bot</b> администратором канала (с правом «Публикация сообщений»),
-          затем привяжите канал ниже. Публиковать сможете только в каналы, где вы сами админ.
-        </div>
+        {msg && <div className="card msg-card" style={{ fontSize: 13 }}>{msg}</div>}
 
-        {/* Привязка канала */}
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Привязать канал</h3>
-          <div className="field">
-            <input type="text" placeholder="@username канала" value={linkInput} onChange={(e) => setLinkInput(e.target.value)} />
-          </div>
-          <button className="btn" onClick={doLink} disabled={busy}>{busy ? "Проверяю…" : "Проверить и привязать"}</button>
-        </div>
-
-        {/* Мои каналы */}
         {!channels && <Loading />}
-        {channels && channels.length > 0 && (
-          <div className="card">
-            <h3 style={{ marginTop: 0 }}>Мои каналы</h3>
-            {channels.map((c) => (
-              <div key={c.id} style={{ borderTop: "1px solid var(--surface-2)", paddingTop: 8, marginTop: 8 }}>
-                <div className="row spread">
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{c.title || c.chat_id}</div>
-                    {c.username && (
-                      <Link className="muted" style={{ fontSize: 12, textDecoration: "underline" }} to={`/channel/${c.username}`}>
-                        Страница канала в сервисе ↗
-                      </Link>
-                    )}
-                  </div>
-                  <div className="row" style={{ gap: 6 }}>
-                    <button className="btn ghost sm" onClick={() => setSettingsFor(settingsFor === c.id ? null : c.id)}>⚙ Настройки</button>
-                    <button className="btn ghost sm" onClick={async () => { if (confirm("Отвязать канал?")) { await unlinkChannel(c.id); reload(); } }}>Отвязать</button>
-                  </div>
-                </div>
-                {settingsFor === c.id && <ChannelSettings channel={c} onDone={() => setMsg("Изменения канала применены (если у бота есть права).")} />}
-              </div>
-            ))}
-          </div>
-        )}
+
+        {/* Онбординг — только пока нет ни одного канала */}
         {channels && channels.length === 0 && (
-          <div className="card muted">Пока нет привязанных каналов. Добавьте бота админом и привяжите канал выше.</div>
+          <>
+            <div className="card" style={{ fontSize: 14 }}>
+              <h3 style={{ marginTop: 0 }}>Публикуйте в свои каналы без VPN</h3>
+              Добавьте бота <b>@tgparsertgfeed_bot</b> администратором канала (с правом
+              «Публикация сообщений»), затем привяжите канал. Публиковать можно только в
+              каналы, где вы сами админ.
+            </div>
+            <div className="card">
+              <h3 style={{ marginTop: 0 }}>Привязать канал</h3>
+              <div className="field">
+                <input type="text" placeholder="@username канала" value={linkInput} onChange={(e) => setLinkInput(e.target.value)} />
+              </div>
+              <button className="btn" onClick={doLink} disabled={busy}>{busy ? "Проверяю…" : "Проверить и привязать"}</button>
+            </div>
+          </>
         )}
 
         {/* Композер */}
@@ -276,59 +255,79 @@ export default function AuthorCabinet() {
           </div>
         )}
 
-        {/* Запланированные */}
+        {/* Запланированные — свёрнуто, с превью «как в ленте» */}
         {scheduled.length > 0 && (
-          <div className="card">
-            <h3 style={{ marginTop: 0 }}>Запланировано</h3>
-            {scheduled.map((p) => {
-              const ch = channels?.find((c) => c.chat_id === p.chat_id);
-              return (
-                <div key={p.id} style={{ borderTop: "1px solid var(--surface-2)", paddingTop: 8, marginTop: 8 }}>
-                  <div className="row spread">
-                    <div style={{ minWidth: 0 }}>
-                      <div className="muted" style={{ fontSize: 12 }}>
-                        {ch?.title || p.chat_id} · {new Date(p.publish_at).toLocaleString("ru-RU")}
-                        {p.status !== "pending" && ` · ${statusLabel(p.status)}`}
+          <details className="card fold">
+            <summary>Запланировано ({scheduled.length})</summary>
+            <div style={{ marginTop: 10, display: "grid", gap: 14 }}>
+              {scheduled.map((p) => {
+                const ch = channels?.find((c) => c.chat_id === p.chat_id);
+                return (
+                  <div key={p.id}>
+                    <div className="row spread" style={{ marginBottom: 6 }}>
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        🕒 {new Date(p.publish_at).toLocaleString("ru-RU")}
+                        {p.status === "failed" && " · ошибка"}
+                      </span>
+                      <div className="row" style={{ gap: 6, flex: "0 0 auto" }}>
+                        <button className="btn ghost sm" onClick={() => startEdit(p)}>Изменить</button>
+                        <button className="btn ghost sm" onClick={async () => { if (confirm("Удалить пост?")) { await cancelScheduled(p.id); setScheduled(await scheduledPosts().catch(() => [])); } }}>Удалить</button>
                       </div>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 260 }}>
-                        {(p.text || "").replace(/<[^>]+>/g, "") || (p.media.length ? "[медиа]" : "—")}
-                      </div>
-                      {p.media && p.media.length > 0 && (
-                        <div className="muted" style={{ fontSize: 12 }}>{p.media.map(mediaLabel).join(", ")}</div>
-                      )}
-                      {p.error && <div className="muted" style={{ fontSize: 12, color: "var(--pink)" }}>Ошибка: {p.error}</div>}
                     </div>
-                    <div className="row" style={{ gap: 6, flex: "0 0 auto" }}>
-                      {p.status !== "sent" && <button className="btn ghost sm" onClick={() => startEdit(p)}>Изменить</button>}
-                      <button className="btn ghost sm" onClick={async () => { if (confirm("Удалить пост?")) { await cancelScheduled(p.id); setScheduled(await scheduledPosts().catch(() => [])); } }}>Удалить</button>
-                    </div>
+                    <PostPreview channelName={ch?.title || p.chat_id} html={p.text || ""} media={p.media || []} />
+                    {p.error && <div className="muted" style={{ fontSize: 12, color: "var(--pink)", marginTop: 4 }}>Ошибка: {p.error}</div>}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </details>
         )}
 
         {/* Опубликованные — правка текста / удаление прямо в канале */}
         {posted.length > 0 && (
-          <div className="card">
-            <h3 style={{ marginTop: 0 }}>Опубликованные</h3>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Правка текста и удаление применяются прямо в Telegram-канале.</div>
+          <details className="card fold">
+            <summary>Опубликованные ({posted.length})</summary>
+            <div className="muted" style={{ fontSize: 12, margin: "6px 0" }}>Правка текста и удаление применяются прямо в Telegram-канале.</div>
             {posted.map((p) => {
               const ch = channels?.find((c) => c.chat_id === p.chat_id);
               return <PostedItem key={p.id} post={p} channelName={ch?.title || p.chat_id} onChanged={async () => setPosted(await postedList().catch(() => []))} onMsg={setMsg} />;
             })}
-          </div>
+          </details>
         )}
 
-        {msg && <div className="card" style={{ fontSize: 13 }}>{msg}</div>}
+        {/* Мои каналы */}
+        {channels && channels.length > 0 && (
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Мои каналы</h3>
+            <div className="chan-list">
+              {channels.map((c) => (
+                <div key={c.id} className="chan-item">
+                  <div className="chan-item-main">
+                    <div className="chan-item-title">{c.title || c.chat_id}</div>
+                    {c.username && (
+                      <Link className="chan-item-link" to={`/channel/${c.username}`}>@{c.username} · страница в сервисе ↗</Link>
+                    )}
+                    <div className="row" style={{ gap: 6, marginTop: 8 }}>
+                      <button className="btn ghost sm" onClick={() => setSettingsFor(settingsFor === c.id ? null : c.id)}>⚙ Настройки</button>
+                      <button className="btn ghost sm" onClick={async () => { if (confirm("Отвязать канал?")) { await unlinkChannel(c.id); reload(); } }}>Отвязать</button>
+                    </div>
+                    {settingsFor === c.id && <ChannelSettings channel={c} onDone={() => setMsg("Изменения канала применены (если у бота есть права).")} />}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <details className="fold" style={{ marginTop: 12, border: "none", background: "none" }}>
+              <summary style={{ padding: "6px 0" }}>+ Привязать ещё канал</summary>
+              <div className="field" style={{ marginTop: 6 }}>
+                <input type="text" placeholder="@username канала" value={linkInput} onChange={(e) => setLinkInput(e.target.value)} />
+              </div>
+              <button className="btn sm" onClick={doLink} disabled={busy}>{busy ? "Проверяю…" : "Проверить и привязать"}</button>
+            </details>
+          </div>
+        )}
       </div>
     </>
   );
-}
-
-function statusLabel(s: string): string {
-  return s === "sent" ? "отправлено" : s === "failed" ? "ошибка" : s === "canceled" ? "отменено" : s;
 }
 
 function ChannelSettings({ channel, onDone }: { channel: AuthorChannel; onDone: () => void }) {

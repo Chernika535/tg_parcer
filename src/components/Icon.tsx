@@ -3,7 +3,7 @@ type Props = { name: IconName; size?: number; className?: string };
 export type IconName =
   | "feed" | "folder" | "shield" | "user" | "login" | "plus" | "search"
   | "refresh" | "back" | "trash" | "edit" | "check" | "doc" | "mail"
-  | "play" | "image" | "logout" | "eye" | "close" | "cloud" | "menu" | "tag" | "heart" | "share";
+  | "play" | "image" | "logout" | "eye" | "close" | "cloud" | "menu" | "tag" | "heart" | "share" | "star";
 
 const P: Record<IconName, JSX.Element> = {
   feed: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18" /></>,
@@ -30,6 +30,7 @@ const P: Record<IconName, JSX.Element> = {
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   tag: <><path d="M3 11l8-8 10 10-8 8z" /><circle cx="8" cy="8" r="1.6" /></>,
   heart: <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />,
+  star: <path d="M12 2.5l2.9 5.9 6.6.9-4.7 4.6 1.1 6.5L12 17.8 6.1 20.9l1.1-6.5L2.5 9.8l6.6-.9z" />,
 };
 
 export default function Icon({ name, size = 22, className }: Props) {

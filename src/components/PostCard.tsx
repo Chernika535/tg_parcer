@@ -92,11 +92,17 @@ export default function PostCard({
   isFav,
   onToggleFav,
   onPin,
+  isLiked,
+  onToggleLike,
+  likeCount,
 }: {
   post: Post;
   isFav?: boolean;
   onToggleFav?: (post: Post) => void;
   onPin?: (post: Post) => void;
+  isLiked?: boolean;
+  onToggleLike?: (post: Post) => void;
+  likeCount?: number; // показываем только если передан (автору канала)
 }) {
   const [expanded, setExpanded] = useState(false);
   const long = post.text.length > LIMIT;
@@ -130,13 +136,25 @@ export default function PostCard({
         >
           <Icon name="share" size={17} />
         </button>
+        {onToggleLike && (
+          <button
+            className={`fav-btn like-btn ${isLiked ? "on" : ""}`}
+            onClick={() => onToggleLike(post)}
+            aria-label="Нравится"
+            title="Нравится"
+          >
+            <Icon name="heart" size={18} />
+            {likeCount !== undefined && likeCount > 0 && <span className="like-count">{likeCount}</span>}
+          </button>
+        )}
         {onToggleFav && (
           <button
             className={`fav-btn ${isFav ? "on" : ""}`}
             onClick={() => onToggleFav(post)}
             aria-label="В избранное"
+            title="В избранное"
           >
-            <Icon name="heart" size={18} />
+            <Icon name="star" size={18} />
           </button>
         )}
       </div>

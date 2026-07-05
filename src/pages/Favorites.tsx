@@ -15,6 +15,7 @@ import {
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import FeedCard from "../components/FeedCard.tsx";
+import { useLikes } from "../lib/useLikes.ts";
 
 type Tab = "stream" | "posts" | "feeds" | "tags";
 
@@ -28,6 +29,7 @@ export default function Favorites() {
   const [stream, setStream] = useState<Post[] | null>(null);
   const [tags, setTags] = useState<string[] | null>(null);
   const [err, setErr] = useState("");
+  const { liked, toggle: toggleLike } = useLikes(true);
 
   useEffect(() => {
     if (tab === "posts" && !posts) listFavorites().then(setPosts).catch((e) => setErr(e.message));
@@ -122,7 +124,7 @@ export default function Favorites() {
                       <option value="__new__">＋ Новая папка…</option>
                     </select>
                   </div>
-                  <PostCard post={p} isFav onToggleFav={unfavPost} />
+                  <PostCard post={p} isFav onToggleFav={unfavPost} isLiked={liked.has(p.link)} onToggleLike={toggleLike} />
                 </div>
               ))}
             </>
@@ -160,7 +162,7 @@ export default function Favorites() {
           <>
             {!stream && !err && <Loading label="Собираю ленту из избранных…" />}
             {stream && stream.length === 0 && <Empty>Пусто. Добавьте ленты в избранное.</Empty>}
-            {stream?.map((p) => <PostCard key={`${p.channel}/${p.msgId}`} post={p} />)}
+            {stream?.map((p) => <PostCard key={`${p.channel}/${p.msgId}`} post={p} isLiked={liked.has(p.link)} onToggleLike={toggleLike} />)}
           </>
         )}
       </div>

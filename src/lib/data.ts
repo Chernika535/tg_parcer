@@ -515,13 +515,27 @@ export async function readChannelsMTServer(
 }
 
 // Статистика канала для его автора (иначе — null).
-export async function channelStats(username: string): Promise<{ favorites: number; privateFeeds: number } | null> {
+export type ChannelStats = { favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> };
+export async function channelStats(username: string): Promise<ChannelStats | null> {
   try {
-    const d = (await invokeFn("bot", { action: "channel_stats", input: { username } })) as { stats?: { favorites: number; privateFeeds: number } | null };
+    const d = (await invokeFn("bot", { action: "channel_stats", input: { username } })) as { stats?: ChannelStats | null };
     return d.stats ?? null;
   } catch {
     return null;
   }
+}
+
+// ---- Локальные лайки постов ----
+export async function likeLinks(): Promise<string[]> {
+  if (!getAccessToken()) return [];
+  const d = (await invokeFn("myfeeds", { action: "like_links" })) as { links?: string[] };
+  return d.links ?? [];
+}
+export async function addLike(link: string, channel: string): Promise<void> {
+  await invokeFn("myfeeds", { action: "like_add", input: { link, channel } }).catch(() => {});
+}
+export async function removeLike(link: string): Promise<void> {
+  await invokeFn("myfeeds", { action: "like_remove", input: { link } }).catch(() => {});
 }
 
 // Закреплённый пост канала (через общий читающий аккаунт, MTProto).

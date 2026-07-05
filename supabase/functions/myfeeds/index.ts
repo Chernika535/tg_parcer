@@ -239,6 +239,26 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // ---- Локальные лайки постов ----
+    if (b.action === "like_links") {
+      const { data } = await db.from("post_likes").select("link").eq("user_id", uid);
+      return json({ links: (data ?? []).map((r: { link: string }) => r.link) });
+    }
+    if (b.action === "like_add") {
+      const p = (b.input ?? {}) as { link?: string; channel?: string };
+      if (!p.link || !p.channel) return json({ error: "нет данных" }, 400);
+      const { error } = await db.from("post_likes").upsert({ user_id: uid, link: p.link, channel: p.channel });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+    if (b.action === "like_remove") {
+      const link = (b.input as { link?: string } | undefined)?.link;
+      if (!link) return json({ error: "нет ссылки" }, 400);
+      const { error } = await db.from("post_likes").delete().eq("user_id", uid).eq("link", link);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+
     // ---- Личные закрепления лент («Мои») ----
     if (b.action === "mypins_list") {
       const { data } = await db.from("feed_personal_pins").select("feed_id").eq("user_id", uid);

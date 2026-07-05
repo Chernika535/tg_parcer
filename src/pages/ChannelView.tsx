@@ -10,6 +10,7 @@ import { useAuth } from "../lib/auth.tsx";
 import { Loading, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import { linkify } from "../lib/linkify.tsx";
+import { useLikes } from "../lib/useLikes.ts";
 
 function normCh(c: string): string {
   return c.trim().toLowerCase()
@@ -33,7 +34,8 @@ export default function ChannelView() {
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<Post | null>(null);
   const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
-  const [stats, setStats] = useState<{ favorites: number; privateFeeds: number } | null>(null);
+  const [stats, setStats] = useState<{ favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> } | null>(null);
+  const { liked, toggle: toggleLike } = useLikes(!!session);
 
   async function loadMore() {
     if (!posts || posts.length === 0 || loadingMore) return;
@@ -137,7 +139,6 @@ export default function ChannelView() {
             <div>
               <div style={{ fontWeight: 800, fontSize: 18 }}>{title}</div>
               <a className="muted" href={`https://t.me/${ch}`} target="_blank" rel="noreferrer">@{ch}</a>
-              {info?.subscribers && <div className="muted" style={{ fontSize: 13 }}>{info.subscribers} подписчиков</div>}
             </div>
           </div>
           {info?.description && <div className="post-text" style={{ marginTop: 10 }}>{linkify(info.description)}</div>}
@@ -146,6 +147,7 @@ export default function ChannelView() {
           </a>
           {myChatId && stats && (
             <div className="chan-stats">
+              <div className="chan-stat"><span className="chan-stat-num">{stats.likesTotal}</span><span className="chan-stat-lbl">лайков постов</span></div>
               <div className="chan-stat"><span className="chan-stat-num">{stats.favorites}</span><span className="chan-stat-lbl">постов в избранном</span></div>
               <div className="chan-stat"><span className="chan-stat-num">{stats.privateFeeds}</span><span className="chan-stat-lbl">в личных подборках</span></div>
               <div className="chan-stat-note">Видно только вам как автору канала</div>
@@ -170,7 +172,14 @@ export default function ChannelView() {
               <span className="pinned-label">📌 Закреплено</span>
               {myChatId && <button className="btn ghost sm" onClick={doUnpin}>Открепить</button>}
             </div>
-            <PostCard post={pinned} isFav={fav.has(pinned.link)} onToggleFav={session ? toggleFav : undefined} />
+            <PostCard
+              post={pinned}
+              isFav={fav.has(pinned.link)}
+              onToggleFav={session ? toggleFav : undefined}
+              isLiked={liked.has(pinned.link)}
+              onToggleLike={session ? toggleLike : undefined}
+              likeCount={myChatId ? (stats?.likesByLink[pinned.link] ?? 0) : undefined}
+            />
           </div>
         )}
 
@@ -183,6 +192,9 @@ export default function ChannelView() {
             isFav={fav.has(p.link)}
             onToggleFav={session ? toggleFav : undefined}
             onPin={myChatId ? doPin : undefined}
+            isLiked={liked.has(p.link)}
+            onToggleLike={session ? toggleLike : undefined}
+            likeCount={myChatId ? (stats?.likesByLink[p.link] ?? 0) : undefined}
           />
         ))}
 
