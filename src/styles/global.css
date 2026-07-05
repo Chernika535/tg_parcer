@@ -109,7 +109,7 @@ a { color: var(--ink); text-decoration: none; font-weight: 700; }
 .btn {
   border: 3px solid var(--ink); border-radius: var(--pill);
   padding: 11px 20px; font-size: 15px; font-weight: 800; cursor: pointer;
-  background: var(--lime); color: var(--ink); box-shadow: var(--shadow-sm);
+  background: var(--lime); color: var(--on-accent); box-shadow: var(--shadow-sm);
   font-family: "Onest", sans-serif;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
@@ -328,7 +328,8 @@ button.chip { cursor: pointer; }
 .tag-badge.official { background: var(--lime); color: var(--on-accent); }
 .tag-badge.admin { background: var(--pink); color: #fff; }
 .feed-card-body { padding: 14px; }
-.feed-card-title { font-family: var(--head); font-weight: 800; font-size: 16px; cursor: pointer; letter-spacing: -0.3px; }
+.feed-card-title { font-family: var(--head); font-weight: 800; font-size: 16px; cursor: pointer; letter-spacing: -0.3px; color: var(--text); }
+.hcard-title { color: var(--text); }
 .feed-card-desc { font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.45; font-weight: 500;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 

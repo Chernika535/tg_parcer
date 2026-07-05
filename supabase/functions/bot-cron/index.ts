@@ -26,6 +26,13 @@ Deno.serve(async (req: Request) => {
     let sent = 0, failed = 0;
     for (const p of due ?? []) {
       const r = await sendPost(p.chat_id, p.text ?? "", p.parse_mode ?? null, (p.media ?? []) as Media[], !!p.disable_preview);
+      if (r.sent && r.sent.messageIds.length) {
+        await db.from("posted_messages").insert({
+          owner_id: p.owner_id, chat_id: p.chat_id, message_ids: r.sent.messageIds,
+          text_message_id: r.sent.textMessageId ?? null, is_caption: r.sent.isCaption,
+          text: p.text ?? null, parse_mode: p.parse_mode ?? null,
+        });
+      }
       if (r.ok) { await db.from("scheduled_posts").update({ status: "sent", sent_at: new Date().toISOString(), error: null }).eq("id", p.id); sent++; }
       else { await db.from("scheduled_posts").update({ status: "failed", error: r.error ?? "ошибка" }).eq("id", p.id); failed++; }
     }

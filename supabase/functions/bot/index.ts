@@ -121,7 +121,51 @@ Deno.serve(async (req: Request) => {
       if (!p.chat_id || !(await owns(p.chat_id))) return json({ error: "канал не привязан" }, 400);
       if (!p.text && !(p.media && p.media.length)) return json({ error: "пустой пост" }, 400);
       const r = await sendPost(p.chat_id, p.text ?? "", p.parse_mode ?? null, p.media ?? [], !!p.disable_preview);
+      // Сохраняем id сообщений, чтобы потом можно было отредактировать/удалить.
+      if (r.sent && r.sent.messageIds.length) {
+        await db.from("posted_messages").insert({
+          owner_id: uid, chat_id: p.chat_id, message_ids: r.sent.messageIds,
+          text_message_id: r.sent.textMessageId ?? null, is_caption: r.sent.isCaption,
+          text: p.text ?? null, parse_mode: p.parse_mode ?? null,
+        });
+      }
       return r.ok ? json({ ok: true }) : json({ error: r.error || "не удалось отправить" }, 400);
+    }
+
+    if (b.action === "posted_list") {
+      const { data, error } = await db.from("posted_messages").select("*").eq("owner_id", uid).order("sent_at", { ascending: false }).limit(50);
+      if (error) return json({ error: error.message }, 500);
+      return json({ posts: data ?? [] });
+    }
+
+    if (b.action === "post_edit") {
+      if (!b.id) return json({ error: "нет id" }, 400);
+      const p = (b.input ?? {}) as { text?: string; parse_mode?: string | null };
+      const { data: row } = await db.from("posted_messages").select("*").eq("owner_id", uid).eq("id", b.id).maybeSingle();
+      if (!row) return json({ error: "пост не найден" }, 400);
+      const mid = row.text_message_id;
+      if (!mid) return json({ error: "у этого поста нельзя изменить текст (нет текстового сообщения)" }, 400);
+      const pm = p.parse_mode ?? undefined;
+      const r = row.is_caption
+        ? await tg("editMessageCaption", { chat_id: row.chat_id, message_id: mid, caption: p.text ?? "", parse_mode: pm })
+        : await tg("editMessageText", { chat_id: row.chat_id, message_id: mid, text: p.text ?? "", parse_mode: pm });
+      if (!r.ok && !/message is not modified/i.test(r.description || "")) return json({ error: r.description }, 400);
+      await db.from("posted_messages").update({ text: p.text ?? null, parse_mode: p.parse_mode ?? null }).eq("owner_id", uid).eq("id", b.id);
+      return json({ ok: true });
+    }
+
+    if (b.action === "post_delete") {
+      if (!b.id) return json({ error: "нет id" }, 400);
+      const { data: row } = await db.from("posted_messages").select("*").eq("owner_id", uid).eq("id", b.id).maybeSingle();
+      if (!row) return json({ error: "пост не найден" }, 400);
+      let firstErr = "";
+      for (const mid of (row.message_ids ?? []) as number[]) {
+        const r = await tg("deleteMessage", { chat_id: row.chat_id, message_id: mid });
+        if (!r.ok && !firstErr) firstErr = r.description || "";
+      }
+      // Из нашего списка убираем в любом случае (в ТГ могло удалиться частично/истечь срок).
+      await db.from("posted_messages").delete().eq("owner_id", uid).eq("id", b.id);
+      return firstErr ? json({ ok: true, warning: firstErr }) : json({ ok: true });
     }
 
     if (b.action === "schedule") {

@@ -448,6 +448,26 @@ export async function updateScheduled(id: number, input: ComposePayload & { publ
   const d = (await invokeFn("bot", { action: "scheduled_update", id, input })) as { error?: string };
   if (d.error) throw new Error(d.error);
 }
+
+// ---- Уже опубликованные через сервис посты (правка текста/удаление) ----
+export type PostedMessage = {
+  id: number; chat_id: string; message_ids: number[]; text_message_id: number | null;
+  is_caption: boolean; text: string | null; parse_mode: string | null; sent_at: string;
+};
+export async function postedList(): Promise<PostedMessage[]> {
+  const d = (await invokeFn("bot", { action: "posted_list" })) as { posts?: PostedMessage[]; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.posts ?? [];
+}
+export async function editPosted(id: number, text: string): Promise<void> {
+  const d = (await invokeFn("bot", { action: "post_edit", id, input: { text, parse_mode: "HTML" } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+export async function deletePosted(id: number): Promise<{ warning?: string }> {
+  const d = (await invokeFn("bot", { action: "post_delete", id })) as { error?: string; warning?: string };
+  if (d.error) throw new Error(d.error);
+  return { warning: d.warning };
+}
 export async function updateChannelInfo(input: { chat_id: string; title?: string; description?: string; photo_url?: string }): Promise<void> {
   const d = (await invokeFn("bot", { action: "channel_update", input }, 40000)) as { error?: string };
   if (d.error) throw new Error(d.error);

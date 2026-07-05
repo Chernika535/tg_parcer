@@ -5,7 +5,8 @@ import VoiceRecorder from "../components/VoiceRecorder.tsx";
 import {
   authorChannels, linkChannel, unlinkChannel, sendPostNow, schedulePost,
   scheduledPosts, cancelScheduled, updateScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
-  type AuthorChannel, type PostMedia, type ScheduledPost,
+  postedList, editPosted, deletePosted,
+  type AuthorChannel, type PostMedia, type ScheduledPost, type PostedMessage,
 } from "../lib/data.ts";
 
 // ISO (UTC) → значение для input[type=datetime-local] в местном времени.
@@ -17,6 +18,7 @@ function toLocalInput(iso: string): string {
 export default function AuthorCabinet() {
   const [channels, setChannels] = useState<AuthorChannel[] | null>(null);
   const [scheduled, setScheduled] = useState<ScheduledPost[]>([]);
+  const [posted, setPosted] = useState<PostedMessage[]>([]);
   const [linkInput, setLinkInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -39,6 +41,7 @@ export default function AuthorCabinet() {
     setChannels(chs);
     if (chs.length && !chatId) setChatId(chs[0].chat_id);
     setScheduled(await scheduledPosts().catch(() => []));
+    setPosted(await postedList().catch(() => []));
   }
   useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -118,6 +121,7 @@ export default function AuthorCabinet() {
     try {
       await sendPostNow(payload());
       resetComposer(); setMsg("Опубликовано ✓");
+      setPosted(await postedList().catch(() => []));
     } catch (e) { setMsg("Ошибка: " + (e as Error).message); }
     finally { setSending(false); }
   }
@@ -300,6 +304,18 @@ export default function AuthorCabinet() {
           </div>
         )}
 
+        {/* Опубликованные — правка текста / удаление прямо в канале */}
+        {posted.length > 0 && (
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Опубликованные</h3>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Правка текста и удаление применяются прямо в Telegram-канале.</div>
+            {posted.map((p) => {
+              const ch = channels?.find((c) => c.chat_id === p.chat_id);
+              return <PostedItem key={p.id} post={p} channelName={ch?.title || p.chat_id} onChanged={async () => setPosted(await postedList().catch(() => []))} onMsg={setMsg} />;
+            })}
+          </div>
+        )}
+
         {msg && <div className="card" style={{ fontSize: 13 }}>{msg}</div>}
       </div>
     </>
@@ -344,6 +360,61 @@ function ChannelSettings({ channel, onDone }: { channel: AuthorChannel; onDone: 
       </div>
       <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Для смены нужно право бота «Изменение профиля канала».</div>
       {err && <div className="muted" style={{ fontSize: 12, color: "var(--pink)", marginTop: 4 }}>{err}</div>}
+    </div>
+  );
+}
+
+// Опубликованный пост: правка текста (editMessage*) и удаление (deleteMessage).
+function PostedItem({ post, channelName, onChanged, onMsg }: { post: PostedMessage; channelName: string; onChanged: () => void; onMsg: (s: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [html, setHtml] = useState(post.text || "");
+  const [busy, setBusy] = useState(false);
+  const canEditText = post.text_message_id != null;
+
+  async function save() {
+    setBusy(true);
+    try { await editPosted(post.id, html); setEditing(false); onMsg("Текст обновлён ✓"); onChanged(); }
+    catch (e) { onMsg("Ошибка: " + (e as Error).message); }
+    finally { setBusy(false); }
+  }
+  async function del() {
+    if (!confirm("Удалить пост из канала?")) return;
+    setBusy(true);
+    try {
+      const r = await deletePosted(post.id);
+      onMsg(r.warning ? "Убрано из списка. Telegram: " + r.warning : "Удалено из канала ✓");
+      onChanged();
+    } catch (e) { onMsg("Ошибка: " + (e as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div style={{ borderTop: "1px solid var(--surface-2)", paddingTop: 8, marginTop: 8 }}>
+      <div className="row spread">
+        <div style={{ minWidth: 0 }}>
+          <div className="muted" style={{ fontSize: 12 }}>{channelName} · {new Date(post.sent_at).toLocaleString("ru-RU")}</div>
+          {!editing && (
+            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 260 }}>
+              {(post.text || "").replace(/<[^>]+>/g, "") || "[медиа]"}
+            </div>
+          )}
+        </div>
+        {!editing && (
+          <div className="row" style={{ gap: 6, flex: "0 0 auto" }}>
+            {canEditText && <button className="btn ghost sm" onClick={() => setEditing(true)} disabled={busy}>Изменить текст</button>}
+            <button className="btn ghost sm" onClick={del} disabled={busy}>Удалить</button>
+          </div>
+        )}
+      </div>
+      {editing && (
+        <div style={{ marginTop: 8 }}>
+          <RichEditor initialHtml={post.text || ""} onChange={setHtml} />
+          <div className="row" style={{ gap: 8, marginTop: 8 }}>
+            <button className="btn sm" onClick={save} disabled={busy}>{busy ? "…" : "Сохранить"}</button>
+            <button className="btn ghost sm" onClick={() => setEditing(false)}>Отмена</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
