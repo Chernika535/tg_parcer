@@ -95,7 +95,7 @@ Deno.serve(async (req: Request) => {
       // RLS вернёт ленту, если она видна пользователю (своя / админ / одобренная).
       const { data } = await db
         .from("feeds")
-        .select("*, owner:profiles(display_name, username)")
+        .select("*, owner:profiles!owner_id(display_name, username)")
         .eq("id", b.id)
         .maybeSingle();
       return json({ feed: data ?? null });
@@ -105,7 +105,7 @@ Deno.serve(async (req: Request) => {
       // Все публичные ленты всех статусов — для админа (RLS отдаёт всё только ему).
       const { data, error } = await db
         .from("feeds")
-        .select("*, owner:profiles(display_name, username)")
+        .select("*, owner:profiles!owner_id(display_name, username)")
         .eq("visibility", "public")
         .order("created_at", { ascending: false });
       if (error) return json({ error: error.message }, 500);
@@ -115,7 +115,7 @@ Deno.serve(async (req: Request) => {
     if (b.action === "list_pending") {
       const { data, error } = await db
         .from("feeds")
-        .select("*, owner:profiles(display_name, username)")
+        .select("*, owner:profiles!owner_id(display_name, username)")
         .eq("visibility", "public")
         .eq("status", "pending")
         .order("created_at", { ascending: true });
@@ -219,7 +219,7 @@ Deno.serve(async (req: Request) => {
     if (b.action === "ffav_list") {
       const { data, error } = await db
         .from("feed_favorites")
-        .select("feed:feeds(*, owner:profiles(display_name, username))")
+        .select("feed:feeds(*, owner:profiles!owner_id(display_name, username))")
         .eq("user_id", uid)
         .order("created_at", { ascending: false });
       if (error) return json({ error: error.message }, 500);
