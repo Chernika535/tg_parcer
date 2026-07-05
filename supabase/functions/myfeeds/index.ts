@@ -239,6 +239,24 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // ---- Личные закрепления лент («Мои») ----
+    if (b.action === "mypins_list") {
+      const { data } = await db.from("feed_personal_pins").select("feed_id").eq("user_id", uid);
+      return json({ ids: (data ?? []).map((r: { feed_id: number }) => r.feed_id) });
+    }
+    if (b.action === "mypin_add") {
+      if (!b.id) return json({ error: "нет id" }, 400);
+      const { error } = await db.from("feed_personal_pins").upsert({ user_id: uid, feed_id: b.id });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+    if (b.action === "mypin_remove") {
+      if (!b.id) return json({ error: "нет id" }, 400);
+      const { error } = await db.from("feed_personal_pins").delete().eq("user_id", uid).eq("feed_id", b.id);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+
     // ---- Избранные ТЕГИ ----
     if (b.action === "tfav_list") {
       const { data } = await db.from("tag_favorites").select("tag").eq("user_id", uid).order("created_at", { ascending: false });

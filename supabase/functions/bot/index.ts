@@ -212,6 +212,27 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // Закрепить/открепить пост — только в каналах, где привязан наш бот (он админ).
+    if (b.action === "pin" || b.action === "unpin") {
+      const p = (b.input ?? {}) as { chat_id?: string; message_id?: number };
+      if (!p.chat_id || !(await owns(p.chat_id))) return json({ error: "канал не привязан" }, 400);
+      if (!p.message_id) return json({ error: "нет id сообщения" }, 400);
+      const r = b.action === "pin"
+        ? await tg("pinChatMessage", { chat_id: p.chat_id, message_id: p.message_id, disable_notification: true })
+        : await tg("unpinChatMessage", { chat_id: p.chat_id, message_id: p.message_id });
+      return r.ok ? json({ ok: true }) : json({ error: r.description }, 400);
+    }
+
+    // Закреплённый пост канала (для своих каналов — через бота, надёжно).
+    if (b.action === "channel_pinned") {
+      const p = (b.input ?? {}) as { chat_id?: string };
+      if (!p.chat_id) return json({ error: "нет канала" }, 400);
+      const r = await tg("getChat", { chat_id: p.chat_id });
+      const pm = r.ok ? r.result?.pinned_message : null;
+      if (!pm) return json({ pinned: null });
+      return json({ pinned: { message_id: pm.message_id, text: pm.text || pm.caption || "" } });
+    }
+
     if (b.action === "channel_update") {
       const p = (b.input ?? {}) as { chat_id?: string; title?: string; description?: string; photo_url?: string };
       if (!p.chat_id || !(await owns(p.chat_id))) return json({ error: "канал не привязан" }, 400);

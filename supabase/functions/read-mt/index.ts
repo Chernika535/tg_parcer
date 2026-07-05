@@ -48,7 +48,51 @@ Deno.serve(async (req: Request) => {
     const { data: row } = await db.from("tg_session").select("session").eq("id", "default").maybeSingle();
     if (!row?.session) return json({ posts: [], unavailable: [], noAccount: true });
 
-    const body = (await req.json()) as { channels?: string[]; one?: { channel?: string; msgId?: number } };
+    const body = (await req.json()) as { channels?: string[]; one?: { channel?: string; msgId?: number }; pinned?: { channel?: string } };
+
+    // Режим «закреплённый пост канала» — для страницы канала.
+    if (body.pinned?.channel) {
+      const ch = norm(body.pinned.channel);
+      if (!ch) return json({ error: "bad channel" });
+      const tg = await import("npm:telegram@2.26.22");
+      const client = new tg.TelegramClient(new tg.sessions.StringSession(row.session), API_ID, API_HASH, { connectionRetries: 2, useWSS: true });
+      await withTimeout(client.connect(), 9000);
+      try {
+        // deno-lint-ignore no-explicit-any
+        let entity: any;
+        try { entity = await withTimeout(client.getEntity(ch), 8000); }
+        catch {
+          // deno-lint-ignore no-explicit-any
+          const res: any = await withTimeout(client.invoke(new (tg as any).Api.contacts.ResolveUsername({ username: ch })), 8000);
+          entity = res.chats?.[0] ?? res.users?.[0];
+        }
+        // deno-lint-ignore no-explicit-any
+        const msgs: any[] = await withTimeout(
+          // deno-lint-ignore no-explicit-any
+          client.getMessages(entity, { limit: 1, filter: new (tg as any).Api.InputMessagesFilterPinned({}) } as any), 9000,
+        );
+        const m = msgs?.[0];
+        if (!m) { try { await client.disconnect(); } catch { /* ignore */ } return json({ post: null }); }
+        let img: string | undefined;
+        try {
+          if (m.photo) {
+            const buf = await withTimeout(client.downloadMedia(m, {}), 6000) as Uint8Array;
+            if (buf?.length && buf.length < 3 * 1024 * 1024) img = `data:image/jpeg;base64,${encodeBase64(buf)}`;
+          }
+        } catch { /* без картинки */ }
+        try { await client.disconnect(); } catch { /* ignore */ }
+        return json({
+          post: {
+            channel: ch, msgId: m.id, postedAt: new Date((m.date ?? 0) * 1000).toISOString(),
+            text: m.message ?? "", media: img ? [{ type: "photo", url: img }] : [],
+            hasMedia: !!img, link: `https://t.me/${ch}/${m.id}`,
+          },
+        });
+      } catch (e) {
+        try { await client.disconnect(); } catch { /* ignore */ }
+        return json({ post: null, error: (e as Error).message || String(e) });
+      }
+    }
 
     // Режим догрузки одного медиа (видео/голосовое) по channel+msgId — для крупных
     // видео открытых каналов, которых нет в t.me/s превью.

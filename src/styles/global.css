@@ -304,6 +304,35 @@ button.chip { cursor: pointer; }
 .hcard .muted { padding: 0 10px 10px; }
 .how-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 8px; }
 .how-list li { background: var(--surface-2); border: 2px solid var(--ink); border-radius: var(--r-sm); padding: 10px 12px; font-weight: 600; }
+
+/* Лендинг — блоки */
+.land-block { margin-top: 22px; }
+.land-block p { font-size: 15px; line-height: 1.5; margin-top: 4px; }
+.accent-block { background: var(--surface); border: 3px solid var(--ink); border-radius: var(--r); box-shadow: var(--shadow-sm); padding: 16px; }
+.how-steps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+.how-steps li { display: flex; align-items: flex-start; gap: 12px; font-size: 15px; font-weight: 600; }
+.how-num { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: var(--lime); color: var(--on-accent); border: 2px solid var(--ink); display: flex; align-items: center; justify-content: center; font-family: var(--head); font-weight: 800; }
+.land-cols { display: grid; gap: 14px; margin-top: 22px; }
+@media (min-width: 720px) { .land-cols { grid-template-columns: 1fr 1fr; } }
+.land-col { background: var(--surface); border: 3px solid var(--ink); border-radius: var(--r); box-shadow: var(--shadow-sm); padding: 16px; }
+.dot-list { list-style: none; padding: 0; margin: 6px 0 12px; display: grid; gap: 7px; }
+.dot-list li { position: relative; padding-left: 20px; font-size: 14px; line-height: 1.4; }
+.dot-list li::before { content: "•"; position: absolute; left: 4px; color: var(--pink); font-weight: 900; }
+.faq { display: grid; gap: 8px; margin-top: 6px; }
+.faq-item { border: 2px solid var(--ink); border-radius: var(--r-sm); background: var(--surface-2); overflow: hidden; }
+.faq-item summary { cursor: pointer; padding: 12px 14px; font-weight: 700; list-style: none; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: "+"; float: right; font-weight: 900; color: var(--pink); }
+.faq-item[open] summary::after { content: "–"; }
+.faq-item p { padding: 0 14px 12px; font-size: 14px; line-height: 1.5; color: var(--muted); margin: 0; }
+.land-cta { margin: 28px 0 8px; text-align: center; background: var(--lime); border: 3px solid var(--ink); border-radius: var(--r); box-shadow: var(--shadow); padding: 22px 16px; }
+.land-cta .sec-title { color: var(--on-accent); margin-top: 0; }
+.land-cta .muted { color: var(--on-accent); opacity: .8; margin-bottom: 12px; }
+.land-cta .btn { background: var(--ink); color: var(--paper); }
+
+/* Закреплённый пост на странице канала */
+.pinned-wrap { border: 3px dashed var(--pink); border-radius: var(--r); padding: 8px; margin-bottom: 10px; }
+.pinned-label { font-family: var(--head); font-weight: 800; font-size: 13px; color: var(--pink); }
 .sort-sel { border: 2px solid var(--ink); border-radius: 999px; padding: 4px 10px; background: var(--paper); font-weight: 700; font-size: 12.5px; }
 /* Мини-шит «добавить канал в ленту» */
 .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; z-index: 60; }

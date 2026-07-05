@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   channelsInfo, readChannels, readChannelsMTServer, readChannelsMT, readChannelsBefore,
   loadPublic, favoriteLinks, addFavorite, removeFavorite,
+  pinnedPost, pinPost, unpinPost, authorChannels,
   type Post, type ChannelInfo, type Feed,
 } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
@@ -30,6 +31,8 @@ export default function ChannelView() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [noMore, setNoMore] = useState(false);
   const [fav, setFav] = useState<Set<string>>(new Set());
+  const [pinned, setPinned] = useState<Post | null>(null);
+  const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
 
   async function loadMore() {
     if (!posts || posts.length === 0 || loadingMore) return;
@@ -62,7 +65,27 @@ export default function ChannelView() {
     loadPublic().then(({ feeds }) => {
       setInFeeds(feeds.filter((f) => f.channels.some((c) => normCh(c) === ch)));
     }).catch(() => setInFeeds([]));
-  }, [ch]);
+    // Закреплённый в Telegram пост.
+    setPinned(null);
+    pinnedPost(ch).then(setPinned).catch(() => {});
+    // Если это мой канал (бот-админ) — включаем управление закреплением.
+    setMyChatId(null);
+    if (session) authorChannels().then((chs) => {
+      const mine = chs.find((c) => (c.username || "").toLowerCase() === ch);
+      if (mine) setMyChatId(mine.chat_id);
+    }).catch(() => {});
+  }, [ch, session]);
+
+  async function doPin(post: Post) {
+    if (!myChatId) return;
+    try { await pinPost(myChatId, post.msgId); setPinned(post); }
+    catch (e) { alert("Не удалось закрепить: " + (e as Error).message); }
+  }
+  async function doUnpin() {
+    if (!myChatId || !pinned) return;
+    try { await unpinPost(myChatId, pinned.msgId); setPinned(null); }
+    catch (e) { alert("Не удалось открепить: " + (e as Error).message); }
+  }
 
   useEffect(() => {
     (async () => {
@@ -129,10 +152,26 @@ export default function ChannelView() {
           </div>
         )}
 
+        {pinned && (
+          <div className="pinned-wrap">
+            <div className="row spread" style={{ padding: "0 4px" }}>
+              <span className="pinned-label">📌 Закреплено</span>
+              {myChatId && <button className="btn ghost sm" onClick={doUnpin}>Открепить</button>}
+            </div>
+            <PostCard post={pinned} isFav={fav.has(pinned.link)} onToggleFav={session ? toggleFav : undefined} />
+          </div>
+        )}
+
         {loadingPosts && (!posts || posts.length === 0) && <Loading label="Читаю канал…" />}
         {!loadingPosts && posts && posts.length === 0 && <Empty>Постов пока нет или превью канала недоступно.</Empty>}
-        {posts?.map((p) => (
-          <PostCard key={`${p.channel}/${p.msgId}`} post={p} isFav={fav.has(p.link)} onToggleFav={session ? toggleFav : undefined} />
+        {posts?.filter((p) => !pinned || p.msgId !== pinned.msgId).map((p) => (
+          <PostCard
+            key={`${p.channel}/${p.msgId}`}
+            post={p}
+            isFav={fav.has(p.link)}
+            onToggleFav={session ? toggleFav : undefined}
+            onPin={myChatId ? doPin : undefined}
+          />
         ))}
 
         {posts && posts.length > 0 && !loadingPosts && (

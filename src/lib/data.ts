@@ -285,6 +285,19 @@ export async function setFavoriteFolder(link: string, folder: string | null): Pr
   if (d.error) throw new Error(d.error);
 }
 
+// ---- Личные закрепления лент в «Мои» (на сервере, не теряются между входами) ----
+export async function myPins(): Promise<number[]> {
+  if (!getAccessToken()) return [];
+  const d = (await invokeFn("myfeeds", { action: "mypins_list" })) as { ids?: number[] };
+  return d.ids ?? [];
+}
+export async function addMyPin(id: number): Promise<void> {
+  await invokeFn("myfeeds", { action: "mypin_add", id }).catch(() => {});
+}
+export async function removeMyPin(id: number): Promise<void> {
+  await invokeFn("myfeeds", { action: "mypin_remove", id }).catch(() => {});
+}
+
 // ---- Избранные ЛЕНТЫ ----
 export async function feedFavIds(): Promise<number[]> {
   if (!getAccessToken()) return [];
@@ -499,6 +512,25 @@ export async function readChannelsMTServer(
   } catch (e) {
     return { posts: [], unavailable: channels, error: (e as Error).message };
   }
+}
+
+// Закреплённый пост канала (через общий читающий аккаунт, MTProto).
+export async function pinnedPost(channel: string): Promise<Post | null> {
+  try {
+    const d = (await mtCall("read-mt", { pinned: { channel } }, 30000)) as { post?: Post | null };
+    return d.post ?? null;
+  } catch {
+    return null;
+  }
+}
+// Закрепить/открепить пост в своём канале (бот — админ). chatId — из author_channels.
+export async function pinPost(chatId: string, messageId: number): Promise<void> {
+  const d = (await invokeFn("bot", { action: "pin", input: { chat_id: chatId, message_id: messageId } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+export async function unpinPost(chatId: string, messageId: number): Promise<void> {
+  const d = (await invokeFn("bot", { action: "unpin", input: { chat_id: chatId, message_id: messageId } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
 }
 
 // Догрузка одного крупного видео/медиа по channel+msgId (через общий аккаунт).

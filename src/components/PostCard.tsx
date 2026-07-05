@@ -91,10 +91,12 @@ export default function PostCard({
   post,
   isFav,
   onToggleFav,
+  onPin,
 }: {
   post: Post;
   isFav?: boolean;
   onToggleFav?: (post: Post) => void;
+  onPin?: (post: Post) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const long = post.text.length > LIMIT;
@@ -118,6 +120,9 @@ export default function PostCard({
         </Link>
         <span className="post-meta">@{post.channel} · {relativeTime(post.postedAt)}</span>
         <AddChannelButton channel={post.channel} />
+        {onPin && (
+          <button className="fav-btn" onClick={() => onPin(post)} aria-label="Закрепить в канале" title="Закрепить в канале">📌</button>
+        )}
         <button
           className="fav-btn"
           onClick={() => shareLink(postUrl(post.channel, post.msgId), post.channelTitle || `@${post.channel}`)}

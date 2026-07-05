@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth.tsx";
-import { myFeeds, deleteFeed, type Feed } from "../lib/data.ts";
+import { myFeeds, deleteFeed, myPins, addMyPin, removeMyPin, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import FeedCard from "../components/FeedCard.tsx";
 import FeedFilter, { applyFilters, allTagsOf, emptyFilters, type Filters } from "../components/FeedFilter.tsx";
@@ -21,10 +21,13 @@ function statusBadge(f: Feed) {
 
 type Vis = "all" | "private" | "public";
 
-function loadPins(): Set<number> {
+// localStorage — только мгновенный кэш для показа до ответа сервера. Источник
+// правды — сервер (feed_personal_pins), поэтому закрепления не теряются при
+// выходе/входе и на других устройствах.
+function loadPinsCache(): Set<number> {
   try { return new Set(JSON.parse(localStorage.getItem("tf_mypins") || "[]") as number[]); } catch { return new Set(); }
 }
-function savePins(s: Set<number>) {
+function savePinsCache(s: Set<number>) {
   try { localStorage.setItem("tf_mypins", JSON.stringify([...s])); } catch { /* ignore */ }
 }
 
@@ -33,7 +36,7 @@ export default function MyFeeds() {
   const [err, setErr] = useState("");
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [vis, setVis] = useState<Vis>("all");
-  const [pins, setPins] = useState<Set<number>>(() => loadPins());
+  const [pins, setPins] = useState<Set<number>>(() => loadPinsCache());
   const { isAdmin } = useAuth();
   const nav = useNavigate();
 
@@ -47,6 +50,12 @@ export default function MyFeeds() {
   }
   useEffect(() => {
     load();
+    // Подтягиваем закрепления с сервера (кэш уже показан из localStorage).
+    myPins().then((ids) => {
+      const s = new Set(ids);
+      setPins(s);
+      savePinsCache(s);
+    }).catch(() => {});
   }, []);
 
   async function remove(id: number, title: string) {
@@ -58,8 +67,8 @@ export default function MyFeeds() {
   function togglePin(id: number) {
     setPins((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      savePins(next);
+      if (next.has(id)) { next.delete(id); removeMyPin(id); } else { next.add(id); addMyPin(id); }
+      savePinsCache(next);
       return next;
     });
   }
