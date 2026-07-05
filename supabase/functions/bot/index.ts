@@ -15,8 +15,15 @@ const json = (d: unknown, s = 200) =>
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 const API = `https://api.telegram.org/bot${BOT_TOKEN}`;
+
+function normCh(c: string): string {
+  return c.trim().toLowerCase()
+    .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
+    .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
+}
 
 async function tg(method: string, body: Record<string, unknown>): Promise<{ ok: boolean; result?: any; description?: string }> {
   const r = await fetch(`${API}/${method}`, {
@@ -221,6 +228,27 @@ Deno.serve(async (req: Request) => {
         ? await tg("pinChatMessage", { chat_id: p.chat_id, message_id: p.message_id, disable_notification: true })
         : await tg("unpinChatMessage", { chat_id: p.chat_id, message_id: p.message_id });
       return r.ok ? json({ ok: true }) : json({ error: r.description }, 400);
+    }
+
+    // Статистика канала — видит только его автор (кто привязал канал у нас).
+    // Считаем по всем пользователям, поэтому нужен service-role (минуя RLS).
+    if (b.action === "channel_stats") {
+      const uname = normCh(((b.input ?? {}) as { username?: string }).username ?? "");
+      if (!uname) return json({ stats: null });
+      // Проверяем, что это канал текущего пользователя (по нику в его привязках).
+      const { data: mine } = await db.from("author_channels").select("id").eq("owner_id", uid).ilike("username", uname).maybeSingle();
+      if (!mine) return json({ stats: null });
+      if (!SERVICE_ROLE) return json({ stats: null });
+      const svc = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+      // Постов канала в избранном (у всех пользователей).
+      const { count: favCount } = await svc.from("favorites").select("*", { count: "exact", head: true }).eq("data->>channel", uname);
+      // В скольких ЛИЧНЫХ подборках есть этот канал.
+      const { data: priv } = await svc.from("feeds").select("channels").eq("visibility", "private");
+      let inPrivate = 0;
+      for (const f of priv ?? []) {
+        if (((f.channels ?? []) as string[]).some((c) => normCh(c) === uname)) inPrivate++;
+      }
+      return json({ stats: { favorites: favCount ?? 0, privateFeeds: inPrivate } });
     }
 
     // Закреплённый пост канала (для своих каналов — через бота, надёжно).

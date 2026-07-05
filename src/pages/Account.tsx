@@ -3,11 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth.tsx";
 import { TopBar } from "../components/States.tsx";
 import TgConnect from "../components/TgConnect.tsx";
+import TelegramLogin from "../components/TelegramLogin.tsx";
 import { updateMyProfile, uploadAvatar } from "../lib/data.ts";
+import type { TelegramUser } from "../lib/auth.tsx";
 
 export default function Account() {
-  const { profile, session, signOut, isAdmin, updateCredentials, refreshProfile } = useAuth();
+  const { profile, session, signOut, isAdmin, updateCredentials, refreshProfile, linkTelegram } = useAuth();
   const nav = useNavigate();
+  const [tgMsg, setTgMsg] = useState("");
+
+  async function onLinkTelegram(u: TelegramUser) {
+    setTgMsg("Привязываю…");
+    try { await linkTelegram(u); setTgMsg("Telegram привязан ✓ Теперь можно входить и через него."); }
+    catch (e) { setTgMsg("Ошибка: " + (e as Error).message); }
+  }
 
   const [name, setName] = useState(profile?.display_name || "");
   const [photo, setPhoto] = useState(profile?.photo_url || "");
@@ -130,6 +139,25 @@ export default function Account() {
             {savingCreds ? "Сохранение…" : "Сохранить e-mail / пароль"}
           </button>
           {credMsg && <p className="muted" style={{ marginTop: 8 }}>{credMsg}</p>}
+        </div>
+
+        {/* Привязка Telegram — чтобы входить и через него (актуально для тех, кто регистрировался по e-mail) */}
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Вход через Telegram</h3>
+          {profile?.telegram_id ? (
+            <p className="muted">
+              Telegram привязан{profile.username ? `: @${profile.username}` : ""}. Можно входить и по e-mail, и через Telegram.
+            </p>
+          ) : (
+            <>
+              <p className="muted">
+                Привяжите Telegram, чтобы входить в этот же аккаунт ещё и через него.
+                Если виджет не появился (бывает без VPN) — вход по e-mail всё равно работает.
+              </p>
+              <TelegramLogin onAuth={onLinkTelegram} />
+            </>
+          )}
+          {tgMsg && <p className="muted" style={{ marginTop: 8 }}>{tgMsg}</p>}
         </div>
 
         {isAdmin && <TgConnect />}

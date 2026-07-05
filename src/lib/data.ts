@@ -514,6 +514,16 @@ export async function readChannelsMTServer(
   }
 }
 
+// Статистика канала для его автора (иначе — null).
+export async function channelStats(username: string): Promise<{ favorites: number; privateFeeds: number } | null> {
+  try {
+    const d = (await invokeFn("bot", { action: "channel_stats", input: { username } })) as { stats?: { favorites: number; privateFeeds: number } | null };
+    return d.stats ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Закреплённый пост канала (через общий читающий аккаунт, MTProto).
 export async function pinnedPost(channel: string): Promise<Post | null> {
   try {

@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "функция не сконфигурирована (секреты)" }, 500);
     }
 
-    const user = (await req.json()) as TgUser;
+    const user = (await req.json()) as TgUser & { action?: string };
     if (!user?.id || !user?.hash) return jsonResponse({ error: "нет данных Telegram" }, 400);
 
     if (!(await verifyTelegram(user, botToken))) {
@@ -78,6 +78,24 @@ Deno.serve(async (req: Request) => {
     }
 
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+
+    // Режим ПРИВЯЗКИ Telegram к уже существующему аккаунту (вошёл по e-mail и хочет
+    // добавить вход через Telegram). Требует JWT текущего пользователя.
+    if (user.action === "link") {
+      const jwt = req.headers.get("authorization")?.replace("Bearer ", "");
+      if (!jwt) return jsonResponse({ error: "нужен вход" }, 401);
+      const { data: caller } = await admin.auth.getUser(jwt);
+      if (!caller.user) return jsonResponse({ error: "нужен вход" }, 401);
+      const uid = caller.user.id;
+      // Проверяем, что этот Telegram не привязан к другому аккаунту.
+      const { data: taken } = await admin.from("profiles").select("id").eq("telegram_id", user.id).maybeSingle();
+      if (taken && taken.id !== uid) return jsonResponse({ error: "этот Telegram уже привязан к другому аккаунту" }, 400);
+      const patch: Record<string, unknown> = { id: uid, telegram_id: user.id, username: user.username ?? null };
+      if (user.photo_url) patch.photo_url = user.photo_url;
+      const { error } = await admin.from("profiles").upsert(patch, { onConflict: "id" });
+      if (error) return jsonResponse({ error: error.message }, 500);
+      return jsonResponse({ ok: true });
+    }
 
     const fallbackEmail = `tg${user.id}@telegram.local`;
     const displayName =

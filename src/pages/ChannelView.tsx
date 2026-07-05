@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   channelsInfo, readChannels, readChannelsMTServer, readChannelsMT, readChannelsBefore,
   loadPublic, favoriteLinks, addFavorite, removeFavorite,
-  pinnedPost, pinPost, unpinPost, authorChannels,
+  pinnedPost, pinPost, unpinPost, authorChannels, channelStats,
   type Post, type ChannelInfo, type Feed,
 } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
@@ -33,6 +33,7 @@ export default function ChannelView() {
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<Post | null>(null);
   const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
+  const [stats, setStats] = useState<{ favorites: number; privateFeeds: number } | null>(null);
 
   async function loadMore() {
     if (!posts || posts.length === 0 || loadingMore) return;
@@ -70,9 +71,13 @@ export default function ChannelView() {
     pinnedPost(ch).then(setPinned).catch(() => {});
     // Если это мой канал (бот-админ) — включаем управление закреплением.
     setMyChatId(null);
+    setStats(null);
     if (session) authorChannels().then((chs) => {
       const mine = chs.find((c) => (c.username || "").toLowerCase() === ch);
-      if (mine) setMyChatId(mine.chat_id);
+      if (mine) {
+        setMyChatId(mine.chat_id);
+        channelStats(ch).then(setStats).catch(() => {});
+      }
     }).catch(() => {});
   }, [ch, session]);
 
@@ -139,6 +144,13 @@ export default function ChannelView() {
           <a className="btn secondary sm" style={{ marginTop: 10 }} href={`https://t.me/${ch}`} target="_blank" rel="noreferrer">
             Открыть канал в Telegram ↗
           </a>
+          {myChatId && stats && (
+            <div className="chan-stats">
+              <div className="chan-stat"><span className="chan-stat-num">{stats.favorites}</span><span className="chan-stat-lbl">постов в избранном</span></div>
+              <div className="chan-stat"><span className="chan-stat-num">{stats.privateFeeds}</span><span className="chan-stat-lbl">в личных подборках</span></div>
+              <div className="chan-stat-note">Видно только вам как автору канала</div>
+            </div>
+          )}
         </div>
 
         {inFeeds.length > 0 && (

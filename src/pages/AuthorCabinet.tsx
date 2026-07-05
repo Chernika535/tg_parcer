@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { TopBar, Loading } from "../components/States.tsx";
 import RichEditor from "../components/RichEditor.tsx";
 import VoiceRecorder from "../components/VoiceRecorder.tsx";
@@ -170,7 +171,11 @@ export default function AuthorCabinet() {
                 <div className="row spread">
                   <div>
                     <div style={{ fontWeight: 700 }}>{c.title || c.chat_id}</div>
-                    {c.username && <div className="muted" style={{ fontSize: 12 }}>@{c.username}</div>}
+                    {c.username && (
+                      <Link className="muted" style={{ fontSize: 12, textDecoration: "underline" }} to={`/channel/${c.username}`}>
+                        Страница канала в сервисе ↗
+                      </Link>
+                    )}
                   </div>
                   <div className="row" style={{ gap: 6 }}>
                     <button className="btn ghost sm" onClick={() => setSettingsFor(settingsFor === c.id ? null : c.id)}>⚙ Настройки</button>

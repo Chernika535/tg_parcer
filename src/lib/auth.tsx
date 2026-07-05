@@ -28,6 +28,7 @@ type AuthState = {
   loading: boolean;
   isAdmin: boolean;
   loginWithTelegram: (u: TelegramUser) => Promise<void>;
+  linkTelegram: (u: TelegramUser) => Promise<void>;
   signInEmail: (email: string, password: string) => Promise<void>;
   signUpEmail: (email: string, password: string) => Promise<{ needConfirm: boolean }>;
   updateCredentials: (fields: { email?: string; password?: string }) => Promise<{ emailConfirm: boolean }>;
@@ -92,6 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error: verr } = await supabase().auth.verifyOtp({ token_hash, type: "magiclink" });
     if (verr) throw new Error(verr.message);
   }
+  // Привязка Telegram к текущему аккаунту (для вошедших по e-mail).
+  async function linkTelegram(u: TelegramUser) {
+    const d = (await invokeFn("telegram-auth", { ...(u as unknown as Record<string, unknown>), action: "link" })) as { ok?: boolean; error?: string };
+    if (d.error) throw new Error(d.error);
+    await loadProfile("");
+  }
 
   async function signInEmail(email: string, password: string) {
     const { error } = await supabase().auth.signInWithPassword({ email: email.trim(), password });
@@ -141,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isAdmin: profile?.role === "admin",
         loginWithTelegram,
+        linkTelegram,
         signInEmail,
         signUpEmail,
         updateCredentials,
