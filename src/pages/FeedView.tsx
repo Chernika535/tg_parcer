@@ -286,7 +286,14 @@ export default function FeedView() {
     <>
       <TopBar title={feed?.title || "Лента"} onBack={() => nav(-1)} />
       <div className="content">
-        {feed?.description && <div className="card post-text" style={{ padding: 14 }}>{linkify(feed.description)}</div>}
+        {(feed?.description || feed?.author_name) && (
+          <div className="card post-text" style={{ padding: 14 }}>
+            {feed?.description && linkify(feed.description)}
+            {feed?.author_name && (
+              <div className="feed-author">от {feed.author_name}</div>
+            )}
+          </div>
+        )}
 
         {feed && feed.channels.length > 0 && (
           <div className="card" style={{ padding: 14 }}>

@@ -35,7 +35,7 @@ export default function MyFeeds() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [err, setErr] = useState("");
   const [filters, setFilters] = useState<Filters>(emptyFilters);
-  const [vis, setVis] = useState<Vis>("all");
+  const [vis, setVis] = useState<Vis>("private");
   const [pins, setPins] = useState<Set<number>>(() => loadPinsCache());
   const { isAdmin } = useAuth();
   const nav = useNavigate();

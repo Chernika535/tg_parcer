@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { createFeed, updateFeed, getFeedById, cleanTags, uploadCover, type Visibility } from "../lib/data.ts";
 import CoverArt from "../components/CoverArt.tsx";
+import CoverCropper, { TARGET_W, TARGET_H } from "../components/CoverCropper.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, TopBar } from "../components/States.tsx";
 import ChannelInput from "../components/ChannelInput.tsx";
@@ -16,6 +17,7 @@ export default function FeedEdit() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [authorName, setAuthorName] = useState("");
   const [channels, setChannels] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
@@ -51,13 +53,19 @@ export default function FeedEdit() {
     })();
   }, [isNew, feedId]);
 
-  async function onPickCover(e: React.ChangeEvent<HTMLInputElement>) {
+  // Сначала показываем кадрирование, а грузим уже обрезанное фото.
+  function onPickCover(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+    setCropFile(file);
+  }
+  async function onCropped(blob: Blob) {
+    setCropFile(null);
     setUploading(true);
     setErr("");
     try {
-      setCoverUrl(await uploadCover(file));
+      setCoverUrl(await uploadCover(new File([blob], "cover.png", { type: "image/png" })));
     } catch (e) {
       setErr("Не удалось загрузить фото: " + (e as Error).message);
     } finally {
@@ -120,9 +128,14 @@ export default function FeedEdit() {
                   Убрать (будет авто-узор)
                 </button>
               )}
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                Рекомендуемый размер — {TARGET_W}×{TARGET_H} px (5:3). После выбора фото можно подвигать и приблизить нужную область.
+              </div>
             </div>
           </div>
         </div>
+
+        {cropFile && <CoverCropper file={cropFile} onDone={onCropped} onCancel={() => setCropFile(null)} />}
 
         <div className="field">
           <label>Название</label>

@@ -60,12 +60,14 @@ export default function Admin() {
     <>
       <TopBar title="Модерация лент" />
       <div className="content">
-        <div className="tabs-row">
-          <button className={`seg ${tab === "stats" ? "on" : ""}`} onClick={() => setTab("stats")}>Аналитика</button>
-          <button className={`seg ${tab === "pending" ? "on" : ""}`} onClick={() => setTab("pending")}>На модерации ({counts.pending})</button>
-          <button className={`seg ${tab === "approved" ? "on" : ""}`} onClick={() => setTab("approved")}>Одобренные ({counts.approved})</button>
-          <button className={`seg ${tab === "rejected" ? "on" : ""}`} onClick={() => setTab("rejected")}>Отклонённые ({counts.rejected})</button>
-          <button className={`seg ${tab === "channels" ? "on" : ""}`} onClick={() => setTab("channels")}>Каналы</button>
+        <div className="field" style={{ marginBottom: 8 }}>
+          <select value={tab} onChange={(e) => setTab(e.target.value as Tab)}>
+            <option value="stats">📊 Аналитика</option>
+            <option value="pending">На модерации ({counts.pending})</option>
+            <option value="approved">Одобренные ({counts.approved})</option>
+            <option value="rejected">Отклонённые ({counts.rejected})</option>
+            <option value="channels">Каналы</option>
+          </select>
         </div>
 
         {tab === "stats" && <AnalyticsPanel />}
