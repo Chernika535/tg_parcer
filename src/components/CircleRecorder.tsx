@@ -45,18 +45,24 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
   const [elapsed, setElapsed] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [beauty, setBeauty] = useState(true);
+  const beautyRef = useRef(true);
+  beautyRef.current = beauty;
 
   const supported = typeof MediaRecorder !== "undefined"
     && typeof HTMLCanvasElement !== "undefined"
     && !!HTMLCanvasElement.prototype.captureStream;
 
+  // Берём поток НОВОЙ камеры и только потом гасим старую — если что-то пойдёт не
+  // так (например, второй камеры нет), останемся на рабочей и не «упадём».
   async function startCamera(f: "user" | "environment") {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: f, width: { ideal: 720 }, height: { ideal: 720 } }, audio: false,
+      video: { facingMode: { ideal: f }, width: { ideal: 720 }, height: { ideal: 720 } }, audio: false,
     });
-    videoStreamRef.current?.getTracks().forEach((t) => t.stop());
+    const old = videoStreamRef.current;
     videoStreamRef.current = stream;
     if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play().catch(() => {}); }
+    old?.getTracks().forEach((t) => t.stop());
   }
 
   useEffect(() => {
@@ -92,6 +98,8 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
         const sx = (v.videoWidth - s) / 2, sy = (v.videoHeight - s) / 2;
         // Фронтальную камеру зеркалим — привычнее, как в Telegram.
         ctx.save();
+        // Лёгкое «сглаживание + цветокоррекция» — кожа мягче, картинка сочнее.
+        ctx.filter = beautyRef.current ? "brightness(1.06) contrast(1.03) saturate(1.12) blur(0.4px)" : "none";
         if (facingRef.current === "user") { ctx.translate(SIZE, 0); ctx.scale(-1, 1); }
         ctx.drawImage(v, sx, sy, s, s, 0, 0, SIZE, SIZE);
         ctx.restore();
@@ -105,8 +113,8 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
 
   async function switchCamera() {
     const next = facing === "user" ? "environment" : "user";
-    setFacing(next);
-    try { await startCamera(next); } catch (e) { setError("Не удалось переключить камеру: " + (e as Error).message); }
+    try { await startCamera(next); setFacing(next); }
+    catch (e) { setError("Не удалось переключить камеру: " + (e as Error).message); }
   }
 
   function start() {
@@ -180,6 +188,7 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
         <>
           <div className="circ-timer">{recording ? fmt(elapsed) : "до 60 сек"}</div>
           <div className="circ-controls">
+            <button className={`circ-btn secondary ${beauty ? "on" : ""}`} onClick={() => setBeauty((v) => !v)} disabled={busy} title="Сглаживание и цветокоррекция">✨</button>
             <button className="circ-btn secondary" onClick={switchCamera} disabled={busy} title="Сменить камеру">🔄</button>
             {!recording && !busy && <button className="circ-rec" onClick={start} aria-label="Запись" />}
             {recording && <button className="circ-stop" onClick={stop} aria-label="Стоп" />}

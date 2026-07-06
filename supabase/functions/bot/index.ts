@@ -123,6 +123,21 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // Обновить сохранённые ник/название канала из Telegram (chat_id не меняется
+    // при переименовании — поэтому подтягиваем актуальные @username и title).
+    if (b.action === "channel_refresh") {
+      const chatId = String(((b.input ?? {}) as { chat_id?: string }).chat_id ?? "");
+      if (!chatId || !(await owns(chatId))) return json({ error: "канал не привязан" }, 400);
+      const chat = await tg("getChat", { chat_id: chatId });
+      if (!chat.ok) return json({ error: chat.description || "не удалось прочитать канал" }, 400);
+      const username = (chat.result.username as string | undefined) ?? null;
+      const title = (chat.result.title as string | undefined) ?? null;
+      const { error } = await db.from("author_channels")
+        .update({ username, title }).eq("owner_id", uid).eq("chat_id", chatId);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true, username, title });
+    }
+
     if (b.action === "send") {
       const p = (b.input ?? {}) as { chat_id?: string; text?: string; parse_mode?: string | null; media?: Media[]; disable_preview?: boolean };
       if (!p.chat_id || !(await owns(p.chat_id))) return json({ error: "канал не привязан" }, 400);

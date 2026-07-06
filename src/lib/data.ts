@@ -460,6 +460,12 @@ export async function authorChannels(): Promise<AuthorChannel[]> {
 export async function unlinkChannel(id: number): Promise<void> {
   await invokeFn("bot", { action: "unlink", id }).catch(() => {});
 }
+// Обновить сохранённые ник/название канала из Telegram (после переименования).
+export async function refreshChannel(chat_id: string): Promise<{ username: string | null; title: string | null }> {
+  const d = (await invokeFn("bot", { action: "channel_refresh", input: { chat_id } })) as { ok?: boolean; username?: string | null; title?: string | null; error?: string };
+  if (d.error) throw new Error(d.error);
+  return { username: d.username ?? null, title: d.title ?? null };
+}
 export async function sendPostNow(input: ComposePayload): Promise<void> {
   const d = (await invokeFn("bot", { action: "send", input }, 40000)) as { error?: string };
   if (d.error) throw new Error(d.error);

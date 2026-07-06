@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createFeed, updateFeed, getFeedById, cleanTags, uploadCover, type Visibility } from "../lib/data.ts";
+import { createFeed, updateFeed, getFeedById, cleanTags, uploadCover, publicFeeds, myFeeds, type Visibility } from "../lib/data.ts";
 import CoverArt from "../components/CoverArt.tsx";
 import CoverCropper, { TARGET_W, TARGET_H } from "../components/CoverCropper.tsx";
 import { useAuth } from "../lib/auth.tsx";
@@ -18,6 +18,7 @@ export default function FeedEdit() {
   const [description, setDescription] = useState("");
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [allTags, setAllTags] = useState<string[]>([]);
   const [authorName, setAuthorName] = useState("");
   const [channels, setChannels] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
@@ -29,6 +30,17 @@ export default function FeedEdit() {
   const [loading, setLoading] = useState(!isNew);
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Существующие теги — для подсказок (из публичных и своих лент).
+  useEffect(() => {
+    (async () => {
+      const pub = await publicFeeds().catch(() => []);
+      const mine = await myFeeds().catch(() => []);
+      const m = new Map<string, number>();
+      for (const f of [...pub, ...mine]) for (const t of f.tags || []) m.set(t, (m.get(t) || 0) + 1);
+      setAllTags([...m.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t));
+    })();
+  }, []);
 
   useEffect(() => {
     if (isNew) return;
@@ -163,6 +175,7 @@ export default function FeedEdit() {
           <div className="row">
             <input
               type="text"
+              list="tag-suggestions"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={(e) => {
@@ -171,12 +184,24 @@ export default function FeedEdit() {
                   addTag();
                 }
               }}
-              placeholder="тег и Enter"
+              placeholder="выберите из списка или впишите свой"
             />
+            <datalist id="tag-suggestions">
+              {allTags.filter((t) => !tags.includes(t)).map((t) => <option key={t} value={t} />)}
+            </datalist>
             <button type="button" className="btn sm" onClick={addTag}>
               +
             </button>
           </div>
+          {allTags.filter((t) => !tags.includes(t)).length > 0 && (
+            <div className="tag-suggest">
+              {allTags.filter((t) => !tags.includes(t)).slice(0, 16).map((t) => (
+                <button type="button" key={t} className="chip chip-add" onClick={() => setTags(cleanTags([...tags, t]))}>
+                  + #{t}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="tags">
             {tags.map((t) => (
               <span key={t} className="chip">

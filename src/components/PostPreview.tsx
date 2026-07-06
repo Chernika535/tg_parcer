@@ -31,12 +31,16 @@ export default function PostPreview({
         <div className={`media-grid n${Math.min(visuals.length, 4)}`}>
           {visuals.map((m, i) => (
             <div key={i} className="media-img-wrap">
-              {m.type === "photo" ? <img src={m.url} alt="" /> : <video src={m.url} muted playsInline preload="metadata" />}
+              {m.type === "photo" ? <img src={m.url} alt="" /> : <video src={m.url} controls playsInline preload="metadata" />}
             </div>
           ))}
         </div>
       )}
-      {others.map((m, i) => <div key={i} className="media-doc">{label(m)}</div>)}
+      {others.map((m, i) => {
+        if (m.type === "videonote") return <video key={i} className="media-video round" src={m.url} controls playsInline preload="metadata" />;
+        if (m.type === "voice" || m.type === "audio") return <audio key={i} className="media-audio" src={m.url} controls preload="none" />;
+        return <div key={i} className="media-doc">{label(m)}</div>;
+      })}
     </article>
   );
 }

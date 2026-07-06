@@ -24,13 +24,21 @@ export default function VoiceRecorder({ onDone, onCancel }: { onDone: (blob: Blo
 
   useEffect(() => {
     let stopped = false;
-    const rec = new Recorder({
+    // Часть опций (битрейт/сложность/ограничения дорожки) не описана в типах
+    // opus-recorder, но поддерживается в рантайме — поэтому конфиг через any.
+    // deno-lint-ignore no-explicit-any
+    const recConfig: any = {
       encoderPath: "/encoderWorker.min.js",
       numberOfChannels: 1,
       encoderApplication: 2048, // VOIP — как голосовые в Telegram
       encoderSampleRate: 48000,
+      encoderBitRate: 32000,    // чётче и громче, чем дефолт
+      encoderComplexity: 10,    // максимальное качество кодека
       streamPages: false,
-    });
+      // Чистим шум/эхо и авто-выравниваем громкость — голос слышно ровно и ясно.
+      mediaTrackConstraints: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    };
+    const rec = new Recorder(recConfig);
     recRef.current = rec;
     rec.ondataavailable = (data: Uint8Array) => {
       if (stopped) return;

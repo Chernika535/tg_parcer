@@ -38,7 +38,7 @@ function BotLinkHelp() {
   );
 }
 import {
-  authorChannels, linkChannel, unlinkChannel, sendPostNow, schedulePost,
+  authorChannels, linkChannel, unlinkChannel, refreshChannel, sendPostNow, schedulePost,
   scheduledPosts, cancelScheduled, updateScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
   postedList, editPosted, deletePosted,
   type AuthorChannel, type PostMedia, type ScheduledPost, type PostedMessage,
@@ -71,6 +71,7 @@ export default function AuthorCabinet() {
   const [editorKey, setEditorKey] = useState(0); // remount редактора для очистки/загрузки
   const [initialHtml, setInitialHtml] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [filterChan, setFilterChan] = useState("all"); // фильтр отложки/опубликованных по каналу
 
   async function reload() {
     const chs = await authorChannels().catch((e) => { setMsg(e.message); return []; });
@@ -181,6 +182,9 @@ export default function AuthorCabinet() {
     finally { setSending(false); }
   }
 
+  const chOk = (cid: string) => filterChan === "all" || cid === filterChan;
+  const schedShown = scheduled.filter((p) => chOk(p.chat_id));
+  const postedShown = posted.filter((p) => chOk(p.chat_id));
   const empty = !html.trim() && media.length === 0;
   const mediaLabel = (m: PostMedia) =>
     m.type === "photo" ? "🖼 фото" : m.type === "video" ? "🎬 видео" : m.type === "voice" ? "🎤 голос"
@@ -256,9 +260,27 @@ export default function AuthorCabinet() {
                       <div key={i} className="mp-thumb">
                         {m.type === "photo"
                           ? <img src={m.url} alt="" />
-                          : <video src={m.url} muted playsInline preload="metadata" />}
-                        {m.type === "video" && <span className="mp-badge">▶</span>}
+                          : <video src={m.url} controls playsInline preload="metadata" />}
                         <button className="mp-x" onClick={rm} aria-label="Убрать">✕</button>
+                      </div>
+                    );
+                  }
+                  // Кружок — круглое видео с плеером (можно посмотреть перед отправкой).
+                  if (m.type === "videonote") {
+                    return (
+                      <div key={i} className="mp-thumb round">
+                        <video src={m.url} controls playsInline preload="metadata" />
+                        <button className="mp-x" onClick={rm} aria-label="Убрать">✕</button>
+                      </div>
+                    );
+                  }
+                  // Голосовое/музыка — плеер, чтобы прослушать перед отправкой.
+                  if (m.type === "voice" || m.type === "audio") {
+                    return (
+                      <div key={i} className="mp-audio">
+                        <span className="mp-audio-lbl">{mediaLabel(m)}</span>
+                        <audio src={m.url} controls preload="none" />
+                        <button className="chip-x" onClick={rm} aria-label="Убрать">✕</button>
                       </div>
                     );
                   }
@@ -299,12 +321,23 @@ export default function AuthorCabinet() {
           </div>
         )}
 
+        {/* Фильтр отложки/опубликованных по каналу */}
+        {channels && channels.length > 1 && (scheduled.length > 0 || posted.length > 0) && (
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Показывать посты канала</label>
+            <select value={filterChan} onChange={(e) => setFilterChan(e.target.value)}>
+              <option value="all">Все каналы</option>
+              {channels.map((c) => <option key={c.id} value={c.chat_id}>{c.title || c.chat_id}</option>)}
+            </select>
+          </div>
+        )}
+
         {/* Запланированные — свёрнуто, с превью «как в ленте» */}
-        {scheduled.length > 0 && (
+        {schedShown.length > 0 && (
           <details className="card fold">
-            <summary>Запланировано ({scheduled.length})</summary>
+            <summary>Запланировано ({schedShown.length})</summary>
             <div style={{ marginTop: 10, display: "grid", gap: 14 }}>
-              {scheduled.map((p) => {
+              {schedShown.map((p) => {
                 const ch = channels?.find((c) => c.chat_id === p.chat_id);
                 return (
                   <div key={p.id} style={{ minWidth: 0 }}>
@@ -328,11 +361,11 @@ export default function AuthorCabinet() {
         )}
 
         {/* Опубликованные — правка текста / удаление прямо в канале */}
-        {posted.length > 0 && (
+        {postedShown.length > 0 && (
           <details className="card fold">
-            <summary>Опубликованные ({posted.length})</summary>
+            <summary>Опубликованные ({postedShown.length})</summary>
             <div className="muted" style={{ fontSize: 12, margin: "6px 0" }}>Правка текста и удаление применяются прямо в Telegram-канале.</div>
-            {posted.map((p) => {
+            {postedShown.map((p) => {
               const ch = channels?.find((c) => c.chat_id === p.chat_id);
               return <PostedItem key={p.id} post={p} channelName={ch?.title || p.chat_id} onChanged={async () => setPosted(await postedList().catch(() => []))} onMsg={setMsg} />;
             })}
@@ -351,8 +384,14 @@ export default function AuthorCabinet() {
                     {c.username && (
                       <Link className="chan-item-link" to={`/channel/${c.username}`}>@{c.username} · страница в сервисе ↗</Link>
                     )}
-                    <div className="row" style={{ gap: 6, marginTop: 8 }}>
+                    <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                       <button className="btn ghost sm" onClick={() => setSettingsFor(settingsFor === c.id ? null : c.id)}>⚙ Настройки</button>
+                      <button className="btn ghost sm" onClick={async () => {
+                        setBusy(true); setMsg("");
+                        try { await refreshChannel(c.chat_id); setMsg("Данные канала обновлены ✓"); await reload(); }
+                        catch (e) { setMsg("Не удалось обновить: " + (e as Error).message); }
+                        finally { setBusy(false); }
+                      }} disabled={busy}>🔄 Обновить данные</button>
                       <button className="btn ghost sm" onClick={async () => { if (confirm("Отвязать канал?")) { await unlinkChannel(c.id); reload(); } }}>Отвязать</button>
                     </div>
                     {settingsFor === c.id && <ChannelSettings channel={c} onDone={() => setMsg("Изменения канала применены (если у бота есть права).")} />}
