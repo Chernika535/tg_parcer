@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { STYLES, styleCss, type StyleId } from "../lib/filters.ts";
 
 // Запись «кружочка» (видео-заметки Telegram): квадрат ≤60с.
 // Пишем с canvas (центр-квадрат камеры) через MediaRecorder — это надёжнее
@@ -51,6 +52,10 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
   const [beauty, setBeauty] = useState(true);
   const beautyRef = useRef(true);
   beautyRef.current = beauty;
+  const [style, setStyle] = useState<StyleId>("none");
+  const styleRef = useRef<StyleId>("none");
+  styleRef.current = style;
+  const styleName = STYLES.find((s) => s.id === style)?.name ?? "Оригинал";
 
   const supported = typeof MediaRecorder !== "undefined"
     && typeof HTMLCanvasElement !== "undefined"
@@ -144,6 +149,17 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
           ctx.restore();
         } else {
           put(ctx, "none");
+        }
+
+        // Стилевой фильтр (глянец/плёнка/…) — пост-обработка готового кадра.
+        const scss = styleCss(styleRef.current);
+        if (scss !== "none") {
+          sctx.clearRect(0, 0, SIZE, SIZE);
+          sctx.drawImage(cv, 0, 0);
+          ctx.save();
+          ctx.filter = scss;
+          ctx.drawImage(soft, 0, 0);
+          ctx.restore();
         }
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -253,9 +269,13 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
         <div className="circ-error">{error}<br /><button className="btn secondary sm" style={{ marginTop: 10 }} onClick={cancel}>Закрыть</button></div>
       ) : (
         <>
-          <div className="circ-timer">{recording ? fmt(elapsed) : "до 60 сек"}</div>
+          <div className="circ-timer">{recording ? fmt(elapsed) : "до 60 сек"}{style !== "none" && <span className="circ-style"> · {styleName}</span>}</div>
           <div className="circ-controls">
-            <button className={`circ-btn secondary ${beauty ? "on" : ""}`} onClick={() => setBeauty((v) => !v)} disabled={busy} title="Сглаживание и цветокоррекция">✨</button>
+            <button className={`circ-btn secondary ${beauty ? "on" : ""}`} onClick={() => setBeauty((v) => !v)} disabled={busy} title="Сглаживание кожи">✨</button>
+            <button className={`circ-btn secondary ${style !== "none" ? "on" : ""}`} onClick={() => {
+              const ids = STYLES.map((s) => s.id);
+              setStyle(ids[(ids.indexOf(style) + 1) % ids.length]);
+            }} disabled={busy} title={`Стиль: ${styleName}`}>🎨</button>
             <button className="circ-btn secondary" onClick={switchCamera} disabled={busy} title="Сменить камеру">🔄</button>
             {!recording && !busy && <button className="circ-rec" onClick={start} aria-label="Запись" />}
             {recording && <button className="circ-stop" onClick={stop} aria-label="Стоп" />}

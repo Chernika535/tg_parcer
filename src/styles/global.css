@@ -280,6 +280,14 @@ button.chip { cursor: pointer; }
 .mp-audio-lbl { font-size: 13px; font-weight: 700; }
 .mp-audio audio { height: 34px; flex: 1 1 180px; min-width: 160px; }
 .mp-x { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--ink); background: var(--pink); color: #fff; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+.mp-filter { position: absolute; left: 2px; bottom: 2px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+.filter-preview { width: 100%; aspect-ratio: 1 / 1; max-height: 46vh; border-radius: var(--r-sm); overflow: hidden; border: 3px solid var(--ink); background: #000; }
+.filter-preview img, .filter-preview video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.filter-list { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
+.filter-chip { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font-size: 11px; font-weight: 700; color: var(--text); padding: 0; }
+.filter-swatch { width: 46px; height: 46px; border-radius: 10px; border: 3px solid var(--border); background-image: linear-gradient(135deg, #ff8a3d, #ff2ea6 45%, #21e6ff); }
+.filter-chip.on .filter-swatch { border-color: var(--pink); box-shadow: 0 0 0 2px var(--pink); }
+.filter-chip.on { color: var(--pink); }
 .chip-public { background: var(--lime); color: var(--on-accent); }
 .chip-private { background: var(--surface); color: var(--muted); }
 
@@ -561,6 +569,7 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .circ-btn:hover:not(:disabled) { background: rgba(255,255,255,0.22); }
 .circ-btn:disabled { opacity: 0.35; cursor: default; }
 .circ-btn.on { background: var(--lime); color: var(--on-accent); }
+.circ-style { color: var(--lime); font-weight: 700; }
 .circ-rec {
   width: 74px; height: 74px; border-radius: 50%; cursor: pointer;
   border: 4px solid rgba(255,255,255,0.6); background: var(--accent-2);

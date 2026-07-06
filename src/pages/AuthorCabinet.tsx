@@ -5,6 +5,7 @@ import RichEditor from "../components/RichEditor.tsx";
 import VoiceRecorder from "../components/VoiceRecorder.tsx";
 import CircleRecorder from "../components/CircleRecorder.tsx";
 import PostPreview from "../components/PostPreview.tsx";
+import MediaFilterPicker from "../components/MediaFilterPicker.tsx";
 import { appConfig } from "../lib/supabase.ts";
 import { useAuth } from "../lib/auth.tsx";
 
@@ -72,6 +73,7 @@ export default function AuthorCabinet() {
   const [initialHtml, setInitialHtml] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [filterChan, setFilterChan] = useState("all"); // фильтр отложки/опубликованных по каналу
+  const [filterFor, setFilterFor] = useState<number | null>(null); // индекс медиа для выбора фильтра
 
   async function reload() {
     const chs = await authorChannels().catch((e) => { setMsg(e.message); return []; });
@@ -128,6 +130,17 @@ export default function AuthorCabinet() {
       const url = await uploadMedia(blob, "mp4");
       setMedia((m) => [...m, { type: "videonote", url }]);
     } catch (e) { setMsg("Кружок не загрузился: " + (e as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  // Применить стилевой фильтр к фото/видео: запечённый файл заливаем заново.
+  async function onFiltered(blob: Blob, idx: number) {
+    setFilterFor(null); setBusy(true); setMsg("");
+    try {
+      const ext = blob.type.includes("webm") ? "webm" : blob.type.includes("mp4") ? "mp4" : "jpg";
+      const url = await uploadMedia(blob, ext);
+      setMedia((arr) => arr.map((m, j) => (j === idx ? { ...m, url } : m)));
+    } catch (e) { setMsg("Не удалось применить фильтр: " + (e as Error).message); }
     finally { setBusy(false); }
   }
 
@@ -250,6 +263,14 @@ export default function AuthorCabinet() {
 
             {showRec && <div style={{ marginTop: 8 }}><VoiceRecorder onDone={onVoice} onCancel={() => setShowRec(false)} /></div>}
             {showCirc && <CircleRecorder onDone={onCircle} onCancel={() => setShowCirc(false)} />}
+            {filterFor != null && media[filterFor] && (media[filterFor].type === "photo" || media[filterFor].type === "video") && (
+              <MediaFilterPicker
+                type={media[filterFor].type as "photo" | "video"}
+                url={media[filterFor].url}
+                onDone={(blob) => onFiltered(blob, filterFor)}
+                onCancel={() => setFilterFor(null)}
+              />
+            )}
 
             {media.length > 0 && (
               <div className="media-previews">
@@ -261,6 +282,7 @@ export default function AuthorCabinet() {
                         {m.type === "photo"
                           ? <img src={m.url} alt="" />
                           : <video src={m.url} controls playsInline preload="metadata" />}
+                        <button className="mp-filter" onClick={() => setFilterFor(i)} aria-label="Фильтр" title="Стилевой фильтр">🎨</button>
                         <button className="mp-x" onClick={rm} aria-label="Убрать">✕</button>
                       </div>
                     );
