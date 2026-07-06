@@ -282,7 +282,7 @@ button.chip { cursor: pointer; }
 .mp-x { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--ink); background: var(--pink); color: #fff; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
 .mp-filter { position: absolute; left: 2px; bottom: 2px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
 .filter-preview { width: 100%; aspect-ratio: 1 / 1; max-height: 46vh; border-radius: var(--r-sm); overflow: hidden; border: 3px solid var(--ink); background: #000; }
-.filter-preview img, .filter-preview video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.filter-preview img, .filter-preview video, .filter-canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
 .filter-list { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
 .filter-chip { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font-size: 11px; font-weight: 700; color: var(--text); padding: 0; }
 .filter-swatch { width: 46px; height: 46px; border-radius: 10px; border: 3px solid var(--border); background-image: linear-gradient(135deg, #ff8a3d, #ff2ea6 45%, #21e6ff); }
@@ -500,8 +500,8 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .media-grid.n1 { grid-template-columns: 1fr; }
 .media-grid.n2, .media-grid.n3, .media-grid.n4 { grid-template-columns: 1fr 1fr; }
 .media-img-wrap { display: block; position: relative; background: var(--surface-2); overflow: hidden; border: none; padding: 0; margin: 0; cursor: zoom-in; width: 100%; }
-.media-img-wrap img { width: 100%; height: 100%; max-height: 440px; object-fit: cover; display: block; }
-.media-grid.n1 .media-img-wrap img { max-height: 540px; object-fit: contain; background: #0b0e14; }
+.media-img-wrap img, .media-img-wrap video { width: 100%; height: 100%; max-height: 440px; object-fit: cover; display: block; }
+.media-grid.n1 .media-img-wrap img, .media-grid.n1 .media-img-wrap video { max-height: 540px; object-fit: contain; background: #0b0e14; }
 
 /* Лайтбокс — фото на весь экран */
 .lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; animation: fade 0.15s ease; }

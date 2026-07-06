@@ -124,7 +124,6 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
       ctx.restore();
     };
 
-    let frame = 0;
     const loop = () => {
       if (v.videoWidth) {
         const s = Math.min(v.videoWidth, v.videoHeight);
@@ -137,19 +136,19 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
         ctx.drawImage(v, sx, sy, s, s, 0, 0, SIZE, SIZE);
         ctx.restore();
 
-        // 2) Умное разглаживание кожи (только телесные пиксели). Тяжёлое —
-        //    делаем через кадр, чтобы не ронять частоту записи.
-        if (skinRef.current) { frame++; if (frame % 2 === 0) smoothSkin(cv, 0.85); }
+        // 2) Умное разглаживание кожи (только телесные пиксели) — каждый кадр,
+        //    иначе мерцает. Эффект деликатный, чтобы не «замыливать».
+        if (skinRef.current) smoothSkin(cv, 0.5);
 
         // 3) «Мягкое свечение» (дымка/glow) — по желанию, отдельной кнопкой.
         if (beautyRef.current) {
           sctx.clearRect(0, 0, SIZE, SIZE);
-          sctx.filter = "blur(8px) brightness(1.06) saturate(1.12)";
+          sctx.filter = "blur(7px) brightness(1.05) saturate(1.1)";
           sctx.drawImage(cv, 0, 0);
           sctx.filter = "none";
-          ctx.save(); ctx.globalAlpha = 0.35; ctx.drawImage(soft, 0, 0); ctx.restore();
-          ctx.save(); ctx.globalAlpha = 0.16; ctx.globalCompositeOperation = "screen"; ctx.drawImage(soft, 0, 0); ctx.restore();
-          gradeInPlace("brightness(1.05) contrast(1.04) saturate(1.18) sepia(0.04) hue-rotate(-4deg)");
+          ctx.save(); ctx.globalAlpha = 0.2; ctx.drawImage(soft, 0, 0); ctx.restore();
+          ctx.save(); ctx.globalAlpha = 0.1; ctx.globalCompositeOperation = "screen"; ctx.drawImage(soft, 0, 0); ctx.restore();
+          gradeInPlace("brightness(1.03) contrast(1.03) saturate(1.12) sepia(0.03) hue-rotate(-3deg)");
         }
 
         // 4) Стилевой фильтр (глянец/плёнка/…).
@@ -168,29 +167,37 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
   // facingMode). Если не вышло — пробуем вернуть рабочую камеру.
   async function switchCamera() {
     const cams = camsRef.current;
+    const next = facing === "user" ? "environment" : "user";
     const prev = videoStreamRef.current;
     prev?.getVideoTracks().forEach((t) => t.stop());
     videoStreamRef.current = null;
-    try {
-      let stream: MediaStream;
+    // Даём железу освободить камеру — без паузы часть телефонов отвечает
+    // «Could not start video source».
+    await new Promise((r) => setTimeout(r, 350));
+
+    const tryGet = async (): Promise<MediaStream> => {
       if (cams.length > 1) {
         camIdxRef.current = (camIdxRef.current + 1) % cams.length;
         const id = cams[camIdxRef.current].deviceId;
-        stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: id }, width: { ideal: 720 }, height: { ideal: 720 } }, audio: false });
-      } else {
-        const next = facing === "user" ? "environment" : "user";
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: next } }, audio: false });
+        return await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: id } }, audio: false });
       }
+      return await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: next } }, audio: false });
+    };
+
+    try {
+      let stream: MediaStream;
+      try { stream = await tryGet(); }
+      catch { await new Promise((r) => setTimeout(r, 400)); stream = await tryGet(); } // одна повторная попытка
       attach(stream);
       const fm = stream.getVideoTracks()[0].getSettings().facingMode;
-      setFacing(fm === "environment" ? "environment" : fm === "user" ? "user" : (facing === "user" ? "environment" : "user"));
+      setFacing(fm === "environment" ? "environment" : fm === "user" ? "user" : next);
     } catch (e) {
       // Возвращаем предыдущую камеру, чтобы экран не остался чёрным.
       try {
         const back = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 720 }, height: { ideal: 720 } }, audio: false });
         attach(back);
       } catch { /* ignore */ }
-      setError("Не удалось переключить камеру: " + (e as Error).message);
+      setError("Не удалось переключить камеру: " + (e as Error).message + ". Похоже, эта камера сейчас занята другим приложением.");
     }
   }
 

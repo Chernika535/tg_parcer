@@ -43,7 +43,7 @@ export async function bakeImage(blob: Blob, css: string, smooth = false): Promis
     ctx.filter = css && css !== "none" ? css : "none";
     ctx.drawImage(img, 0, 0);
     ctx.filter = "none";
-    if (smooth) smoothSkin(cv, 0.85);
+    if (smooth) smoothSkin(cv, 0.55);
     return await new Promise<Blob>((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error("не удалось сохранить"))), "image/jpeg", 0.92));
   } finally { URL.revokeObjectURL(url); }
 }
@@ -67,7 +67,7 @@ export async function bakeVideo(blob: Blob, css: string, onProgress?: (p: number
     const W = Math.round((v.videoWidth || 720) * scale);
     const H = Math.round((v.videoHeight || 720) * scale);
     const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-    const ctx = cv.getContext("2d")!;
+    const ctx = cv.getContext("2d", { willReadFrequently: true })!;
     const stream = cv.captureStream(30);
 
     // Звук — через WebAudio, не выводя на динамик (тихая обработка).
@@ -93,7 +93,7 @@ export async function bakeVideo(blob: Blob, css: string, onProgress?: (p: number
       ctx.filter = css && css !== "none" ? css : "none";
       ctx.drawImage(v, 0, 0, W, H);
       ctx.filter = "none";
-      if (smooth) smoothSkin(cv, 0.85);
+      if (smooth) smoothSkin(cv, 0.55);
       if (onProgress && v.duration) onProgress(Math.min(1, v.currentTime / v.duration));
       raf = requestAnimationFrame(draw);
     };

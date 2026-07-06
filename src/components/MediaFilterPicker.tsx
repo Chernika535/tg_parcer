@@ -1,8 +1,58 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { STYLES, styleCss, bakeImage, bakeVideo, type StyleId } from "../lib/filters.ts";
+import { smoothSkin } from "../lib/skin.ts";
 
-// Выбор стилевого фильтра для загруженного фото/видео. Показываем живое превью
-// (CSS-фильтр), а по «Применить» запекаем фильтр в файл.
+const PREV = 360;
+
+// Живое превью «как получится»: рисуем медиа в canvas с выбранным фильтром и
+// (по желанию) разглаживанием кожи — то есть виден реальный итог, не только CSS.
+function LivePreview({ type, url, css, smooth }: { type: "photo" | "video"; url: string; css: string; smooth: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stateRef = useRef({ css, smooth });
+  stateRef.current = { css, smooth };
+
+  useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext("2d", { willReadFrequently: true })!;
+    let raf = 0, stopped = false;
+    let img: HTMLImageElement | null = null;
+    let vid: HTMLVideoElement | null = null;
+
+    const drawFrom = (src: CanvasImageSource, w: number, h: number) => {
+      const s = Math.min(w, h);
+      const sx = (w - s) / 2, sy = (h - s) / 2;
+      ctx.filter = stateRef.current.css && stateRef.current.css !== "none" ? stateRef.current.css : "none";
+      ctx.drawImage(src, sx, sy, s, s, 0, 0, PREV, PREV);
+      ctx.filter = "none";
+      if (stateRef.current.smooth) smoothSkin(cv, 0.55);
+    };
+
+    if (type === "photo") {
+      img = new Image();
+      img.onload = () => { if (!stopped) drawFrom(img!, img!.naturalWidth, img!.naturalHeight); };
+      img.src = url;
+      // Перерисовываем при смене фильтра/сглаживания.
+      const iv = setInterval(() => { if (img && img.complete) drawFrom(img, img.naturalWidth, img.naturalHeight); }, 250);
+      return () => { stopped = true; clearInterval(iv); };
+    }
+    vid = document.createElement("video");
+    vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true;
+    vid.play().catch(() => {});
+    const loop = () => {
+      if (stopped) return;
+      if (vid && vid.videoWidth) drawFrom(vid, vid.videoWidth, vid.videoHeight);
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+    return () => { stopped = true; cancelAnimationFrame(raf); vid?.pause(); };
+  }, [url, type]);
+
+  return <canvas ref={canvasRef} width={PREV} height={PREV} className="filter-canvas" />;
+}
+
+// Выбор стилевого фильтра для загруженного фото/видео. По «Применить» запекаем
+// фильтр (и разглаживание) в файл.
 export default function MediaFilterPicker({ type, url, onDone, onCancel }: {
   type: "photo" | "video";
   url: string;
@@ -32,9 +82,7 @@ export default function MediaFilterPicker({ type, url, onDone, onCancel }: {
       <div className="crop-box" onClick={(e) => e.stopPropagation()}>
         <div className="crop-title">Фильтр {type === "photo" ? "фото" : "видео"}</div>
         <div className="filter-preview">
-          {type === "photo"
-            ? <img src={url} alt="" style={{ filter: css }} />
-            : <video src={url} style={{ filter: css }} muted loop autoPlay playsInline />}
+          <LivePreview type={type} url={url} css={css} smooth={smooth} />
         </div>
         <div className="filter-list">
           {STYLES.map((s) => (
@@ -48,8 +96,6 @@ export default function MediaFilterPicker({ type, url, onDone, onCancel }: {
           <input type="checkbox" checked={smooth} onChange={(e) => setSmooth(e.target.checked)} disabled={busy} />
           😊 Разгладить кожу (умное — глаза и детали остаются резкими)
         </label>
-        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Разглаживание применится при сохранении (в превью выше не показано).</div>
-
         {busy && type === "video" && (
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
             Обрабатываю видео… {Math.round(prog * 100)}% (идёт в реальном времени)
