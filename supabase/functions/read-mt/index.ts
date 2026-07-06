@@ -91,6 +91,14 @@ function entitiesToHtml(text: string, entities: any[]): string {
     prev = t.pos;
   }
   out += esc(text.slice(prev));
+  // Если жирным набран весь пост (стиль автора) — снимаем жирность.
+  const visible = (t: string) => t.replace(/<[^>]+>/g, "").replace(/\s+/g, "").length;
+  const total = visible(out);
+  if (total) {
+    let bold = 0;
+    out.replace(/<b>([\s\S]*?)<\/b>/gi, (_m, x) => { bold += visible(x); return _m; });
+    if (bold / total > 0.9) out = out.replace(/<\/?b>/gi, "");
+  }
   return out;
 }
 

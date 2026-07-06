@@ -125,9 +125,10 @@ function htmlToRich(html: string): string {
     return `${A_H}${href}${A_T}${text || href}${A_E}`;
   });
 
-  // Спойлеры Telegram (класс содержит "spoiler") — весь span целиком.
-  s = s.replace(/<span[^>]*\bclass="[^"]*spoiler[^"]*"[^>]*>([\s\S]*?)<\/span>/gi,
-    (_m, inner) => `${SP0}${inner}${SP1}`);
+  // Спойлеры Telegram: элемент <tg-spoiler> или любой тег с классом-«spoiler».
+  s = s.replace(/<tg-spoiler[^>]*>([\s\S]*?)<\/tg-spoiler>/gi, (_m, inner) => `${SP0}${inner}${SP1}`);
+  s = s.replace(/<(span|i|b)[^>]*\bclass="[^"]*spoiler[^"]*"[^>]*>([\s\S]*?)<\/\1>/gi,
+    (_m, _t, inner) => `${SP0}${inner}${SP1}`);
 
   // Форматирующие теги → маркеры.
   const MAP: [RegExp, string][] = [
@@ -155,8 +156,19 @@ function htmlToRich(html: string): string {
   ];
   for (const [o, c, tag] of TAGS) s = s.replace(rx(o), `<${tag}>`).replace(rx(c), `</${tag}>`);
 
-  return s.split("\n").map((l) => l.replace(/[ \t ]+/g, " ").trimEnd()).join("\n")
-    .replace(/\n{3,}/g, "\n\n").trim();
+  return deboldWhole(s.split("\n").map((l) => l.replace(/[ \t ]+/g, " ").trimEnd()).join("\n")
+    .replace(/\n{3,}/g, "\n\n").trim());
+}
+
+// Если жирным набран ВЕСЬ пост (стиль автора), в нашей ленте это читается тяжело
+// — снимаем жирность. Частичное форматирование не трогаем.
+function deboldWhole(html: string): string {
+  const visible = (t: string) => t.replace(/<[^>]+>/g, "").replace(/\s+/g, "").length;
+  const total = visible(html);
+  if (!total) return html;
+  let bold = 0;
+  html.replace(/<b>([\s\S]*?)<\/b>/gi, (_m, x) => { bold += visible(x); return _m; });
+  return bold / total > 0.9 ? html.replace(/<\/?b>/gi, "") : html;
 }
 
 // Убираем «хвост» из реакций Telegram (эмодзи+число), если он попал в текст.
@@ -297,12 +309,14 @@ function parsePosts(html: string, username: string): Post[] {
 
     // Текст
     let text = "";
-    const tm = block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>\s*(?:<div class="tgme_widget_message_(?:footer|reply|inline|reactions)|<\/div>)/i)
+    const tm = block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>\s*(?:<(?:div|a) class="tgme_widget_message_(?:footer|reply|inline|reactions|link_preview)|<\/div>)/i)
       || block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/i);
     if (tm) {
-      // Реакции (эмодзи+счётчик) идут отдельным блоком после текста — если он
-      // попал в захват, отрезаем всё от него, чтобы не приняли за часть поста.
-      const raw = tm[1].replace(/<div[^>]*class="[^"]*tgme_widget_message_reactions[\s\S]*$/i, "");
+      // Реакции и превью ссылки идут отдельными блоками после текста — если они
+      // попали в захват, отрезаем всё от них, чтобы не приняли за часть поста.
+      const raw = tm[1]
+        .replace(/<(?:div|a)[^>]*class="[^"]*tgme_widget_message_reactions[\s\S]*$/i, "")
+        .replace(/<a[^>]*class="[^"]*tgme_widget_message_link_preview[\s\S]*$/i, "");
       text = stripReactions(htmlToRich(raw));
     }
 

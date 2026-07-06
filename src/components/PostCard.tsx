@@ -150,7 +150,7 @@ export default function PostCard({
   onToggleLike?: (post: Post) => void;
   likeCount?: number; // показываем только если передан (автору канала)
 }) {
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<number | null>(null);
   const rootRef = useRef<HTMLElement>(null);
   const photos = post.media.filter((m) => m.type === "photo" || m.type === "sticker");
 
@@ -196,13 +196,15 @@ export default function PostCard({
       {photos.length > 0 && (
         <div className={`media-grid n${Math.min(photos.length, 4)}`}>
           {photos.map((m, i) => (
-            <button key={i} type="button" className="media-img-wrap" onClick={() => setLightbox((m as { url: string }).url)} aria-label="Открыть фото">
+            <button key={i} type="button" className="media-img-wrap" onClick={() => setLightbox(i)} aria-label="Открыть фото">
               <RImg src={(m as { url: string }).url} />
             </button>
           ))}
         </div>
       )}
-      {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
+      {lightbox != null && (
+        <Lightbox images={photos.map((m) => (m as { url: string }).url)} index={lightbox} onClose={() => setLightbox(null)} />
+      )}
 
       {post.media.map((m, i) => (
         <MediaBlock key={i} m={m} link={post.link} channel={post.channel} msgId={post.msgId} />
