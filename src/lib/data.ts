@@ -133,6 +133,16 @@ function db() {
   return supabase();
 }
 
+// Кэш метаданных ленты в localStorage — чтобы её можно было восстановить, даже
+// если её удалили из БД (аварийное восстановление /recover). Кэшируем КАЖДУЮ
+// ленту, что пользователь видел в любом списке или открывал.
+export function cacheFeedMeta(f: Feed): void {
+  try { localStorage.setItem("tf_feedmeta_" + f.id, JSON.stringify(f)); } catch { /* quota */ }
+}
+export function cacheFeedMetas(list: Feed[]): void {
+  for (const f of list) cacheFeedMeta(f);
+}
+
 // ---- Ленты текущего пользователя (через функцию — надёжно через прокси) ----
 export async function myFeeds(): Promise<Feed[]> {
   const d = (await invokeFn("myfeeds", { action: "list_mine" })) as { feeds?: Feed[]; error?: string };

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth.tsx";
-import { myFeeds, deleteFeed, myPins, addMyPin, removeMyPin, type Feed } from "../lib/data.ts";
+import { myFeeds, deleteFeed, myPins, addMyPin, removeMyPin, cacheFeedMetas, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import FeedCard from "../components/FeedCard.tsx";
 import FeedFilter, { applyFilters, allTagsOf, emptyFilters, type Filters } from "../components/FeedFilter.tsx";
@@ -43,7 +43,9 @@ export default function MyFeeds() {
   async function load() {
     setErr("");
     try {
-      setFeeds(await myFeeds());
+      const mine = await myFeeds();
+      setFeeds(mine);
+      cacheFeedMetas(mine);
     } catch (e) {
       setErr((e as Error).message);
     }

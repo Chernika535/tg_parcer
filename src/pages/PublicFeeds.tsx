@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { loadPublic, feedFavIds, addFeedFav, removeFeedFav, setPin, removePin, type Feed, type Pin } from "../lib/data.ts";
+import { loadPublic, feedFavIds, addFeedFav, removeFeedFav, setPin, removePin, cacheFeedMetas, type Feed, type Pin } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import FeedCard from "../components/FeedCard.tsx";
@@ -26,6 +26,7 @@ export default function PublicFeeds() {
       setFeeds(feeds);
       setPins(pins);
       try { localStorage.setItem("tf_public_feeds", JSON.stringify(feeds)); } catch { /* ignore */ }
+      cacheFeedMetas(feeds); // каждую ленту — в кэш для аварийного восстановления
     } catch (e) {
       try {
         const s = localStorage.getItem("tf_public_feeds");

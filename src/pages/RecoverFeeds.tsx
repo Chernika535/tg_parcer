@@ -6,15 +6,22 @@ import { TopBar, Empty } from "../components/States.tsx";
 // Аварийное восстановление лент из кэша браузера (localStorage tf_feedmeta_*).
 // Помогает, если лента была удалена в БД, но её открывали на этом устройстве.
 function cachedFeeds(): Feed[] {
-  const out: Feed[] = [];
+  const byId = new Map<number, Feed>();
+  const add = (f: Feed) => { if (f && typeof f.id === "number" && !byId.has(f.id)) byId.set(f.id, f); };
   try {
+    // 1) Индивидуальный кэш каждой открытой/увиденной ленты (самый полный).
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (!k || !k.startsWith("tf_feedmeta_")) continue;
-      try { out.push(JSON.parse(localStorage.getItem(k)!) as Feed); } catch { /* пропускаем битые */ }
+      try { add(JSON.parse(localStorage.getItem(k)!) as Feed); } catch { /* битый */ }
     }
+    // 2) Кэш списка публичных лент (вдруг лента была там, но её не открывали).
+    try {
+      const s = localStorage.getItem("tf_public_feeds");
+      if (s) for (const f of JSON.parse(s) as Feed[]) add(f);
+    } catch { /* битый */ }
   } catch { /* приватный режим */ }
-  return out;
+  return [...byId.values()].sort((a, b) => (a.title || "").localeCompare(b.title || ""));
 }
 
 export default function RecoverFeeds() {
@@ -55,8 +62,13 @@ export default function RecoverFeeds() {
       <TopBar title="Восстановление лент" onBack={() => nav(-1)} />
       <div className="content">
         <div className="card" style={{ fontSize: 13 }}>
-          Здесь — ленты, сохранённые в кэше <b>этого устройства</b> (вы их открывали).
-          Нажмите «Восстановить», чтобы пересоздать ленту на свой аккаунт со всеми каналами.
+          Здесь — ленты, сохранённые в кэше <b>этого браузера на этом домене</b> (вы их
+          открывали или видели в списке). Существующие ленты тоже показываются — их можно
+          не трогать; «Восстановить» нужно только для удалённых.
+          <br /><br />
+          Не нашли нужную? Кэш привязан к домену: если вы открывали ленту на <b>другом
+          адресе сайта</b> (например, на старом домене), откройте <code>/#/recover</code>
+          именно там — данные лежат в кэше того домена.
         </div>
         <div className="field">
           <input type="text" placeholder="Поиск по названию…" value={q} onChange={(e) => setQ(e.target.value)} />

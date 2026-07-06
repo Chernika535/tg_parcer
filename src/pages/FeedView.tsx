@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, readChannelsBefore, favoriteLinks, addFavorite, removeFavorite, channelsInfo, track, type Feed, type Post, type ChannelInfo } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, readChannelsBefore, favoriteLinks, addFavorite, removeFavorite, channelsInfo, cacheFeedMeta, track, type Feed, type Post, type ChannelInfo } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -21,7 +21,7 @@ function loadFeedMeta(id: number): Feed | null {
 }
 function saveFeedMeta(f: Feed) {
   feedMetaCache.set(f.id, f);
-  try { localStorage.setItem("tf_feedmeta_" + f.id, JSON.stringify(f)); } catch { /* quota */ }
+  cacheFeedMeta(f);
 }
 
 // Нормализуем ник канала для сравнения (лента может хранить @Name / ссылку).
