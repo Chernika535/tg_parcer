@@ -138,7 +138,7 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
 
         // 2) Умное разглаживание кожи (только телесные пиксели) — каждый кадр,
         //    иначе мерцает. Эффект деликатный, чтобы не «замыливать».
-        if (skinRef.current) smoothSkin(cv, 0.5);
+        if (skinRef.current) smoothSkin(cv, 0.45);
 
         // 3) «Мягкое свечение» (дымка/glow) — по желанию, отдельной кнопкой.
         if (beautyRef.current) {
@@ -270,14 +270,25 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
         <div className="circ-error">{error}<br /><button className="btn secondary sm" style={{ marginTop: 10 }} onClick={cancel}>Закрыть</button></div>
       ) : (
         <>
-          <div className="circ-timer">{recording ? fmt(elapsed) : "до 60 сек"}{style !== "none" && <span className="circ-style"> · {styleName}</span>}</div>
-          <div className="circ-controls">
-            <button className={`circ-btn secondary ${skin ? "on" : ""}`} onClick={() => setSkin((v) => !v)} disabled={busy} title="Умное разглаживание кожи (глаза и детали резкие)">😊</button>
-            <button className={`circ-btn secondary ${beauty ? "on" : ""}`} onClick={() => setBeauty((v) => !v)} disabled={busy} title="Мягкое свечение (дымка)">✨</button>
-            <button className={`circ-btn secondary ${style !== "none" ? "on" : ""}`} onClick={() => {
+          <div className="circ-timer">{recording ? fmt(elapsed) : "до 60 сек"}</div>
+
+          {/* Эффекты — отдельным рядом, с подписями (чтобы не путать). */}
+          <div className="circ-fx">
+            <button className={`circ-fx-btn ${skin ? "on" : ""}`} onClick={() => setSkin((v) => !v)} disabled={busy}>
+              <span>😊</span>Кожа
+            </button>
+            <button className={`circ-fx-btn ${beauty ? "on" : ""}`} onClick={() => setBeauty((v) => !v)} disabled={busy}>
+              <span>✨</span>Свечение
+            </button>
+            <button className={`circ-fx-btn ${style !== "none" ? "on" : ""}`} onClick={() => {
               const ids = STYLES.map((s) => s.id);
               setStyle(ids[(ids.indexOf(style) + 1) % ids.length]);
-            }} disabled={busy} title={`Стиль: ${styleName}`}>🎨</button>
+            }} disabled={busy}>
+              <span>🎨</span>{style === "none" ? "Стиль" : styleName}
+            </button>
+          </div>
+
+          <div className="circ-controls">
             <button className="circ-btn secondary" onClick={switchCamera} disabled={busy} title="Сменить камеру">🔄</button>
             {!recording && !busy && <button className="circ-rec" onClick={start} aria-label="Запись" />}
             {recording && <button className="circ-stop" onClick={stop} aria-label="Стоп" />}

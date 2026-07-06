@@ -8,7 +8,7 @@ export type StyleId = "none" | "glossy" | "film" | "retro" | "cinema" | "bw";
 
 export const STYLES: { id: StyleId; name: string; css: string }[] = [
   { id: "none", name: "Оригинал", css: "none" },
-  { id: "glossy", name: "Глянец", css: "saturate(1.5) contrast(1.16) brightness(1.05)" },
+  { id: "glossy", name: "Глянец", css: "brightness(1.06) contrast(1.1) saturate(1.14)" },
   { id: "film", name: "Плёнка", css: "sepia(0.22) saturate(1.12) contrast(0.94) brightness(1.06) hue-rotate(-8deg)" },
   { id: "retro", name: "Ретро", css: "sepia(0.4) saturate(1.2) contrast(1.06) brightness(1.04) hue-rotate(-14deg)" },
   { id: "cinema", name: "Кинема", css: "saturate(1.35) contrast(1.12) hue-rotate(10deg) brightness(0.98)" },
@@ -43,7 +43,7 @@ export async function bakeImage(blob: Blob, css: string, smooth = false): Promis
     ctx.filter = css && css !== "none" ? css : "none";
     ctx.drawImage(img, 0, 0);
     ctx.filter = "none";
-    if (smooth) smoothSkin(cv, 0.55);
+    if (smooth) smoothSkin(cv, 0.45);
     return await new Promise<Blob>((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error("не удалось сохранить"))), "image/jpeg", 0.92));
   } finally { URL.revokeObjectURL(url); }
 }
@@ -93,7 +93,7 @@ export async function bakeVideo(blob: Blob, css: string, onProgress?: (p: number
       ctx.filter = css && css !== "none" ? css : "none";
       ctx.drawImage(v, 0, 0, W, H);
       ctx.filter = "none";
-      if (smooth) smoothSkin(cv, 0.55);
+      if (smooth) smoothSkin(cv, 0.45);
       if (onProgress && v.duration) onProgress(Math.min(1, v.currentTime / v.duration));
       raf = requestAnimationFrame(draw);
     };

@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { STYLES, styleCss, bakeImage, bakeVideo, type StyleId } from "../lib/filters.ts";
 import { smoothSkin } from "../lib/skin.ts";
 
-const PREV = 360;
+const MAXSIDE = 640; // максимальная сторона канваса превью
 
-// Живое превью «как получится»: рисуем медиа в canvas с выбранным фильтром и
-// (по желанию) разглаживанием кожи — то есть виден реальный итог, не только CSS.
+// Живое превью «как получится»: рисуем медиа в canvas в ЕГО пропорциях (не режем
+// в квадрат) с выбранным фильтром и разглаживанием — виден реальный итог.
 function LivePreview({ type, url, css, smooth }: { type: "photo" | "video"; url: string; css: string; smooth: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef({ css, smooth });
@@ -16,39 +16,41 @@ function LivePreview({ type, url, css, smooth }: { type: "photo" | "video"; url:
     if (!cv) return;
     const ctx = cv.getContext("2d", { willReadFrequently: true })!;
     let raf = 0, stopped = false;
-    let img: HTMLImageElement | null = null;
-    let vid: HTMLVideoElement | null = null;
 
+    const fit = (w: number, h: number) => {
+      const k = Math.min(1, MAXSIDE / Math.max(w, h));
+      const cw = Math.max(1, Math.round(w * k)), chh = Math.max(1, Math.round(h * k));
+      if (cv.width !== cw || cv.height !== chh) { cv.width = cw; cv.height = chh; }
+    };
     const drawFrom = (src: CanvasImageSource, w: number, h: number) => {
-      const s = Math.min(w, h);
-      const sx = (w - s) / 2, sy = (h - s) / 2;
+      if (!w || !h) return;
+      fit(w, h);
       ctx.filter = stateRef.current.css && stateRef.current.css !== "none" ? stateRef.current.css : "none";
-      ctx.drawImage(src, sx, sy, s, s, 0, 0, PREV, PREV);
+      ctx.drawImage(src, 0, 0, cv.width, cv.height);
       ctx.filter = "none";
-      if (stateRef.current.smooth) smoothSkin(cv, 0.55);
+      if (stateRef.current.smooth) smoothSkin(cv, 0.45);
     };
 
     if (type === "photo") {
-      img = new Image();
-      img.onload = () => { if (!stopped) drawFrom(img!, img!.naturalWidth, img!.naturalHeight); };
+      const img = new Image();
+      img.onload = () => { if (!stopped) drawFrom(img, img.naturalWidth, img.naturalHeight); };
       img.src = url;
-      // Перерисовываем при смене фильтра/сглаживания.
-      const iv = setInterval(() => { if (img && img.complete) drawFrom(img, img.naturalWidth, img.naturalHeight); }, 250);
+      const iv = setInterval(() => { if (img.complete && img.naturalWidth) drawFrom(img, img.naturalWidth, img.naturalHeight); }, 200);
       return () => { stopped = true; clearInterval(iv); };
     }
-    vid = document.createElement("video");
+    const vid = document.createElement("video");
     vid.src = url; vid.muted = true; vid.loop = true; vid.playsInline = true;
     vid.play().catch(() => {});
     const loop = () => {
       if (stopped) return;
-      if (vid && vid.videoWidth) drawFrom(vid, vid.videoWidth, vid.videoHeight);
+      if (vid.videoWidth) drawFrom(vid, vid.videoWidth, vid.videoHeight);
       raf = requestAnimationFrame(loop);
     };
     loop();
-    return () => { stopped = true; cancelAnimationFrame(raf); vid?.pause(); };
+    return () => { stopped = true; cancelAnimationFrame(raf); vid.pause(); };
   }, [url, type]);
 
-  return <canvas ref={canvasRef} width={PREV} height={PREV} className="filter-canvas" />;
+  return <canvas ref={canvasRef} className="filter-canvas" />;
 }
 
 // Выбор стилевого фильтра для загруженного фото/видео. По «Применить» запекаем

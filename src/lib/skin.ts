@@ -24,13 +24,14 @@ function tmp(w: number, h: number): HTMLCanvasElement {
 }
 
 // Разглаживает кожу прямо в переданном canvas (на месте).
-export function smoothSkin(canvas: HTMLCanvasElement, amount = 0.55): void {
+export function smoothSkin(canvas: HTMLCanvasElement, amount = 0.45): void {
   const W = canvas.width, H = canvas.height;
   if (!W || !H) return;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  // Небольшой радиус: сглаживаем микронеровности, не превращая лицо в «кашу».
-  const blurPx = Math.max(1.5, Math.min(6, Math.round(Math.min(W, H) / 220)));
+  // Радиус СТРОГО пропорционален размеру (без потолка), чтобы результат на
+  // маленьком превью и на полноразмерном фото выглядел одинаково деликатно.
+  const blurPx = Math.max(1, Math.round(Math.min(W, H) / 240));
   const t = tmp(W, H);
   const tc = t.getContext("2d");
   if (!tc) return;
