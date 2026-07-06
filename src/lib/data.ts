@@ -579,6 +579,14 @@ export async function pinnedPost(channel: string): Promise<Post | null> {
     return null;
   }
 }
+// Закреплённый пост своего канала — из Telegram через бота (getChat). Это
+// авторитетный источник (в отличие от MTProto-режима он всегда видит текущий пин).
+export async function channelPinnedBot(chatId: string): Promise<{ message_id: number; text: string } | null> {
+  try {
+    const d = (await invokeFn("bot", { action: "channel_pinned", input: { chat_id: chatId } })) as { pinned?: { message_id: number; text: string } | null };
+    return d.pinned ?? null;
+  } catch { return null; }
+}
 // Закрепить/открепить пост в своём канале (бот — админ). chatId — из author_channels.
 export async function pinPost(chatId: string, messageId: number): Promise<void> {
   const d = (await invokeFn("bot", { action: "pin", input: { chat_id: chatId, message_id: messageId } })) as { error?: string };

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   channelsInfo, readChannels, readChannelsMTServer, readChannelsMT, readChannelsBefore,
   loadPublic, favoriteLinks, addFavorite, removeFavorite,
-  pinnedPost, pinPost, unpinPost, authorChannels, channelStats, track,
+  pinnedPost, pinPost, unpinPost, channelPinnedBot, authorChannels, channelStats, track,
   type Post, type ChannelInfo, type Feed,
 } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
@@ -33,6 +33,8 @@ export default function ChannelView() {
   const [noMore, setNoMore] = useState(false);
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<Post | null>(null);
+  const [pinnedId, setPinnedId] = useState<number | null>(null);
+  const [pinText, setPinText] = useState("");
   const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
   const [stats, setStats] = useState<{ favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> } | null>(null);
   const { liked, toggle: toggleLike } = useLikes(!!session);
@@ -70,9 +72,9 @@ export default function ChannelView() {
     loadPublic().then(({ feeds }) => {
       setInFeeds(feeds.filter((f) => f.channels.some((c) => normCh(c) === ch)));
     }).catch(() => setInFeeds([]));
-    // Закреплённый в Telegram пост.
-    setPinned(null);
-    pinnedPost(ch).then(setPinned).catch(() => {});
+    // Закреплённый в Telegram пост (для гостей — через MTProto).
+    setPinned(null); setPinnedId(null); setPinText("");
+    pinnedPost(ch).then((p) => { if (p) { setPinnedId((cur) => cur ?? p.msgId); setPinned((cur) => cur ?? p); } }).catch(() => {});
     // Если это мой канал (бот-админ) — включаем управление закреплением.
     setMyChatId(null);
     setStats(null);
@@ -87,14 +89,35 @@ export default function ChannelView() {
     }
   }, [ch, session]);
 
+  // Для своего канала пин берём у бота (getChat) — он всегда знает актуальный пин.
+  useEffect(() => {
+    if (!myChatId) return;
+    channelPinnedBot(myChatId).then((pin) => {
+      if (!pin) { setPinnedId(null); setPinned(null); setPinText(""); return; }
+      setPinnedId(pin.message_id); setPinText(pin.text || "");
+    }).catch(() => {});
+  }, [myChatId]);
+
+  // Отображаемый закреп: если пост уже загружен в ленте — берём его (с медиа),
+  // иначе строим минимальный из данных бота.
+  useEffect(() => {
+    if (pinnedId == null) return;
+    const found = posts?.find((p) => p.msgId === pinnedId);
+    if (found) setPinned(found);
+    else setPinned((cur) => (cur && cur.msgId === pinnedId ? cur : {
+      channel: ch, msgId: pinnedId, postedAt: new Date().toISOString(),
+      text: pinText, hasMedia: false, media: [], link: `https://t.me/${ch}/${pinnedId}`,
+    }));
+  }, [pinnedId, posts, pinText, ch]);
+
   async function doPin(post: Post) {
     if (!myChatId) return;
-    try { await pinPost(myChatId, post.msgId); setPinned(post); }
+    try { await pinPost(myChatId, post.msgId); setPinnedId(post.msgId); setPinned(post); }
     catch (e) { alert("Не удалось закрепить: " + (e as Error).message); }
   }
   async function doUnpin() {
     if (!myChatId || !pinned) return;
-    try { await unpinPost(myChatId, pinned.msgId); setPinned(null); }
+    try { await unpinPost(myChatId, pinned.msgId); setPinnedId(null); setPinned(null); }
     catch (e) { alert("Не удалось открепить: " + (e as Error).message); }
   }
 

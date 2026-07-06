@@ -62,11 +62,11 @@ export default function Admin() {
       <div className="content">
         <div className="field" style={{ marginBottom: 8 }}>
           <select value={tab} onChange={(e) => setTab(e.target.value as Tab)}>
-            <option value="stats">📊 Аналитика</option>
             <option value="pending">На модерации ({counts.pending})</option>
             <option value="approved">Одобренные ({counts.approved})</option>
             <option value="rejected">Отклонённые ({counts.rejected})</option>
             <option value="channels">Каналы</option>
+            <option value="stats">📊 Аналитика</option>
           </select>
         </div>
 

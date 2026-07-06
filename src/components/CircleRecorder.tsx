@@ -39,6 +39,9 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
   const tickRef = useRef<number>(0);
   const startRef = useRef(0);
   const facingRef = useRef<"user" | "environment">("user");
+  const camsRef = useRef<MediaDeviceInfo[]>([]);
+  const camIdxRef = useRef(0);
+  const softRef = useRef<HTMLCanvasElement | null>(null); // офскрин для мягкого свечения
 
   const [facing, setFacing] = useState<"user" | "environment">("user");
   const [recording, setRecording] = useState(false);
@@ -53,16 +56,9 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
     && typeof HTMLCanvasElement !== "undefined"
     && !!HTMLCanvasElement.prototype.captureStream;
 
-  // Берём поток НОВОЙ камеры и только потом гасим старую — если что-то пойдёт не
-  // так (например, второй камеры нет), останемся на рабочей и не «упадём».
-  async function startCamera(f: "user" | "environment") {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: f }, width: { ideal: 720 }, height: { ideal: 720 } }, audio: false,
-    });
-    const old = videoStreamRef.current;
+  function attach(stream: MediaStream) {
     videoStreamRef.current = stream;
-    if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play().catch(() => {}); }
-    old?.getTracks().forEach((t) => t.stop());
+    if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(() => {}); }
   }
 
   useEffect(() => {
@@ -72,8 +68,19 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
       try {
         const a = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioTrackRef.current = a.getAudioTracks()[0] ?? null;
-        await startCamera("user");
-        if (!alive) return;
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "user" }, width: { ideal: 720 }, height: { ideal: 720 } }, audio: false,
+        });
+        if (!alive) { stream.getTracks().forEach((t) => t.stop()); return; }
+        attach(stream);
+        // Список камер (доступен после выдачи прав) — для надёжного переключения.
+        try {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          camsRef.current = devs.filter((d) => d.kind === "videoinput");
+          const curId = stream.getVideoTracks()[0].getSettings().deviceId;
+          const i = camsRef.current.findIndex((d) => d.deviceId === curId);
+          camIdxRef.current = i >= 0 ? i : 0;
+        } catch { /* ignore */ }
         drawLoop();
       } catch (e) { setError("Нет доступа к камере/микрофону: " + (e as Error).message); }
     })();
@@ -92,17 +99,45 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
     const cv = canvasRef.current, v = videoRef.current;
     if (!cv || !v) return;
     const ctx = cv.getContext("2d")!;
+    // Офскрин для «мягкого свечения» (soft-focus): размытую копию накладываем
+    // поверх резкой — кожа выглядит гладкой, а картинка мягкой и стильной.
+    if (!softRef.current) { softRef.current = document.createElement("canvas"); softRef.current.width = SIZE; softRef.current.height = SIZE; }
+    const soft = softRef.current;
+    const sctx = soft.getContext("2d")!;
+
     const loop = () => {
       if (v.videoWidth) {
         const s = Math.min(v.videoWidth, v.videoHeight);
         const sx = (v.videoWidth - s) / 2, sy = (v.videoHeight - s) / 2;
-        // Фронтальную камеру зеркалим — привычнее, как в Telegram.
-        ctx.save();
-        // Лёгкое «сглаживание + цветокоррекция» — кожа мягче, картинка сочнее.
-        ctx.filter = beautyRef.current ? "brightness(1.06) contrast(1.03) saturate(1.12) blur(0.4px)" : "none";
-        if (facingRef.current === "user") { ctx.translate(SIZE, 0); ctx.scale(-1, 1); }
-        ctx.drawImage(v, sx, sy, s, s, 0, 0, SIZE, SIZE);
-        ctx.restore();
+        const mirror = facingRef.current === "user";
+        const put = (c: CanvasRenderingContext2D, filter: string) => {
+          c.save();
+          c.filter = filter;
+          if (mirror) { c.translate(SIZE, 0); c.scale(-1, 1); }
+          c.drawImage(v, sx, sy, s, s, 0, 0, SIZE, SIZE);
+          c.restore();
+        };
+
+        if (beautyRef.current) {
+          // 1) База: чистые сочные цвета, чуть светлее и теплее, глаже тон.
+          put(ctx, "brightness(1.10) contrast(1.06) saturate(1.28) sepia(0.05) hue-rotate(-4deg)");
+          // 2) Сильно размытая копия поверх с частичной прозрачностью — сглаживает
+          //    кожу и даёт модный «soft-glow». Screen — чтобы лицо посвежело.
+          sctx.clearRect(0, 0, SIZE, SIZE);
+          put(sctx, "blur(7px) brightness(1.12) saturate(1.15)");
+          ctx.save();
+          ctx.globalAlpha = 0.42;
+          ctx.globalCompositeOperation = "lighten";
+          ctx.drawImage(soft, 0, 0);
+          ctx.restore();
+          // 3) Второй мягкий слой обычным наложением — усиливает сглаживание.
+          ctx.save();
+          ctx.globalAlpha = 0.28;
+          ctx.drawImage(soft, 0, 0);
+          ctx.restore();
+        } else {
+          put(ctx, "none");
+        }
       }
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -111,10 +146,35 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
 
   facingRef.current = facing; // drawLoop (замыкание) должен видеть актуальную камеру
 
+  // Многие телефоны НЕ дают открыть вторую камеру, пока активна первая, поэтому
+  // сначала гасим текущую, затем включаем следующую (по deviceId — надёжнее, чем
+  // facingMode). Если не вышло — пробуем вернуть рабочую камеру.
   async function switchCamera() {
-    const next = facing === "user" ? "environment" : "user";
-    try { await startCamera(next); setFacing(next); }
-    catch (e) { setError("Не удалось переключить камеру: " + (e as Error).message); }
+    const cams = camsRef.current;
+    const prev = videoStreamRef.current;
+    prev?.getVideoTracks().forEach((t) => t.stop());
+    videoStreamRef.current = null;
+    try {
+      let stream: MediaStream;
+      if (cams.length > 1) {
+        camIdxRef.current = (camIdxRef.current + 1) % cams.length;
+        const id = cams[camIdxRef.current].deviceId;
+        stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: id }, width: { ideal: 720 }, height: { ideal: 720 } }, audio: false });
+      } else {
+        const next = facing === "user" ? "environment" : "user";
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: next } }, audio: false });
+      }
+      attach(stream);
+      const fm = stream.getVideoTracks()[0].getSettings().facingMode;
+      setFacing(fm === "environment" ? "environment" : fm === "user" ? "user" : (facing === "user" ? "environment" : "user"));
+    } catch (e) {
+      // Возвращаем предыдущую камеру, чтобы экран не остался чёрным.
+      try {
+        const back = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 720 }, height: { ideal: 720 } }, audio: false });
+        attach(back);
+      } catch { /* ignore */ }
+      setError("Не удалось переключить камеру: " + (e as Error).message);
+    }
   }
 
   function start() {
