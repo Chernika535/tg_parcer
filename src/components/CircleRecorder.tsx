@@ -119,21 +119,28 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
         };
 
         if (beautyRef.current) {
-          // 1) База: чистые сочные цвета, чуть светлее и теплее, глаже тон.
-          put(ctx, "brightness(1.10) contrast(1.06) saturate(1.28) sepia(0.05) hue-rotate(-4deg)");
-          // 2) Сильно размытая копия поверх с частичной прозрачностью — сглаживает
-          //    кожу и даёт модный «soft-glow». Screen — чтобы лицо посвежело.
+          // 1) База: чистые сочные цвета, чуть светлее и теплее.
+          put(ctx, "brightness(1.08) contrast(1.05) saturate(1.30) sepia(0.06) hue-rotate(-6deg)");
+          // 2) Сглаживание кожи: сильно размытую копию наклеиваем ОБЫЧНЫМ
+          //    наложением с высокой прозрачностью — тон становится ровным и
+          //    гладким (главный «бьюти»-эффект), без пересвета.
           sctx.clearRect(0, 0, SIZE, SIZE);
-          put(sctx, "blur(7px) brightness(1.12) saturate(1.15)");
+          put(sctx, "blur(9px) brightness(1.04) saturate(1.12)");
           ctx.save();
-          ctx.globalAlpha = 0.42;
-          ctx.globalCompositeOperation = "lighten";
+          ctx.globalAlpha = 0.6;
           ctx.drawImage(soft, 0, 0);
           ctx.restore();
-          // 3) Второй мягкий слой обычным наложением — усиливает сглаживание.
+          // 3) Лёгкое свечение (screen) — свежесть и «сияние» кожи.
           ctx.save();
-          ctx.globalAlpha = 0.28;
+          ctx.globalAlpha = 0.18;
+          ctx.globalCompositeOperation = "screen";
           ctx.drawImage(soft, 0, 0);
+          ctx.restore();
+          // 4) Финальный лёгкий контраст, чтобы глаза/волосы не «уплыли».
+          ctx.save();
+          ctx.globalAlpha = 0.35;
+          ctx.globalCompositeOperation = "source-over";
+          put(ctx, "contrast(1.12) saturate(1.1) blur(0px)");
           ctx.restore();
         } else {
           put(ctx, "none");

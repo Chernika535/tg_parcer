@@ -297,9 +297,14 @@ function parsePosts(html: string, username: string): Post[] {
 
     // Текст
     let text = "";
-    const tm = block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>\s*(?:<div class="tgme_widget_message_(?:footer|reply|inline)|<\/div>)/i)
+    const tm = block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>\s*(?:<div class="tgme_widget_message_(?:footer|reply|inline|reactions)|<\/div>)/i)
       || block.match(/tgme_widget_message_text[^>]*>([\s\S]*?)<\/div>/i);
-    if (tm) text = stripReactions(htmlToRich(tm[1]));
+    if (tm) {
+      // Реакции (эмодзи+счётчик) идут отдельным блоком после текста — если он
+      // попал в захват, отрезаем всё от него, чтобы не приняли за часть поста.
+      const raw = tm[1].replace(/<div[^>]*class="[^"]*tgme_widget_message_reactions[\s\S]*$/i, "");
+      text = stripReactions(htmlToRich(raw));
+    }
 
     const media = extractMedia(block);
     const views = attr(block, /tgme_widget_message_views[^>]*>([^<]+)/i);

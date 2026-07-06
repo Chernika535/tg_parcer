@@ -78,9 +78,10 @@ function RVideo({ url, thumb, round }: { url: string; thumb?: string; round?: bo
       </button>
     );
   }
+  if (round) return <RoundVideo src={bust(url, n)} thumb={thumb ? bust(thumb, n) : undefined} onError={() => setFailed(true)} />;
   return (
     <video
-      className={round ? "media-video round" : "media-video"}
+      className="media-video"
       src={bust(url, n)}
       poster={thumb ? bust(thumb, n) : undefined}
       controls
@@ -88,6 +89,34 @@ function RVideo({ url, thumb, round }: { url: string; thumb?: string; round?: bo
       preload="metadata"
       onError={() => setFailed(true)}
     />
+  );
+}
+
+// Кружок в ленте: как в Telegram — крутится без звука, тап включает звук,
+// повторный тап ставит на паузу. Никаких крупных элементов поверх лица.
+function RoundVideo({ src, thumb, onError }: { src: string; thumb?: string; onError?: () => void }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+  const [playing, setPlaying] = useState(true);
+  function toggle() {
+    const v = ref.current;
+    if (!v) return;
+    if (muted) { v.muted = false; setMuted(false); if (v.paused) v.play().catch(() => {}); return; }
+    if (v.paused) v.play().catch(() => {}); else v.pause();
+  }
+  return (
+    <div className="round-video" onClick={toggle}>
+      <video
+        ref={ref} src={src} poster={thumb}
+        autoPlay muted loop playsInline preload="metadata"
+        onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
+        onError={onError}
+      />
+      {!playing && <span className="rv-play" aria-hidden>▶</span>}
+      <button className="rv-mute" onClick={(e) => { e.stopPropagation(); const v = ref.current; if (!v) return; v.muted = !v.muted; setMuted(v.muted); if (!v.muted && v.paused) v.play().catch(() => {}); }} aria-label={muted ? "Включить звук" : "Выключить звук"}>
+        {muted ? "🔇" : "🔊"}
+      </button>
+    </div>
   );
 }
 
