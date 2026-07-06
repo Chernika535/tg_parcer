@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { STYLES, styleCss, type StyleId } from "../lib/filters.ts";
+import { smoothSkin } from "../lib/skin.ts";
 
 // Запись «кружочка» (видео-заметки Telegram): квадрат ≤60с.
 // Пишем с canvas (центр-квадрат камеры) через MediaRecorder — это надёжнее
@@ -49,9 +50,12 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
   const [elapsed, setElapsed] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [beauty, setBeauty] = useState(true);
-  const beautyRef = useRef(true);
+  const [beauty, setBeauty] = useState(false);
+  const beautyRef = useRef(false);
   beautyRef.current = beauty;
+  const [skin, setSkin] = useState(true);
+  const skinRef = useRef(true);
+  skinRef.current = skin;
   const [style, setStyle] = useState<StyleId>("none");
   const styleRef = useRef<StyleId>("none");
   styleRef.current = style;
@@ -103,64 +107,54 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
   function drawLoop() {
     const cv = canvasRef.current, v = videoRef.current;
     if (!cv || !v) return;
-    const ctx = cv.getContext("2d")!;
+    const ctx = cv.getContext("2d", { willReadFrequently: true })!;
     // Офскрин для «мягкого свечения» (soft-focus): размытую копию накладываем
     // поверх резкой — кожа выглядит гладкой, а картинка мягкой и стильной.
     if (!softRef.current) { softRef.current = document.createElement("canvas"); softRef.current.width = SIZE; softRef.current.height = SIZE; }
     const soft = softRef.current;
     const sctx = soft.getContext("2d")!;
 
+    // Применить CSS-фильтр к текущему кадру «на месте» (через офскрин-копию).
+    const gradeInPlace = (css: string) => {
+      sctx.clearRect(0, 0, SIZE, SIZE);
+      sctx.drawImage(cv, 0, 0);
+      ctx.save();
+      ctx.filter = css;
+      ctx.drawImage(soft, 0, 0);
+      ctx.restore();
+    };
+
+    let frame = 0;
     const loop = () => {
       if (v.videoWidth) {
         const s = Math.min(v.videoWidth, v.videoHeight);
         const sx = (v.videoWidth - s) / 2, sy = (v.videoHeight - s) / 2;
         const mirror = facingRef.current === "user";
-        const put = (c: CanvasRenderingContext2D, filter: string) => {
-          c.save();
-          c.filter = filter;
-          if (mirror) { c.translate(SIZE, 0); c.scale(-1, 1); }
-          c.drawImage(v, sx, sy, s, s, 0, 0, SIZE, SIZE);
-          c.restore();
-        };
 
+        // 1) Базовый кадр (зеркалим фронталку).
+        ctx.save();
+        if (mirror) { ctx.translate(SIZE, 0); ctx.scale(-1, 1); }
+        ctx.drawImage(v, sx, sy, s, s, 0, 0, SIZE, SIZE);
+        ctx.restore();
+
+        // 2) Умное разглаживание кожи (только телесные пиксели). Тяжёлое —
+        //    делаем через кадр, чтобы не ронять частоту записи.
+        if (skinRef.current) { frame++; if (frame % 2 === 0) smoothSkin(cv, 0.85); }
+
+        // 3) «Мягкое свечение» (дымка/glow) — по желанию, отдельной кнопкой.
         if (beautyRef.current) {
-          // 1) База: чистые сочные цвета, чуть светлее и теплее.
-          put(ctx, "brightness(1.08) contrast(1.05) saturate(1.30) sepia(0.06) hue-rotate(-6deg)");
-          // 2) Сглаживание кожи: сильно размытую копию наклеиваем ОБЫЧНЫМ
-          //    наложением с высокой прозрачностью — тон становится ровным и
-          //    гладким (главный «бьюти»-эффект), без пересвета.
           sctx.clearRect(0, 0, SIZE, SIZE);
-          put(sctx, "blur(9px) brightness(1.04) saturate(1.12)");
-          ctx.save();
-          ctx.globalAlpha = 0.6;
-          ctx.drawImage(soft, 0, 0);
-          ctx.restore();
-          // 3) Лёгкое свечение (screen) — свежесть и «сияние» кожи.
-          ctx.save();
-          ctx.globalAlpha = 0.18;
-          ctx.globalCompositeOperation = "screen";
-          ctx.drawImage(soft, 0, 0);
-          ctx.restore();
-          // 4) Финальный лёгкий контраст, чтобы глаза/волосы не «уплыли».
-          ctx.save();
-          ctx.globalAlpha = 0.35;
-          ctx.globalCompositeOperation = "source-over";
-          put(ctx, "contrast(1.12) saturate(1.1) blur(0px)");
-          ctx.restore();
-        } else {
-          put(ctx, "none");
+          sctx.filter = "blur(8px) brightness(1.06) saturate(1.12)";
+          sctx.drawImage(cv, 0, 0);
+          sctx.filter = "none";
+          ctx.save(); ctx.globalAlpha = 0.35; ctx.drawImage(soft, 0, 0); ctx.restore();
+          ctx.save(); ctx.globalAlpha = 0.16; ctx.globalCompositeOperation = "screen"; ctx.drawImage(soft, 0, 0); ctx.restore();
+          gradeInPlace("brightness(1.05) contrast(1.04) saturate(1.18) sepia(0.04) hue-rotate(-4deg)");
         }
 
-        // Стилевой фильтр (глянец/плёнка/…) — пост-обработка готового кадра.
+        // 4) Стилевой фильтр (глянец/плёнка/…).
         const scss = styleCss(styleRef.current);
-        if (scss !== "none") {
-          sctx.clearRect(0, 0, SIZE, SIZE);
-          sctx.drawImage(cv, 0, 0);
-          ctx.save();
-          ctx.filter = scss;
-          ctx.drawImage(soft, 0, 0);
-          ctx.restore();
-        }
+        if (scss !== "none") gradeInPlace(scss);
       }
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -271,7 +265,8 @@ export default function CircleRecorder({ onDone, onCancel }: { onDone: (blob: Bl
         <>
           <div className="circ-timer">{recording ? fmt(elapsed) : "до 60 сек"}{style !== "none" && <span className="circ-style"> · {styleName}</span>}</div>
           <div className="circ-controls">
-            <button className={`circ-btn secondary ${beauty ? "on" : ""}`} onClick={() => setBeauty((v) => !v)} disabled={busy} title="Сглаживание кожи">✨</button>
+            <button className={`circ-btn secondary ${skin ? "on" : ""}`} onClick={() => setSkin((v) => !v)} disabled={busy} title="Умное разглаживание кожи (глаза и детали резкие)">😊</button>
+            <button className={`circ-btn secondary ${beauty ? "on" : ""}`} onClick={() => setBeauty((v) => !v)} disabled={busy} title="Мягкое свечение (дымка)">✨</button>
             <button className={`circ-btn secondary ${style !== "none" ? "on" : ""}`} onClick={() => {
               const ids = STYLES.map((s) => s.id);
               setStyle(ids[(ids.indexOf(style) + 1) % ids.length]);

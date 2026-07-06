@@ -2,6 +2,8 @@
 // которые «запекаются» в файл через canvas (то есть уходят в Telegram уже
 // применёнными). Задача — чтобы посты выглядели дорого и стильно, как у глянца.
 
+import { smoothSkin } from "./skin.ts";
+
 export type StyleId = "none" | "glossy" | "film" | "retro" | "cinema" | "bw";
 
 export const STYLES: { id: StyleId; name: string; css: string }[] = [
@@ -27,9 +29,9 @@ export function pickVideoMime(): string {
   return "";
 }
 
-// Запекаем фильтр в изображение через canvas → новый JPEG.
-export async function bakeImage(blob: Blob, css: string): Promise<Blob> {
-  if (!css || css === "none") return blob;
+// Запекаем фильтр (и/или разглаживание кожи) в изображение через canvas → JPEG.
+export async function bakeImage(blob: Blob, css: string, smooth = false): Promise<Blob> {
+  if ((!css || css === "none") && !smooth) return blob;
   const url = URL.createObjectURL(blob);
   try {
     const img = await new Promise<HTMLImageElement>((res, rej) => {
@@ -38,8 +40,10 @@ export async function bakeImage(blob: Blob, css: string): Promise<Blob> {
     const cv = document.createElement("canvas");
     cv.width = img.naturalWidth; cv.height = img.naturalHeight;
     const ctx = cv.getContext("2d")!;
-    ctx.filter = css;
+    ctx.filter = css && css !== "none" ? css : "none";
     ctx.drawImage(img, 0, 0);
+    ctx.filter = "none";
+    if (smooth) smoothSkin(cv, 0.85);
     return await new Promise<Blob>((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error("не удалось сохранить"))), "image/jpeg", 0.92));
   } finally { URL.revokeObjectURL(url); }
 }
@@ -47,8 +51,8 @@ export async function bakeImage(blob: Blob, css: string): Promise<Blob> {
 // Запекаем фильтр в видео: проигрываем, рисуем каждый кадр с фильтром в canvas,
 // пишем через MediaRecorder. Звук берём беззвучно через WebAudio. Идёт в реальном
 // времени (сколько длится ролик — столько и обработка).
-export async function bakeVideo(blob: Blob, css: string, onProgress?: (p: number) => void): Promise<Blob> {
-  if (!css || css === "none") return blob;
+export async function bakeVideo(blob: Blob, css: string, onProgress?: (p: number) => void, smooth = false): Promise<Blob> {
+  if ((!css || css === "none") && !smooth) return blob;
   if (typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) return blob;
 
   const url = URL.createObjectURL(blob);
@@ -86,8 +90,10 @@ export async function bakeVideo(blob: Blob, css: string, onProgress?: (p: number
 
     let raf = 0;
     const draw = () => {
-      ctx.filter = css;
+      ctx.filter = css && css !== "none" ? css : "none";
       ctx.drawImage(v, 0, 0, W, H);
+      ctx.filter = "none";
+      if (smooth) smoothSkin(cv, 0.85);
       if (onProgress && v.duration) onProgress(Math.min(1, v.currentTime / v.duration));
       raf = requestAnimationFrame(draw);
     };

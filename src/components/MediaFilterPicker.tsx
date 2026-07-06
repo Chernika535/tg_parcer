@@ -10,6 +10,7 @@ export default function MediaFilterPicker({ type, url, onDone, onCancel }: {
   onCancel: () => void;
 }) {
   const [sel, setSel] = useState<StyleId>("none");
+  const [smooth, setSmooth] = useState(false);
   const [busy, setBusy] = useState(false);
   const [prog, setProg] = useState(0);
   const css = styleCss(sel);
@@ -18,7 +19,7 @@ export default function MediaFilterPicker({ type, url, onDone, onCancel }: {
     setBusy(true); setProg(0);
     try {
       const blob = await (await fetch(url)).blob();
-      const out = type === "photo" ? await bakeImage(blob, css) : await bakeVideo(blob, css, setProg);
+      const out = type === "photo" ? await bakeImage(blob, css, smooth) : await bakeVideo(blob, css, setProg, smooth);
       onDone(out, sel);
     } catch (e) {
       alert("Не удалось применить фильтр: " + (e as Error).message);
@@ -43,6 +44,12 @@ export default function MediaFilterPicker({ type, url, onDone, onCancel }: {
             </button>
           ))}
         </div>
+        <label className="check-row" style={{ marginTop: 12 }}>
+          <input type="checkbox" checked={smooth} onChange={(e) => setSmooth(e.target.checked)} disabled={busy} />
+          😊 Разгладить кожу (умное — глаза и детали остаются резкими)
+        </label>
+        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>Разглаживание применится при сохранении (в превью выше не показано).</div>
+
         {busy && type === "video" && (
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
             Обрабатываю видео… {Math.round(prog * 100)}% (идёт в реальном времени)
