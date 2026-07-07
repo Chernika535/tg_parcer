@@ -134,6 +134,28 @@ Deno.serve(async (req: Request) => {
       return json({ feed: data });
     }
 
+    // Скопировать ЛЮБУЮ ленту (по ссылке) себе как приватную. Источник читаем
+    // под service-role (чужую приватную RLS бы не отдала), создаём — под JWT.
+    if (b.action === "clone") {
+      if (!b.id) return json({ error: "нет id" }, 400);
+      if (!SERVICE_ROLE) return json({ error: "функция не сконфигурирована (service role)" }, 500);
+      const svc = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+      const { data: src } = await svc.from("feeds").select("title, description, channels, tags, author_name, cover_url").eq("id", b.id).maybeSingle();
+      if (!src) return json({ error: "лента не найдена" }, 404);
+      const { data, error } = await db.from("feeds").insert({
+        title: src.title,
+        description: src.description ?? null,
+        channels: src.channels ?? [],
+        tags: src.tags ?? [],
+        author_name: src.author_name ?? null,
+        cover_url: src.cover_url ?? null,
+        visibility: "private",
+        owner_id: uid,
+      }).select("*").single();
+      if (error) return json({ error: error.message }, 500);
+      return json({ feed: data });
+    }
+
     if (b.action === "update") {
       if (!b.id) return json({ error: "нет id" }, 400);
       const { data, error } = await db.from("feeds").update(b.fields ?? {}).eq("id", b.id).select("*");

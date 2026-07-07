@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from "react";
 // Кадрирование обложки: тянем пальцем/мышью, зум ползунком. Рамка — ровно в той
 // пропорции (5:3), в которой обложка показывается в приложении, поэтому «что
 // видно в рамке — то и будет». На выходе — обрезанный PNG нужного размера.
-const RATIO = 3 / 5;          // высота / ширина
+const RATIO = 2 / 5;          // высота / ширина — широкий баннер, как в ленте
 export const TARGET_W = 1000;
-export const TARGET_H = Math.round(TARGET_W * RATIO); // 600
+export const TARGET_H = Math.round(TARGET_W * RATIO); // 400
 
 export default function CoverCropper({ file, onDone, onCancel }: {
   file: Blob; onDone: (blob: Blob) => void; onCancel: () => void;

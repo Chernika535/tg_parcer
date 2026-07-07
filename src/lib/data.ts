@@ -187,6 +187,26 @@ export async function getFeedById(id: number): Promise<Feed | null> {
   }
 }
 
+// Превью любой ленты по ссылке (в т.ч. приватной) — мета для «Добавить себе».
+export type FeedPreview = {
+  id: number; title: string; description: string | null; channels: string[];
+  tags: string[]; author_name: string | null; cover_url: string | null; visibility: Visibility;
+};
+export async function feedPreview(id: number): Promise<FeedPreview | null> {
+  try {
+    const d = (await invokeFnGet("feeds", { action: "preview", id: String(id) })) as { feed?: FeedPreview | null };
+    return d.feed ?? null;
+  } catch {
+    return null;
+  }
+}
+// Скопировать ленту по ссылке себе (приватной).
+export async function cloneFeed(id: number): Promise<Feed> {
+  const d = (await invokeFn("myfeeds", { action: "clone", id })) as { feed?: Feed; error?: string };
+  if (d.error || !d.feed) throw new Error(d.error || "не удалось скопировать");
+  return d.feed;
+}
+
 export type FeedInput = {
   title: string;
   description?: string | null;

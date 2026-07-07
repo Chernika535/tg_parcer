@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, readChannelsBefore, favoriteLinks, addFavorite, removeFavorite, channelsInfo, cacheFeedMeta, track, type Feed, type Post, type ChannelInfo } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, readChannelsBefore, favoriteLinks, addFavorite, removeFavorite, channelsInfo, cacheFeedMeta, feedPreview, cloneFeed, track, type Feed, type Post, type ChannelInfo, type FeedPreview } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -83,6 +83,8 @@ export default function FeedView() {
   const [showChannels, setShowChannels] = useState(false);
   const [chanInfo, setChanInfo] = useState<ChannelInfo[] | null>(null);
   const [chanLoading, setChanLoading] = useState(false);
+  const [preview, setPreview] = useState<FeedPreview | null>(null); // чужая лента по ссылке
+  const [cloning, setCloning] = useState(false);
 
   // Раскрытие состава ленты («Подробнее») — подтягиваем инфо о каналах лениво.
   async function toggleChannels() {
@@ -109,7 +111,10 @@ export default function FeedView() {
   const mergePost = useCallback((p: Post) => {
     setPosts((prev) => {
       const arr = prev ? [...prev] : [];
-      const key = (x: Post) => `${x.channel}/${x.msgId}`;
+      // Ключ по НОРМАЛИЗОВАННОМУ нику — иначе один и тот же пост, пришедший из
+      // разных источников с разным регистром ника (t.me/s / MTProto / кэш),
+      // добавлялся дважды (дубли, особенно у постов с фото).
+      const key = (x: Post) => `${normCh(x.channel)}/${x.msgId}`;
       const i = arr.findIndex((x) => key(x) === key(p));
       if (i >= 0) arr[i] = p;
       else arr.push(p);
@@ -166,7 +171,7 @@ export default function FeedView() {
       }
       const cursors = [...oldest.entries()].map(([channel, before]) => ({ channel, before }));
       const { posts: more } = await readChannelsBefore(cursors);
-      const fresh = more.filter((m) => !posts.some((p) => p.channel === m.channel && p.msgId === m.msgId));
+      const fresh = more.filter((m) => !posts.some((p) => normCh(p.channel) === normCh(m.channel) && p.msgId === m.msgId));
       if (fresh.length === 0) setNoMore(true);
       else fresh.forEach(mergePost);
     } finally {
@@ -177,6 +182,7 @@ export default function FeedView() {
   const load = useCallback(async () => {
     setErr("");
     setMtNote("");
+    setPreview(null);
     setNoMore(false);
     setShowChannels(false);
     setChanInfo(null);
@@ -196,7 +202,12 @@ export default function FeedView() {
       const fresh = await getFeedById(feedId);
       // Сеть подвела, но кэш есть — работаем на кэше, без пугающей ошибки.
       const f = fresh ?? cachedMeta;
-      if (!f) throw new Error("лента не найдена или недоступна");
+      if (!f) {
+        // Не своя/непубличная лента по ссылке — показываем превью с «Добавить себе».
+        const pv = await feedPreview(feedId);
+        if (pv) { setPreview(pv); setOpenLoading(false); return; }
+        throw new Error("лента не найдена или недоступна");
+      }
       setFeed(f);
       if (fresh) saveFeedMeta(fresh);
       // Убираем из показа посты каналов, которых больше нет в ленте (после удаления канала).
@@ -281,6 +292,52 @@ export default function FeedView() {
     setRefreshing(true);
     await load();
     setRefreshing(false);
+  }
+
+  async function doClone() {
+    if (!preview) return;
+    if (!session) { nav("/login"); return; }
+    setCloning(true);
+    try {
+      const created = await cloneFeed(preview.id);
+      nav(`/feed/${created.id}`);
+    } catch (e) {
+      setErr("Не удалось добавить: " + (e as Error).message);
+    } finally {
+      setCloning(false);
+    }
+  }
+
+  // Экран «чужая лента по ссылке» — превью + «Добавить себе».
+  if (preview) {
+    return (
+      <>
+        <TopBar title={preview.title || "Лента"} onBack={() => nav(-1)} />
+        <div className="content">
+          <div className="card">
+            <div style={{ fontFamily: "var(--head)", fontWeight: 800, fontSize: 20 }}>{preview.title}</div>
+            {preview.author_name && <div className="muted" style={{ marginTop: 4 }}>от {preview.author_name}</div>}
+            {preview.description && <div className="post-text" style={{ marginTop: 10 }}>{linkify(preview.description)}</div>}
+            {preview.tags.length > 0 && (
+              <div className="tags" style={{ marginTop: 10 }}>
+                {preview.tags.map((t) => <span key={t} className="chip">#{t}</span>)}
+              </div>
+            )}
+            <div className="muted" style={{ fontSize: 13, marginTop: 12, marginBottom: 4 }}>Каналы ({preview.channels.length}):</div>
+            <div className="tags">
+              {preview.channels.map((c) => <span key={c} className="tag">@{normCh(c)}</span>)}
+            </div>
+            <button className="btn" style={{ marginTop: 16 }} onClick={doClone} disabled={cloning}>
+              {cloning ? "Добавляю…" : "➕ Добавить себе"}
+            </button>
+            <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              Появится точно такая же лента в разделе «Мои» — приватная, только для вас.
+            </div>
+            {err && <div className="muted" style={{ fontSize: 12, color: "var(--pink)", marginTop: 6 }}>{err}</div>}
+          </div>
+        </div>
+      </>
+    );
   }
 
   return (

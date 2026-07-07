@@ -58,6 +58,19 @@ Deno.serve(async (req: Request) => {
       return json({ feed: data });
     }
 
+    // Превью ЛЮБОЙ ленты по ссылке (в т.ч. приватной) — только безопасная мета
+    // для экрана «Добавить себе». Постов и владельца не отдаём.
+    if (body.action === "preview") {
+      if (!body.id) return json({ error: "нет id" }, 400);
+      const { data, error } = await db
+        .from("feeds")
+        .select("id, title, description, channels, tags, author_name, cover_url, visibility")
+        .eq("id", body.id)
+        .maybeSingle();
+      if (error) return json({ error: error.message }, 500);
+      return json({ feed: data ?? null });
+    }
+
     return json({ error: "unknown action" }, 400);
   } catch (e) {
     return json({ error: (e as Error).message || String(e) }, 500);
