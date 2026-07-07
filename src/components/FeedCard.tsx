@@ -9,6 +9,7 @@ export default function FeedCard({
   onOpen,
   statusBadge,
   actions,
+  note,
   liked,
   onToggleLike,
 }: {
@@ -16,6 +17,7 @@ export default function FeedCard({
   onOpen: () => void;
   statusBadge?: ReactNode;
   actions?: ReactNode;
+  note?: ReactNode;
   liked?: boolean;
   onToggleLike?: () => void;
 }) {
@@ -66,6 +68,7 @@ export default function FeedCard({
             <span key={t} className="chip">#{t}</span>
           ))}
         </div>
+        {note && <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{note}</div>}
         {actions && <div className="row" style={{ gap: 6, marginTop: 10 }}>{actions}</div>}
       </div>
     </div>

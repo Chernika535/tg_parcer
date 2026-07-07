@@ -116,6 +116,9 @@ export default function MyFeeds() {
               feed={f}
               onOpen={() => nav(`/feed/${f.id}`)}
               statusBadge={statusBadge(f)}
+              note={f.status === "rejected"
+                ? <>🔒 Отклонена — видна только вам{f.reject_reason ? ` · причина: ${f.reject_reason}` : ""}. Можно спокойно пользоваться как личной или удалить.</>
+                : undefined}
               liked={favIds.has(f.id)}
               onToggleLike={session ? () => toggleFav(f) : undefined}
               actions={
