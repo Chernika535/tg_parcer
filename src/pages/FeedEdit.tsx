@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createFeed, updateFeed, getFeedById, cleanTags, uploadCover, publicFeeds, myFeeds, type Visibility } from "../lib/data.ts";
+import { createFeed, updateFeed, getFeedById, uploadCover, publicFeeds, myFeeds, type Visibility } from "../lib/data.ts";
 import CoverArt from "../components/CoverArt.tsx";
+import TagInput from "../components/TagInput.tsx";
 import CoverCropper, { TARGET_W, TARGET_H } from "../components/CoverCropper.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, TopBar } from "../components/States.tsx";
@@ -22,7 +23,6 @@ export default function FeedEdit() {
   const [authorName, setAuthorName] = useState("");
   const [channels, setChannels] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("private");
   const [official, setOfficialFlag] = useState(false);
   const [byAdmin, setByAdmin] = useState(false);
@@ -85,11 +85,6 @@ export default function FeedEdit() {
     }
   }
 
-  function addTag() {
-    const next = cleanTags([...tags, tagInput]);
-    setTags(next);
-    setTagInput("");
-  }
 
   async function save() {
     if (!title.trim()) {
@@ -172,46 +167,7 @@ export default function FeedEdit() {
 
         <div className="field">
           <label>Теги (темы: психология, фандомы, новости…)</label>
-          <div className="row">
-            <input
-              type="text"
-              list="tag-suggestions"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addTag();
-                }
-              }}
-              placeholder="выберите из списка или впишите свой"
-            />
-            <datalist id="tag-suggestions">
-              {allTags.filter((t) => !tags.includes(t)).map((t) => <option key={t} value={t} />)}
-            </datalist>
-            <button type="button" className="btn sm" onClick={addTag}>
-              +
-            </button>
-          </div>
-          {allTags.filter((t) => !tags.includes(t)).length > 0 && (
-            <div className="tag-suggest">
-              {allTags.filter((t) => !tags.includes(t)).slice(0, 16).map((t) => (
-                <button type="button" key={t} className="chip chip-add" onClick={() => setTags(cleanTags([...tags, t]))}>
-                  + #{t}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="tags">
-            {tags.map((t) => (
-              <span key={t} className="chip">
-                #{t}
-                <button type="button" className="chip-x" onClick={() => setTags(tags.filter((x) => x !== t))}>
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
+          <TagInput tags={tags} onChange={setTags} suggestions={allTags} />
         </div>
 
         <div className="field">
