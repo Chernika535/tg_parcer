@@ -19,7 +19,9 @@ export default function ChannelInput({
   const [value, setValue] = useState("");
   // info[username]: undefined — грузим, null — не найден, объект — найден.
   const [info, setInfo] = useState<Record<string, ChannelInfo | null | undefined>>({});
+  const [tick, setTick] = useState(0);
   const busyRef = useRef<Set<string>>(new Set());
+  const attemptsRef = useRef<Record<string, number>>({});
 
   // Подтягиваем аватар/название/ник для новых каналов.
   useEffect(() => {
@@ -28,21 +30,37 @@ export default function ChannelInput({
     missing.forEach((c) => busyRef.current.add(c));
     channelsInfo(missing).then((list) => {
       const byName = new Map(list.map((x) => [(x.username || "").toLowerCase(), x]));
+      // Пустой ответ, скорее всего, сетевой сбой (связь без VPN бывает нестабильна)
+      // — не помечаем каналы «не найдены» сразу, делаем пару повторов.
+      const networkFail = list.length === 0;
+      const retry: string[] = [];
       setInfo((prev) => {
         const next = { ...prev };
         for (const c of missing) {
           const found = byName.get(c.toLowerCase());
-          // «Найден», только если реально что-то прочиталось (название или аватар).
-          next[c] = found && (found.title || found.avatar) ? found : null;
+          if (found) { next[c] = found; continue; }
+          const a = (attemptsRef.current[c] = (attemptsRef.current[c] || 0) + 1);
+          if (networkFail && a < 3) retry.push(c);      // повторим позже
+          else next[c] = null;                          // канал не найден
         }
         return next;
       });
       missing.forEach((c) => busyRef.current.delete(c));
+      if (retry.length) setTimeout(() => setTick((t) => t + 1), 1500);
     }).catch(() => {
-      setInfo((prev) => { const n = { ...prev }; for (const c of missing) n[c] = null; return n; });
+      const retry: string[] = [];
+      setInfo((prev) => {
+        const next = { ...prev };
+        for (const c of missing) {
+          const a = (attemptsRef.current[c] = (attemptsRef.current[c] || 0) + 1);
+          if (a < 3) retry.push(c); else next[c] = null;
+        }
+        return next;
+      });
       missing.forEach((c) => busyRef.current.delete(c));
+      if (retry.length) setTimeout(() => setTick((t) => t + 1), 1500);
     });
-  }, [channels, info]);
+  }, [channels, info, tick]);
 
   function add() {
     const c = clean(value);
