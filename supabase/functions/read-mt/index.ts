@@ -11,7 +11,7 @@ const API_ID = 2040;
 const API_HASH = "b18441a1ff607e10a989891a5462e627";
 const LIMIT = 12;
 const BYTE_BUDGET = 4 * 1024 * 1024; // суммарный потолок на медиа в ответе
-const DEADLINE_MS = 18000; // бюджет на ЧТЕНИЕ (после подключения)
+const DEADLINE_MS = 24000; // бюджет на ЧТЕНИЕ (после подключения); клиент ждёт 30с
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
@@ -328,41 +328,35 @@ Deno.serve(async (req: Request) => {
     const unavailable: string[] = [];
     const errs: string[] = [];
 
-    for (const ch of channels) {
-      if (timeLeft() < 1500) { unavailable.push(ch); continue; } // не успели — отдадим остальное
+    // Резолвим канал БЫСТРО: сразу ResolveUsername (надёжно на свежей сессии),
+    // getEntity — только запасной короткий вариант. Раньше getEntity висел до 7с
+    // и «съедал» бюджет на каждый канал.
+    // deno-lint-ignore no-explicit-any
+    async function resolve(ch: string): Promise<any> {
       try {
-        // Резолвим username явно — getEntity на свежей сессии часто не находит пира.
         // deno-lint-ignore no-explicit-any
-        // (getEntity под таймаутом ниже)
-        // deno-lint-ignore no-explicit-any
-        let entity: any;
-        try {
-          entity = await withTimeout(client.getEntity(ch), 7000);
-        } catch {
-          const res = await withTimeout(client.invoke(
-            // deno-lint-ignore no-explicit-any
-            new (tg as any).Api.contacts.ResolveUsername({ username: ch }),
-          ), 7000);
-          // deno-lint-ignore no-explicit-any
-          entity = (res as any).chats?.[0] ?? (res as any).users?.[0];
-          if (!entity) throw new Error("username не резолвится");
-        }
+        const res: any = await withTimeout(client.invoke(new (tg as any).Api.contacts.ResolveUsername({ username: ch })), 6000);
+        const e = res.chats?.[0] ?? res.users?.[0];
+        if (e) return e;
+      } catch { /* ниже */ }
+      try { return await withTimeout(client.getEntity(ch), 4000); } catch { return null; }
+    }
 
+    // Читаем ВСЕ каналы ПАРАЛЛЕЛЬНО (одно соединение мультиплексирует запросы) —
+    // это в разы быстрее последовательного цикла, укладывается в бюджет.
+    const readOne = async (ch: string): Promise<void> => {
+      try {
+        const entity = await resolve(ch);
+        if (!entity) { unavailable.push(ch); errs.push(ch + ": username не резолвится"); return; }
         const channelTitle: string | undefined = entity.title || entity.username;
         let channelAvatar: string | undefined;
         try {
           if (timeLeft() > 3000) channelAvatar = dataUrl(await withTimeout(client.downloadProfilePhoto(entity), 5000), "image/jpeg");
-        } catch {
-          /* без аватарки */
-        }
+        } catch { /* без аватарки */ }
 
         // deno-lint-ignore no-explicit-any
-        const msgs: any[] = await withTimeout(client.getMessages(entity, { limit: LIMIT } as any), 9000);
-        if (!msgs?.length) {
-          unavailable.push(ch);
-          errs.push(ch + ": нет сообщений (возможно нужно вступить в канал)");
-          continue;
-        }
+        const msgs: any[] = await withTimeout(client.getMessages(entity, { limit: LIMIT } as any), 12000);
+        if (!msgs?.length) { unavailable.push(ch); errs.push(ch + ": нет сообщений (возможно приватный/пустой)"); return; }
 
         // Склейка альбомов по grouped_id.
         // deno-lint-ignore no-explicit-any
@@ -370,10 +364,7 @@ Deno.serve(async (req: Request) => {
         const order: string[] = [];
         for (const m of msgs) {
           const key = m.groupedId ? "g" + m.groupedId.toString() : "s" + m.id;
-          if (!groups.has(key)) {
-            groups.set(key, []);
-            order.push(key);
-          }
+          if (!groups.has(key)) { groups.set(key, []); order.push(key); }
           groups.get(key)!.push(m);
         }
 
@@ -386,22 +377,20 @@ Deno.serve(async (req: Request) => {
           for (const m of group) if (m.media) media.push(...(await extract(m)));
           if (!text && media.length === 0) continue;
           posts.push({
-            channel: ch,
-            msgId: head.id,
+            channel: ch, msgId: head.id,
             postedAt: new Date((head.date ?? 0) * 1000).toISOString(),
-            text,
-            hasMedia: media.length > 0,
-            media,
+            text, hasMedia: media.length > 0, media,
             link: `https://t.me/${ch}/${head.id}`,
-            channelTitle,
-            channelAvatar,
+            channelTitle, channelAvatar,
           });
         }
       } catch (e) {
         unavailable.push(ch);
         errs.push(ch + ": " + ((e as Error).message || String(e)));
       }
-    }
+    };
+
+    await Promise.all(channels.map(readOne));
 
     try {
       await client.disconnect();

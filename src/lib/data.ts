@@ -546,8 +546,8 @@ export async function readChannelsMTServer(
 ): Promise<{ posts: Post[]; unavailable: string[]; noAccount?: boolean; error?: string; note?: string }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
   try {
-    // read-mt на edge читает Telegram и качает медиа — даём ему больше времени (30с).
-    return (await mtCall("read-mt", { channels }, 30000)) as {
+    // read-mt на edge читает Telegram и качает медиа — даём ему больше времени.
+    return (await mtCall("read-mt", { channels }, 38000)) as {
       posts: Post[];
       unavailable: string[];
       noAccount?: boolean;
