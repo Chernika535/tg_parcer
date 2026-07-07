@@ -38,10 +38,13 @@ export default function ChannelInput({
         const next = { ...prev };
         for (const c of missing) {
           const found = byName.get(c.toLowerCase());
-          if (found) { next[c] = found; continue; }
+          // «Читается», только если реально получили название или аватар. Пустой
+          // ответ на канал = его нельзя прочитать (опечатка, удалён или нет
+          // публичного превью) — помечаем предупреждением.
+          if (found && (found.title || found.avatar)) { next[c] = found; continue; }
           const a = (attemptsRef.current[c] = (attemptsRef.current[c] || 0) + 1);
           if (networkFail && a < 3) retry.push(c);      // повторим позже
-          else next[c] = null;                          // канал не найден
+          else next[c] = null;                          // не читается
         }
         return next;
       });
@@ -94,9 +97,11 @@ export default function ChannelInput({
                 : <div className="chan-card-ava ph">{notFound ? "!" : "@"}</div>}
               <div className="chan-card-main">
                 <div className="chan-card-title">
-                  {loading ? "Проверяю…" : it?.title || (notFound ? "Канал не найден" : `@${c}`)}
+                  {loading ? "Проверяю…" : it?.title || (notFound ? "Не удалось прочитать канал" : `@${c}`)}
                 </div>
-                <div className="chan-card-nick">@{c}{notFound && " · проверьте ник"}</div>
+                <div className="chan-card-nick">
+                  {notFound ? "проверьте ник — или у канала нет публичного превью" : `@${c}`}
+                </div>
               </div>
               <button type="button" className="chan-card-x" onClick={() => onChange(channels.filter((x) => x !== c))} aria-label="Убрать">✕</button>
             </div>
