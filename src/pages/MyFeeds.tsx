@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth.tsx";
-import { myFeeds, deleteFeed, myPins, addMyPin, removeMyPin, cacheFeedMetas, type Feed } from "../lib/data.ts";
+import { myFeeds, deleteFeed, myPins, addMyPin, removeMyPin, cacheFeedMetas, feedFavIds, addFeedFav, removeFeedFav, type Feed } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import FeedCard from "../components/FeedCard.tsx";
 import FeedFilter, { applyFilters, allTagsOf, emptyFilters, type Filters } from "../components/FeedFilter.tsx";
@@ -37,8 +37,15 @@ export default function MyFeeds() {
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [vis, setVis] = useState<Vis>("private");
   const [pins, setPins] = useState<Set<number>>(() => loadPinsCache());
-  const { isAdmin } = useAuth();
+  const [favIds, setFavIds] = useState<Set<number>>(new Set());
+  const { isAdmin, session } = useAuth();
   const nav = useNavigate();
+
+  async function toggleFav(f: Feed) {
+    const next = new Set(favIds);
+    if (next.has(f.id)) { next.delete(f.id); setFavIds(next); await removeFeedFav(f.id); }
+    else { next.add(f.id); setFavIds(next); await addFeedFav(f.id); }
+  }
 
   async function load() {
     setErr("");
@@ -58,6 +65,7 @@ export default function MyFeeds() {
       setPins(s);
       savePinsCache(s);
     }).catch(() => {});
+    feedFavIds().then((ids) => setFavIds(new Set(ids))).catch(() => {});
   }, []);
 
   async function remove(id: number, title: string) {
@@ -108,6 +116,8 @@ export default function MyFeeds() {
               feed={f}
               onOpen={() => nav(`/feed/${f.id}`)}
               statusBadge={statusBadge(f)}
+              liked={favIds.has(f.id)}
+              onToggleLike={session ? () => toggleFav(f) : undefined}
               actions={
                 <>
                   <button className="btn ghost sm" onClick={() => togglePin(f.id)} title="Закрепить у себя">
