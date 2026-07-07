@@ -675,6 +675,17 @@ export async function channelsInfo(channels: string[]): Promise<ChannelInfo[]> {
   }
 }
 
+// Мета канала через MTProto (наша спец-функция) — когда публичного превью
+// t.me/s недостаточно (например, у канала оно ограничено). Требует входа.
+export async function channelInfoMT(username: string): Promise<ChannelInfo | null> {
+  try {
+    const d = (await mtCall("read-mt", { meta: { channel: username } }, 25000)) as { info?: ChannelInfo | null };
+    return d.info ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Аналитика (обезличенные события; сводка — только админ) ----
 
 // Устойчивый анонимный id браузера — чтобы считать УНИКАЛЬНЫХ посетителей,

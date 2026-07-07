@@ -127,7 +127,35 @@ Deno.serve(async (req: Request) => {
     const { data: row } = await db.from("tg_session").select("session").eq("id", "default").maybeSingle();
     if (!row?.session) return json({ posts: [], unavailable: [], noAccount: true });
 
-    const body = (await req.json()) as { channels?: string[]; one?: { channel?: string; msgId?: number }; pinned?: { channel?: string } };
+    const body = (await req.json()) as { channels?: string[]; one?: { channel?: string; msgId?: number }; pinned?: { channel?: string }; meta?: { channel?: string } };
+
+    // Режим «мета канала» (название/аватар) — для карточки канала в редакторе
+    // ленты, когда публичного превью t.me/s недостаточно.
+    if (body.meta?.channel) {
+      const ch = norm(body.meta.channel);
+      if (!ch) return json({ info: null });
+      const tg = await import("npm:telegram@2.26.22");
+      const client = new tg.TelegramClient(new tg.sessions.StringSession(row.session), API_ID, API_HASH, { connectionRetries: 2, useWSS: true });
+      await withTimeout(client.connect(), 9000);
+      try {
+        // deno-lint-ignore no-explicit-any
+        let entity: any;
+        try { entity = await withTimeout(client.getEntity(ch), 8000); }
+        catch {
+          // deno-lint-ignore no-explicit-any
+          const res: any = await withTimeout(client.invoke(new (tg as any).Api.contacts.ResolveUsername({ username: ch })), 8000);
+          entity = res.chats?.[0] ?? res.users?.[0];
+        }
+        if (!entity) { try { await client.disconnect(); } catch { /* ignore */ } return json({ info: null }); }
+        let avatar: string | undefined;
+        try { avatar = dataUrl(await withTimeout(client.downloadProfilePhoto(entity), 6000), "image/jpeg"); } catch { /* без аватара */ }
+        try { await client.disconnect(); } catch { /* ignore */ }
+        return json({ info: { username: entity.username || ch, title: entity.title || entity.username || ch, avatar } });
+      } catch (e) {
+        try { await client.disconnect(); } catch { /* ignore */ }
+        return json({ info: null, error: (e as Error).message || String(e) });
+      }
+    }
 
     // Режим «закреплённый пост канала» — для страницы канала.
     if (body.pinned?.channel) {

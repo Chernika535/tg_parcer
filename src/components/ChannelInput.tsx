@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { channelsInfo, type ChannelInfo } from "../lib/data.ts";
+import { channelsInfo, channelInfoMT, type ChannelInfo } from "../lib/data.ts";
 
 // Принимает @name, t.me/name, ссылку. Нормализация финальная — на бэке.
 function clean(input: string): string | null {
@@ -33,6 +33,7 @@ export default function ChannelInput({
       // Небольшой разброс старта, чтобы не бить в t.me все разом.
       const delay = (attemptsRef.current[c] || 0) * 700 + Math.random() * 300;
       setTimeout(async () => {
+        // Сначала быстрый путь (t.me/s), пара повторов от троттлинга.
         try {
           const list = await channelsInfo([c]);
           const found = list.find((x) => (x.username || "").toLowerCase() === c.toLowerCase());
@@ -41,16 +42,23 @@ export default function ChannelInput({
             busyRef.current.delete(c);
             return;
           }
-          throw new Error("no meta"); // пустой ответ — вероятно троттлинг, ретраим
-        } catch {
-          const a = (attemptsRef.current[c] = (attemptsRef.current[c] || 0) + 1);
-          busyRef.current.delete(c);
-          if (a < 5) setTimeout(() => setTick((t) => t + 1), 300);
-          else setInfo((p) => ({ ...p, [c]: null })); // так и не прочитался
-        }
+        } catch { /* попробуем ниже */ }
+        const a = (attemptsRef.current[c] = (attemptsRef.current[c] || 0) + 1);
+        if (a < 3) { busyRef.current.delete(c); setTimeout(() => setTick((t) => t + 1), 300); return; }
+        // Не вышло по t.me/s — пробуем через MTProto (нашу спец-функцию).
+        const mt = await channelInfoMT(c).catch(() => null);
+        setInfo((p) => ({ ...p, [c]: mt && (mt.title || mt.avatar) ? mt : null }));
+        busyRef.current.delete(c);
       }, delay);
     }
   }, [channels, info, tick]);
+
+  // Ручная повторная проверка канала (сбрасываем и пробуем заново, вкл. MTProto).
+  function recheck(c: string) {
+    attemptsRef.current[c] = 0;
+    busyRef.current.delete(c);
+    setInfo((p) => ({ ...p, [c]: undefined }));
+  }
 
   function add() {
     const c = clean(value);
@@ -84,10 +92,12 @@ export default function ChannelInput({
                 : <div className="chan-card-ava ph">{notFound ? "!" : "@"}</div>}
               <div className="chan-card-main">
                 <div className="chan-card-title">
-                  {loading ? "Проверяю…" : it?.title || (notFound ? "Не удалось прочитать канал" : `@${c}`)}
+                  {loading ? "Проверяю…" : it?.title || (notFound ? "Превью не подгрузилось" : `@${c}`)}
                 </div>
                 <div className="chan-card-nick">
-                  {notFound ? "проверьте ник — или у канала нет публичного превью" : `@${c}`}
+                  {notFound
+                    ? <>@{c} · <button type="button" className="chan-recheck" onClick={() => recheck(c)}>🔄 проверить ещё раз</button></>
+                    : `@${c}`}
                 </div>
               </div>
               <button type="button" className="chan-card-x" onClick={() => onChange(channels.filter((x) => x !== c))} aria-label="Убрать">✕</button>
@@ -96,6 +106,11 @@ export default function ChannelInput({
         })}
         {channels.length === 0 && <span className="muted">Каналы не добавлены</span>}
       </div>
+      {channels.length > 0 && (
+        <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+          Аватар и название — просто подсказка. Канал всё равно добавится в ленту и будет читаться, даже если превью тут не подгрузилось.
+        </div>
+      )}
     </div>
   );
 }

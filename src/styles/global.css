@@ -651,3 +651,4 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .chan-card.not-found .chan-card-title { color: var(--pink); }
 .chan-card-nick { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chan-card-x { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 800; cursor: pointer; }
+.chan-recheck { background: none; border: none; padding: 0; color: var(--pink); font-weight: 700; font-size: 12px; cursor: pointer; text-decoration: underline; }
