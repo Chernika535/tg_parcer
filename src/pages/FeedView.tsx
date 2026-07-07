@@ -94,12 +94,22 @@ export default function FeedView() {
       setChanLoading(true);
       const list = await channelsInfo(feed.channels);
       const byName = new Map(list.map((c) => [c.username.toLowerCase(), c]));
-      const norm = (c: string) => c.trim().toLowerCase()
-        .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
-        .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
-      // Для не подтянувшихся — заглушка по нику (без массовых MTProto-запросов,
-      // чтобы не нагружать общий читающий аккаунт).
-      setChanInfo(feed.channels.map((c) => byName.get(norm(c)) ?? { username: norm(c) }));
+      // Название/аватар каналов без публичного превью берём из УЖЕ загруженных
+      // постов (они несут channelTitle/channelAvatar) — без лишних запросов.
+      const byPost = new Map<string, { title?: string; avatar?: string }>();
+      for (const p of posts ?? []) {
+        const k = normCh(p.channel);
+        if (!byPost.has(k) && (p.channelTitle || p.channelAvatar)) {
+          byPost.set(k, { title: p.channelTitle, avatar: p.channelAvatar });
+        }
+      }
+      setChanInfo(feed.channels.map((c) => {
+        const u = normCh(c);
+        const info = byName.get(u);
+        if (info && (info.title || info.avatar)) return info;
+        const pi = byPost.get(u);
+        return { username: u, title: pi?.title, avatar: pi?.avatar };
+      }));
       setChanLoading(false);
     }
   }
