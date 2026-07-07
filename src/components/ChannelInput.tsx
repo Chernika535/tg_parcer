@@ -23,46 +23,33 @@ export default function ChannelInput({
   const busyRef = useRef<Set<string>>(new Set());
   const attemptsRef = useRef<Record<string, number>>({});
 
-  // Подтягиваем аватар/название/ник для новых каналов.
+  // Подтягиваем аватар/название/ник — КАЖДЫЙ канал отдельным запросом (пачкой
+  // Telegram троттлит, и последние каналы приходили пустыми). Пустой/сбойный
+  // ответ ретраим несколько раз с задержкой, и только потом помечаем.
   useEffect(() => {
     const missing = channels.filter((c) => info[c] === undefined && !busyRef.current.has(c));
-    if (missing.length === 0) return;
-    missing.forEach((c) => busyRef.current.add(c));
-    channelsInfo(missing).then((list) => {
-      const byName = new Map(list.map((x) => [(x.username || "").toLowerCase(), x]));
-      // Пустой ответ, скорее всего, сетевой сбой (связь без VPN бывает нестабильна)
-      // — не помечаем каналы «не найдены» сразу, делаем пару повторов.
-      const networkFail = list.length === 0;
-      const retry: string[] = [];
-      setInfo((prev) => {
-        const next = { ...prev };
-        for (const c of missing) {
-          const found = byName.get(c.toLowerCase());
-          // «Читается», только если реально получили название или аватар. Пустой
-          // ответ на канал = его нельзя прочитать (опечатка, удалён или нет
-          // публичного превью) — помечаем предупреждением.
-          if (found && (found.title || found.avatar)) { next[c] = found; continue; }
+    for (const c of missing) {
+      busyRef.current.add(c);
+      // Небольшой разброс старта, чтобы не бить в t.me все разом.
+      const delay = (attemptsRef.current[c] || 0) * 700 + Math.random() * 300;
+      setTimeout(async () => {
+        try {
+          const list = await channelsInfo([c]);
+          const found = list.find((x) => (x.username || "").toLowerCase() === c.toLowerCase());
+          if (found && (found.title || found.avatar)) {
+            setInfo((p) => ({ ...p, [c]: found }));
+            busyRef.current.delete(c);
+            return;
+          }
+          throw new Error("no meta"); // пустой ответ — вероятно троттлинг, ретраим
+        } catch {
           const a = (attemptsRef.current[c] = (attemptsRef.current[c] || 0) + 1);
-          if (networkFail && a < 3) retry.push(c);      // повторим позже
-          else next[c] = null;                          // не читается
+          busyRef.current.delete(c);
+          if (a < 5) setTimeout(() => setTick((t) => t + 1), 300);
+          else setInfo((p) => ({ ...p, [c]: null })); // так и не прочитался
         }
-        return next;
-      });
-      missing.forEach((c) => busyRef.current.delete(c));
-      if (retry.length) setTimeout(() => setTick((t) => t + 1), 1500);
-    }).catch(() => {
-      const retry: string[] = [];
-      setInfo((prev) => {
-        const next = { ...prev };
-        for (const c of missing) {
-          const a = (attemptsRef.current[c] = (attemptsRef.current[c] || 0) + 1);
-          if (a < 3) retry.push(c); else next[c] = null;
-        }
-        return next;
-      });
-      missing.forEach((c) => busyRef.current.delete(c));
-      if (retry.length) setTimeout(() => setTick((t) => t + 1), 1500);
-    });
+      }, delay);
+    }
   }, [channels, info, tick]);
 
   function add() {
