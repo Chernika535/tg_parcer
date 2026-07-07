@@ -147,12 +147,6 @@ Deno.serve(async (req: Request) => {
           entity = res.chats?.[0] ?? res.users?.[0];
         }
         if (!entity) { try { await client.disconnect(); } catch { /* ignore */ } return json({ info: null }); }
-        // Вступаем в канал (для каналов без публичного превью — чтобы он потом
-        // читался в ленте на сервере, без VPN). Ошибки игнорируем.
-        try {
-          // deno-lint-ignore no-explicit-any
-          await withTimeout(client.invoke(new (tg as any).Api.channels.JoinChannel({ channel: entity })), 6000);
-        } catch { /* уже участник / нельзя */ }
         let avatar: string | undefined;
         try { avatar = dataUrl(await withTimeout(client.downloadProfilePhoto(entity), 6000), "image/jpeg"); } catch { /* без аватара */ }
         try { await client.disconnect(); } catch { /* ignore */ }
@@ -363,16 +357,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // deno-lint-ignore no-explicit-any
-        let msgs: any[] = await withTimeout(client.getMessages(entity, { limit: LIMIT } as any), 9000);
-        // Каналы без публичного превью читаются, только если аккаунт-читатель —
-        // подписчик. Пусто — вступаем и пробуем снова (тогда работает и без VPN).
-        if (!msgs?.length && timeLeft() > 4000) {
-          try {
-            // deno-lint-ignore no-explicit-any
-            await withTimeout(client.invoke(new (tg as any).Api.channels.JoinChannel({ channel: entity })), 6000);
-            msgs = await withTimeout(client.getMessages(entity, { limit: LIMIT } as any), 9000);
-          } catch { /* нельзя вступить/приватный */ }
-        }
+        const msgs: any[] = await withTimeout(client.getMessages(entity, { limit: LIMIT } as any), 9000);
         if (!msgs?.length) {
           unavailable.push(ch);
           errs.push(ch + ": нет сообщений (возможно нужно вступить в канал)");

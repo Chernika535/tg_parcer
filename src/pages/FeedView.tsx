@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, readChannelsBefore, favoriteLinks, addFavorite, removeFavorite, channelsInfo, channelInfoMT, cacheFeedMeta, track, type Feed, type Post, type ChannelInfo } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, readChannelsBefore, favoriteLinks, addFavorite, removeFavorite, channelsInfo, cacheFeedMeta, track, type Feed, type Post, type ChannelInfo } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
@@ -95,18 +95,9 @@ export default function FeedView() {
       const norm = (c: string) => c.trim().toLowerCase()
         .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
         .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
-      const merged = feed.channels.map((c) => byName.get(norm(c)) ?? { username: norm(c) });
-      setChanInfo(merged);
-      // Для каналов без публичного превью (нет названия/аватара) — догружаем
-      // мету через MTProto и подмешиваем.
-      const need = merged.filter((c) => !c.title && !c.avatar).map((c) => c.username);
-      if (need.length) {
-        Promise.all(need.map((u) => channelInfoMT(u).then((mt) => [u, mt] as const).catch(() => [u, null] as const)))
-          .then((res) => {
-            const mtByName = new Map(res.filter(([, mt]) => mt).map(([u, mt]) => [u, mt!]));
-            if (mtByName.size) setChanInfo((prev) => prev?.map((c) => mtByName.get(c.username) ?? c) ?? prev);
-          });
-      }
+      // Для не подтянувшихся — заглушка по нику (без массовых MTProto-запросов,
+      // чтобы не нагружать общий читающий аккаунт).
+      setChanInfo(feed.channels.map((c) => byName.get(norm(c)) ?? { username: norm(c) }));
       setChanLoading(false);
     }
   }

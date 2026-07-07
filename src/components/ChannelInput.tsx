@@ -33,7 +33,9 @@ export default function ChannelInput({
       // Небольшой разброс старта, чтобы не бить в t.me все разом.
       const delay = (attemptsRef.current[c] || 0) * 700 + Math.random() * 300;
       setTimeout(async () => {
-        // Сначала быстрый путь (t.me/s), пара повторов от троттлинга.
+        // Только быстрый путь t.me/s (пара повторов от троттлинга). MTProto здесь
+        // НЕ трогаем — лишние обращения нагружают общий читающий аккаунт и мешают
+        // ему читать ленты. Тяжёлый путь — только вручную по кнопке.
         try {
           const list = await channelsInfo([c]);
           const found = list.find((x) => (x.username || "").toLowerCase() === c.toLowerCase());
@@ -42,22 +44,22 @@ export default function ChannelInput({
             busyRef.current.delete(c);
             return;
           }
-        } catch { /* попробуем ниже */ }
+        } catch { /* повторим ниже */ }
         const a = (attemptsRef.current[c] = (attemptsRef.current[c] || 0) + 1);
-        if (a < 3) { busyRef.current.delete(c); setTimeout(() => setTick((t) => t + 1), 300); return; }
-        // Не вышло по t.me/s — пробуем через MTProto (нашу спец-функцию).
-        const mt = await channelInfoMT(c).catch(() => null);
-        setInfo((p) => ({ ...p, [c]: mt && (mt.title || mt.avatar) ? mt : null }));
         busyRef.current.delete(c);
+        if (a < 3) setTimeout(() => setTick((t) => t + 1), 400);
+        else setInfo((p) => ({ ...p, [c]: null }));
       }, delay);
     }
   }, [channels, info, tick]);
 
-  // Ручная повторная проверка канала (сбрасываем и пробуем заново, вкл. MTProto).
-  function recheck(c: string) {
-    attemptsRef.current[c] = 0;
-    busyRef.current.delete(c);
+  // Ручная проверка канала через MTProto (по кнопке) — точечно, не массово.
+  async function recheck(c: string) {
     setInfo((p) => ({ ...p, [c]: undefined }));
+    busyRef.current.add(c);
+    const mt = await channelInfoMT(c).catch(() => null);
+    setInfo((p) => ({ ...p, [c]: mt && (mt.title || mt.avatar) ? mt : null }));
+    busyRef.current.delete(c);
   }
 
   function add() {
