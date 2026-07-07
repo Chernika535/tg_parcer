@@ -140,12 +140,15 @@ export default function FeedView() {
       const srv = await readChannelsMTServer(chs);
       if (srv.posts && srv.posts.length > 0) srv.posts.forEach(mergePost);
       const left = srv.posts && srv.posts.length > 0 ? srv.unavailable ?? [] : chs;
-      if (left.length === 0) return { unavailable: [], note: srv.note };
+      // Причину серверного чтения (srv) показываем В ПЕРВУЮ очередь — именно оно
+      // должно работать без VPN; ошибка браузера (нет VPN) не должна её маскировать.
+      const srvReason = srv.error || srv.note;
+      if (left.length === 0) return { unavailable: [], note: srvReason };
       // Остаток (или всё, если сервер пуст) — пробуем в браузере.
       const br = await readChannelsMT(left, mergePost);
       return {
         unavailable: br.unavailable,
-        note: br.note || srv.note,
+        note: srvReason ? "Сервер: " + srvReason : (br.note || br.error),
         noAccount: br.noAccount && srv.noAccount,
         error: br.error || srv.error,
       };
