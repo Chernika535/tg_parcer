@@ -498,24 +498,29 @@ function PostedItem({ post, channelName, onChanged, onMsg }: { post: PostedMessa
     finally { setBusy(false); }
   }
 
+  const plain = (post.text || "").replace(/<[^>]+>/g, "").trim();
   return (
-    <div style={{ borderTop: "1px solid var(--surface-2)", paddingTop: 8, marginTop: 8 }}>
-      <div className="row spread">
-        <div style={{ minWidth: 0 }}>
-          <div className="muted" style={{ fontSize: 12 }}>{channelName} · {new Date(post.sent_at).toLocaleString("ru-RU")}</div>
-          {!editing && (
-            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 260 }}>
-              {(post.text || "").replace(/<[^>]+>/g, "") || "[медиа]"}
-            </div>
-          )}
-        </div>
-        {!editing && (
-          <div className="row" style={{ gap: 6, flex: "0 0 auto" }}>
+    <div style={{ borderTop: "1px solid var(--surface-2)", paddingTop: 10, marginTop: 10 }}>
+      {!editing && (
+        <>
+          {/* Контент — на первом месте и крупно: посты узнают по тексту. */}
+          <div
+            style={{
+              fontSize: 15, lineHeight: 1.35, whiteSpace: "pre-wrap", wordBreak: "break-word",
+              display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
+            }}
+          >
+            {plain || "🖼 [медиа без текста]"}
+          </div>
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+            {channelName} · {new Date(post.sent_at).toLocaleString("ru-RU")}
+          </div>
+          <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: "wrap" }}>
             {canEditText && <button className="btn ghost sm" onClick={() => setEditing(true)} disabled={busy}>Изменить текст</button>}
             <button className="btn ghost sm" onClick={del} disabled={busy}>Удалить</button>
           </div>
-        )}
-      </div>
+        </>
+      )}
       {editing && (
         <div style={{ marginTop: 8 }}>
           <RichEditor initialHtml={post.text || ""} onChange={setHtml} />
