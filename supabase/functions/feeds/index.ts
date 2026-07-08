@@ -31,6 +31,23 @@ Deno.serve(async (req: Request) => {
     }
     const body = { action, id };
 
+    // Нормализация ника канала и загрузка/фильтрация заблокированных.
+    const norm = (c: string) => (c || "").trim().toLowerCase()
+      .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
+      .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
+    async function blockedSet(): Promise<Set<string>> {
+      const { data } = await db.from("blocked_channels").select("username");
+      return new Set((data ?? []).map((r: { username: string }) => r.username));
+    }
+    // deno-lint-ignore no-explicit-any
+    const stripBlocked = (feeds: any[], blocked: Set<string>) =>
+      (feeds ?? []).map((f) => ({ ...f, channels: ((f.channels ?? []) as string[]).filter((c) => !blocked.has(norm(c))) }));
+
+    if (body.action === "blocked") {
+      const { data } = await db.from("blocked_channels").select("username, reason, created_at").order("created_at", { ascending: false });
+      return json({ blocked: data ?? [] });
+    }
+
     if (body.action === "public") {
       const { data, error } = await db
         .from("feeds")
@@ -40,7 +57,7 @@ Deno.serve(async (req: Request) => {
         .order("created_at", { ascending: false });
       if (error) return json({ error: error.message }, 500);
       const { data: pins } = await db.from("feed_pins").select("*");
-      return json({ feeds: data ?? [], pins: pins ?? [] });
+      return json({ feeds: stripBlocked(data ?? [], await blockedSet()), pins: pins ?? [] });
     }
 
     if (body.action === "get") {
@@ -55,7 +72,7 @@ Deno.serve(async (req: Request) => {
       if (!data || data.visibility !== "public" || data.status !== "approved") {
         return json({ feed: null });
       }
-      return json({ feed: data });
+      return json({ feed: stripBlocked([data], await blockedSet())[0] });
     }
 
     // Превью ЛЮБОЙ ленты по ссылке (в т.ч. приватной) — только безопасная мета
@@ -68,7 +85,7 @@ Deno.serve(async (req: Request) => {
         .eq("id", body.id)
         .maybeSingle();
       if (error) return json({ error: error.message }, 500);
-      return json({ feed: data ?? null });
+      return json({ feed: data ? stripBlocked([data], await blockedSet())[0] : null });
     }
 
     return json({ error: "unknown action" }, 400);

@@ -481,6 +481,11 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 /* Список каналов в раскрытии «Подробнее» и карточке канала */
 .chan-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--surface-2); color: var(--ink); text-decoration: none; }
 .chan-row:first-child { border-top: none; }
+.chan-row-wrap { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--surface-2); }
+.chan-row-wrap:first-child { border-top: none; }
+.chan-row-wrap .chan-row { flex: 1 1 auto; border-top: none; min-width: 0; }
+.chan-remove { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); color: var(--pink); font-weight: 800; cursor: pointer; }
+.chan-remove:disabled { opacity: 0.5; }
 .chan-ava { border-radius: 50%; object-fit: cover; border: 2px solid var(--ink); flex: 0 0 auto; background: var(--surface-2); }
 .chan-desc { font-size: 12px; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 

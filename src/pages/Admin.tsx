@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { allPublicFeeds, moderateFeed, deleteFeed, allChannels, adminAnalytics, type Feed, type AdminStats } from "../lib/data.ts";
+import { allPublicFeeds, moderateFeed, deleteFeed, allChannels, adminAnalytics, channelsInfo, blockChannel, unblockChannel, blockedChannels, type Feed, type AdminStats, type ChannelInfo, type BlockedChannel } from "../lib/data.ts";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
+import { plainPreview } from "../lib/linkify.tsx";
+
+// Мета каналов кешируем один раз на сессию — постоянно не обновляем.
+const chInfoCache = new Map<string, ChannelInfo>();
 
 type Tab = "stats" | "pending" | "approved" | "rejected" | "channels";
 
@@ -9,6 +13,9 @@ export default function Admin() {
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [channels, setChannels] = useState<{ username: string; feeds: number }[] | null>(null);
   const [chQuery, setChQuery] = useState("");
+  const [chInfo, setChInfo] = useState<Map<string, ChannelInfo>>(new Map(chInfoCache));
+  const [blocked, setBlocked] = useState<BlockedChannel[] | null>(null);
+  const [blockBusy, setBlockBusy] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState<number | null>(null);
   const [tab, setTab] = useState<Tab>("pending");
@@ -25,7 +32,44 @@ export default function Admin() {
   useEffect(() => { load(); }, []);
   useEffect(() => {
     if (tab === "channels" && !channels) allChannels().then(setChannels).catch((e) => setErr(e.message));
+    if (tab === "channels" && !blocked) blockedChannels().then(setBlocked).catch(() => setBlocked([]));
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Подтягиваем мета (аватар/название/описание) для видимых каналов — по одному
+  // разу, из кеша. Грузим пачками, чтобы не бомбить парсер.
+  useEffect(() => {
+    if (tab !== "channels" || !channels) return;
+    const need = channels
+      .map((c) => c.username)
+      .filter((u) => !chInfoCache.has(u.toLowerCase()))
+      .slice(0, 30);
+    if (need.length === 0) return;
+    let alive = true;
+    channelsInfo(need).then((infos) => {
+      for (const inf of infos) chInfoCache.set(inf.username.toLowerCase(), inf);
+      if (alive) setChInfo(new Map(chInfoCache));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [tab, channels, chQuery]);
+
+  async function toggleBlock(username: string, block: boolean) {
+    setBlockBusy(username);
+    setErr("");
+    try {
+      if (block) {
+        const reason = prompt(`Заблокировать @${username}? Причина (необязательно)`);
+        if (reason === null) { setBlockBusy(null); return; }
+        await blockChannel(username, reason || undefined);
+      } else {
+        await unblockChannel(username);
+      }
+      setBlocked(await blockedChannels());
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBlockBusy(null);
+    }
+  }
 
   async function decide(f: Feed, decision: "approved" | "rejected") {
     setBusy(f.id);
@@ -85,12 +129,59 @@ export default function Admin() {
             </div>
             {(channels ?? [])
               .filter((c) => !chQuery.trim() || c.username.includes(chQuery.trim().toLowerCase()))
-              .map((c) => (
-                <button key={c.username} className="card row spread" style={{ width: "100%", textAlign: "left", cursor: "pointer" }} onClick={() => nav(`/channel/${c.username}`)}>
-                  <span style={{ fontWeight: 700 }}>@{c.username}</span>
-                  <span className="muted" style={{ fontSize: 12 }}>в {c.feeds} лентах →</span>
-                </button>
-              ))}
+              .map((c) => {
+                const inf = chInfo.get(c.username.toLowerCase());
+                const isBlocked = (blocked ?? []).some((b) => b.username === c.username.toLowerCase());
+                return (
+                  <div key={c.username} className="chan-row-wrap">
+                    <button className="chan-row" style={{ flex: "1 1 auto", background: "none", textAlign: "left", cursor: "pointer" }} onClick={() => nav(`/channel/${c.username}`)}>
+                      {inf?.avatar ? (
+                        <img src={inf.avatar} alt="" width={40} height={40} className="chan-ava" />
+                      ) : (
+                        <div className="ava ava-ph" style={{ width: 40, height: 40 }}>@</div>
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700 }}>{inf?.title || `@${c.username}`}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>@{c.username} · в {c.feeds} лентах</div>
+                        {plainPreview(inf?.description) && (
+                          <div className="muted chan-desc">{plainPreview(inf?.description)}</div>
+                        )}
+                      </div>
+                    </button>
+                    <button
+                      className="chan-remove"
+                      title={isBlocked ? "Разблокировать" : "Заблокировать во всех подборках"}
+                      disabled={blockBusy === c.username}
+                      style={isBlocked ? { color: "var(--ink)" } : undefined}
+                      onClick={() => toggleBlock(c.username, !isBlocked)}
+                    >
+                      {isBlocked ? "↺" : "⊘"}
+                    </button>
+                  </div>
+                );
+              })}
+
+            {blocked && blocked.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <div style={{ fontWeight: 800, marginBottom: 6 }}>Заблокированные каналы</div>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+                  Скрыты из всех подборок (и личных тоже). Нажмите ↺, чтобы вернуть.
+                </div>
+                {blocked.map((b) => (
+                  <div key={b.username} className="chan-row-wrap">
+                    <button className="chan-row" style={{ flex: "1 1 auto", background: "none", textAlign: "left", cursor: "pointer" }} onClick={() => nav(`/channel/${b.username}`)}>
+                      <div className="ava ava-ph" style={{ width: 40, height: 40 }}>⊘</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700 }}>@{b.username}</div>
+                        {b.reason && <div className="muted chan-desc">{b.reason}</div>}
+                      </div>
+                    </button>
+                    <button className="chan-remove" title="Разблокировать" disabled={blockBusy === b.username}
+                      style={{ color: "var(--ink)" }} onClick={() => toggleBlock(b.username, false)}>↺</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
 

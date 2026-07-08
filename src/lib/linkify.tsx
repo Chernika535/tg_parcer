@@ -1,5 +1,21 @@
 import type { ReactNode } from "react";
 
+// Короткий текст для маленьких превью: убираем «уродства» разметки — markdown-
+// ссылки [текст](url) → текст, голые ссылки и tg://-адреса вырезаем, схлопываем
+// пробелы. Остаётся только содержательный текст.
+export function plainPreview(text?: string | null): string {
+  if (!text) return "";
+  return text
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/|tg:\/\/|t\.me\/)[^)\s]*\)/gi, "$1") // [текст](url) → текст
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")                                    // прочие [..](..) → текст
+    .replace(/(?:https?:\/\/|www\.)\S+/gi, "")                                  // голые ссылки убираем
+    .replace(/\bt\.me\/\S+/gi, "")
+    .replace(/\btg:\/\/\S+/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // Порядок важен: markdown-ссылка [текст](url), затем голый url, затем @упоминание.
 const TOKEN_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|((?:https?:\/\/|www\.)[^\s]+)|(@[a-zA-Z][a-zA-Z0-9_]{3,})/g;
 

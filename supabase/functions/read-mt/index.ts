@@ -210,22 +210,26 @@ Deno.serve(async (req: Request) => {
       const client = new tg.TelegramClient(new tg.sessions.StringSession(row.session), API_ID, API_HASH, { connectionRetries: 2, useWSS: true });
       await withTimeout(client.connect(), 9000);
       const VIDEO_MAX = 25 * 1024 * 1024;
+      const AUDIO_MAX = 45 * 1024 * 1024; // аудио компактнее — разрешаем крупнее
       try {
+        // Резолвим быстро: ResolveUsername (надёжно), getEntity — запасной.
         // deno-lint-ignore no-explicit-any
-        let entity: any;
-        try { entity = await withTimeout(client.getEntity(ch), 8000); }
-        catch {
+        let entity: any = null;
+        try {
           // deno-lint-ignore no-explicit-any
-          const res: any = await withTimeout(client.invoke(new (tg as any).Api.contacts.ResolveUsername({ username: ch })), 8000);
+          const res: any = await withTimeout(client.invoke(new (tg as any).Api.contacts.ResolveUsername({ username: ch })), 6000);
           entity = res.chats?.[0] ?? res.users?.[0];
-        }
+        } catch { /* ниже */ }
+        if (!entity) { try { entity = await withTimeout(client.getEntity(ch), 5000); } catch { /* нет */ } }
+        if (!entity) return json({ error: "канал не резолвится" });
         // deno-lint-ignore no-explicit-any
         const msgs: any[] = await withTimeout(client.getMessages(entity, { ids: [body.one.msgId] } as any), 9000);
         const m = msgs?.[0];
         const doc = m?.video || m?.gif || m?.videoNote || m?.document || m?.voice || m?.audio;
         const size = doc ? Number(doc.size ?? 0) : 0;
         if (!doc) return json({ error: "нет медиа" });
-        if (size > VIDEO_MAX) return json({ tooBig: true });
+        const isAudio = !!(m?.voice || m?.audio) || /audio\//i.test(doc.mimeType || "");
+        if (size > (isAudio ? AUDIO_MAX : VIDEO_MAX)) return json({ tooBig: true });
         const buf = await withTimeout(client.downloadMedia(m, {}), 40000) as Uint8Array;
         try { await client.disconnect(); } catch { /* ignore */ }
         if (!buf?.length) return json({ error: "не удалось скачать" });

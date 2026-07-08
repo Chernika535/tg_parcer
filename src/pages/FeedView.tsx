@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, readChannelsBefore, favoriteLinks, addFavorite, removeFavorite, channelsInfo, cacheFeedMeta, feedPreview, cloneFeed, track, type Feed, type Post, type ChannelInfo, type FeedPreview } from "../lib/data.ts";
+import { getFeedById, readChannels, readChannelsMT, readChannelsMTServer, readChannelsBefore, favoriteLinks, addFavorite, removeFavorite, channelsInfo, cacheFeedMeta, feedPreview, cloneFeed, updateFeed, track, type Feed, type Post, type ChannelInfo, type FeedPreview } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import { shareLink, feedUrl } from "../lib/share.ts";
-import { linkify } from "../lib/linkify.tsx";
+import { linkify, plainPreview } from "../lib/linkify.tsx";
 import { useLikes } from "../lib/useLikes.ts";
 
 // Кэш постов по ленте: в памяти (полный, с blob/data медиа) + в localStorage
@@ -85,6 +85,25 @@ export default function FeedView() {
   const [chanLoading, setChanLoading] = useState(false);
   const [preview, setPreview] = useState<FeedPreview | null>(null); // чужая лента по ссылке
   const [cloning, setCloning] = useState(false);
+  const [removingCh, setRemovingCh] = useState<string | null>(null);
+
+  // Убрать канал из ЛИЧНОЙ ленты (снять галочку). Обновляем ленту и показ.
+  async function removeChannel(username: string) {
+    if (!feed || feed.visibility !== "private") return;
+    setRemovingCh(username);
+    try {
+      const nextChannels = feed.channels.filter((c) => normCh(c) !== normCh(username));
+      await updateFeed(feed.id, { channels: nextChannels });
+      const nf = { ...feed, channels: nextChannels };
+      setFeed(nf); saveFeedMeta(nf);
+      setChanInfo((prev) => (prev ? prev.filter((c) => normCh(c.username) !== normCh(username)) : prev));
+      setPosts((prev) => (prev ? prev.filter((p) => normCh(p.channel) !== normCh(username)) : prev));
+    } catch (e) {
+      setErr("Не удалось убрать канал: " + (e as Error).message);
+    } finally {
+      setRemovingCh(null);
+    }
+  }
 
   // Раскрытие состава ленты («Подробнее») — подтягиваем инфо о каналах лениво.
   async function toggleChannels() {
@@ -288,6 +307,23 @@ export default function FeedView() {
     if (Number.isFinite(feedId)) track("feed", String(feedId));
   }, [feedId]);
 
+  // Запоминаем позицию прокрутки ленты и восстанавливаем при возврате (со
+  // свёрнутой вкладки/после перезагрузки), чтобы не начинать сверху.
+  const restoredRef = useRef(false);
+  useEffect(() => { restoredRef.current = false; }, [feedId]);
+  useEffect(() => {
+    const save = () => { try { sessionStorage.setItem("tf_scroll_" + feedId, String(window.scrollY)); } catch { /* ignore */ } };
+    window.addEventListener("scroll", save, { passive: true });
+    return () => window.removeEventListener("scroll", save);
+  }, [feedId]);
+  useEffect(() => {
+    if (restoredRef.current || !posts || posts.length === 0) return;
+    let y = 0;
+    try { y = Number(sessionStorage.getItem("tf_scroll_" + feedId) || 0); } catch { /* ignore */ }
+    restoredRef.current = true;
+    if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+  }, [posts, feedId]);
+
   async function toggleFav(post: Post) {
     const next = new Set(fav);
     if (next.has(post.link)) {
@@ -375,18 +411,24 @@ export default function FeedView() {
               <div style={{ marginTop: 10 }}>
                 {chanLoading && !chanInfo && <div className="muted">Загружаю список каналов…</div>}
                 {chanInfo?.map((c) => (
-                  <Link key={c.username} to={`/channel/${c.username}`} className="chan-row">
-                    {c.avatar ? (
-                      <img src={c.avatar} alt="" width={40} height={40} className="chan-ava" />
-                    ) : (
-                      <div className="ava ava-ph" style={{ width: 40, height: 40 }}>@</div>
+                  <div key={c.username} className="chan-row-wrap">
+                    <Link to={`/channel/${c.username}`} className="chan-row">
+                      {c.avatar ? (
+                        <img src={c.avatar} alt="" width={40} height={40} className="chan-ava" />
+                      ) : (
+                        <div className="ava ava-ph" style={{ width: 40, height: 40 }}>@</div>
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700 }}>{c.title || `@${c.username}`}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>@{c.username}</div>
+                        {plainPreview(c.description) && <div className="muted chan-desc">{plainPreview(c.description)}</div>}
+                      </div>
+                    </Link>
+                    {feed?.visibility === "private" && (
+                      <button className="chan-remove" title="Убрать из ленты" disabled={removingCh === c.username}
+                        onClick={() => removeChannel(c.username)}>✕</button>
                     )}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700 }}>{c.title || `@${c.username}`}</div>
-                      <div className="muted" style={{ fontSize: 12 }}>@{c.username}</div>
-                      {c.description && <div className="muted chan-desc">{c.description}</div>}
-                    </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             )}

@@ -3,6 +3,7 @@ import type { Feed } from "../lib/data.ts";
 import CoverArt from "./CoverArt.tsx";
 import Icon from "./Icon.tsx";
 import { shareLink, feedUrl } from "../lib/share.ts";
+import { plainPreview } from "../lib/linkify.tsx";
 
 export default function FeedCard({
   feed,
@@ -55,7 +56,7 @@ export default function FeedCard({
         <div className="feed-card-title" onClick={onOpen}>
           {feed.title}
         </div>
-        {feed.description && <div className="feed-card-desc">{feed.description}</div>}
+        {plainPreview(feed.description) && <div className="feed-card-desc">{plainPreview(feed.description)}</div>}
         <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
           {feed.channels.length} каналов
           {feed.author_name ? ` · ${feed.author_name}` : ""}

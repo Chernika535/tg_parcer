@@ -35,6 +35,22 @@ Deno.serve(async (req: Request) => {
     if (!u.user) return json({ error: "нужен вход" }, 401);
     const uid = u.user.id;
 
+    // ---- Заблокированные каналы (админ прячет их из всех подборок) ----
+    const norm = (c: string) => (c || "").trim().toLowerCase()
+      .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
+      .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
+    async function blockedSet(): Promise<Set<string>> {
+      const { data } = await db.from("blocked_channels").select("username");
+      return new Set((data ?? []).map((r: { username: string }) => r.username));
+    }
+    // deno-lint-ignore no-explicit-any
+    const stripBlockedFeeds = (feeds: any[], blocked: Set<string>) =>
+      (feeds ?? []).map((f) => f && ({ ...f, channels: ((f.channels ?? []) as string[]).filter((c) => !blocked.has(norm(c))) }));
+    async function isAdmin(): Promise<boolean> {
+      const { data } = await db.from("profiles").select("is_admin").eq("id", uid).maybeSingle();
+      return !!(data as { is_admin?: boolean } | null)?.is_admin;
+    }
+
     const b = (await req.json()) as {
       action: string;
       id?: number;
@@ -87,7 +103,7 @@ Deno.serve(async (req: Request) => {
     if (b.action === "list_mine") {
       const { data, error } = await db.from("feeds").select("*").eq("owner_id", uid).order("created_at", { ascending: false });
       if (error) return json({ error: error.message }, 500);
-      return json({ feeds: data ?? [] });
+      return json({ feeds: stripBlockedFeeds(data ?? [], await blockedSet()) });
     }
 
     if (b.action === "get_any") {
@@ -98,7 +114,7 @@ Deno.serve(async (req: Request) => {
         .select("*, owner:profiles!owner_id(display_name, username)")
         .eq("id", b.id)
         .maybeSingle();
-      return json({ feed: data ?? null });
+      return json({ feed: data ? stripBlockedFeeds([data], await blockedSet())[0] : null });
     }
 
     if (b.action === "list_public_all") {
@@ -246,7 +262,7 @@ Deno.serve(async (req: Request) => {
         .order("created_at", { ascending: false });
       if (error) return json({ error: error.message }, 500);
       const feeds = (data ?? []).map((r: { feed: unknown }) => r.feed).filter(Boolean);
-      return json({ feeds });
+      return json({ feeds: stripBlockedFeeds(feeds, await blockedSet()) });
     }
     if (b.action === "ffav_add") {
       if (!b.id) return json({ error: "нет id" }, 400);
@@ -339,6 +355,30 @@ Deno.serve(async (req: Request) => {
       if (!i.feed_id) return json({ error: "нет feed_id" }, 400);
       const { error } = await db.from("feed_pins").delete().eq("feed_id", i.feed_id).eq("tag", i.tag ?? "");
       if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+
+    // ---- Блокировка каналов (только админ; пишем под service role) ----
+    if (b.action === "blocked_list") {
+      const { data } = await db.from("blocked_channels")
+        .select("username, reason, created_at").order("created_at", { ascending: false });
+      return json({ blocked: data ?? [] });
+    }
+    if (b.action === "block_channel" || b.action === "unblock_channel") {
+      if (!(await isAdmin())) return json({ error: "только для админа" }, 403);
+      if (!SERVICE_ROLE) return json({ error: "функция не сконфигурирована (service role)" }, 500);
+      const un = norm((b.input as { username?: string } | undefined)?.username ?? "");
+      if (!un) return json({ error: "нет канала" }, 400);
+      const svc = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+      if (b.action === "block_channel") {
+        const reason = (b.input as { reason?: string } | undefined)?.reason ?? null;
+        const { error } = await svc.from("blocked_channels")
+          .upsert({ username: un, reason, blocked_by: uid }, { onConflict: "username" });
+        if (error) return json({ error: error.message }, 500);
+      } else {
+        const { error } = await svc.from("blocked_channels").delete().eq("username", un);
+        if (error) return json({ error: error.message }, 500);
+      }
       return json({ ok: true });
     }
 

@@ -207,6 +207,25 @@ export async function cloneFeed(id: number): Promise<Feed> {
   return d.feed;
 }
 
+// ---- Блокировка каналов админом (исчезают из всех подборок) ----
+export type BlockedChannel = { username: string; reason: string | null; created_at: string };
+export async function blockedChannels(): Promise<BlockedChannel[]> {
+  try {
+    const d = (await invokeFn("myfeeds", { action: "blocked_list" })) as { blocked?: BlockedChannel[] };
+    return d.blocked ?? [];
+  } catch {
+    return [];
+  }
+}
+export async function blockChannel(username: string, reason?: string): Promise<void> {
+  const d = (await invokeFn("myfeeds", { action: "block_channel", input: { username, reason: reason ?? null } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+export async function unblockChannel(username: string): Promise<void> {
+  const d = (await invokeFn("myfeeds", { action: "unblock_channel", input: { username } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+
 export type FeedInput = {
   title: string;
   description?: string | null;
