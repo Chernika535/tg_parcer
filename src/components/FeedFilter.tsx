@@ -17,6 +17,17 @@ export default function FeedFilter({
   const toggleTag = (t: string) =>
     set({ tags: filters.tags.includes(t) ? filters.tags.filter((x) => x !== t) : [...filters.tags, t] });
 
+  // Показываем кнопками только 20 самых популярных тегов + уже выбранные (чтобы
+  // выбранный тег не исчезал из списка, если он не в топ-20).
+  const popular = allTags.slice(0, 20);
+  const tagButtons = [...new Set([...filters.tags, ...popular])];
+
+  // Подсказки при вводе: теги (по всему списку), совпадающие с запросом и ещё не выбранные.
+  const q = filters.query.trim().toLowerCase();
+  const suggestions = q
+    ? allTags.filter((t) => t.includes(q) && !filters.tags.includes(t)).slice(0, 12)
+    : [];
+
   return (
     <div className="filter">
       <div className="search">
@@ -32,6 +43,17 @@ export default function FeedFilter({
         )}
       </div>
 
+      {suggestions.length > 0 && (
+        <div className="chip-row" style={{ marginTop: 2 }}>
+          <span className="muted" style={{ fontSize: 12, alignSelf: "center" }}>теги:</span>
+          {suggestions.map((t) => (
+            <button key={t} className="chip chip-btn" onClick={() => set({ tags: [...filters.tags, t], query: "" })}>
+              #{t}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="chip-row">
         <button className={`chip chip-btn ${filters.official ? "chip-active" : ""}`} onClick={() => set({ official: !filters.official })}>
           ✓ официальные
@@ -46,9 +68,9 @@ export default function FeedFilter({
         </select>
       </div>
 
-      {allTags.length > 0 && (
+      {tagButtons.length > 0 && (
         <div className="chip-row">
-          {allTags.map((t) => (
+          {tagButtons.map((t) => (
             <button key={t} className={`chip chip-btn ${filters.tags.includes(t) ? "chip-active" : ""}`} onClick={() => toggleTag(t)}>
               #{t}
             </button>
@@ -65,7 +87,8 @@ export function applyFilters<T extends FeedLike>(feeds: T[], f: Filters): T[] {
   const q = f.query.trim().toLowerCase();
   const out = feeds.filter((x) => {
     const matchQ = !q || x.title.toLowerCase().includes(q) || x.tags.some((t) => t.includes(q));
-    const matchTags = f.tags.length === 0 || f.tags.every((t) => x.tags.includes(t));
+    // Несколько тегов — по «хотя бы один» (OR): показываем ленты с любым из выбранных.
+    const matchTags = f.tags.length === 0 || f.tags.some((t) => x.tags.includes(t));
     const matchOff = !f.official || !!x.official;
     const matchAdm = !f.byAdmin || !!x.by_admin;
     return matchQ && matchTags && matchOff && matchAdm;
@@ -79,6 +102,11 @@ export function applyFilters<T extends FeedLike>(feeds: T[], f: Filters): T[] {
   return out;
 }
 
+// Все теги, отсортированные по популярности (самые частые — первыми). При равной
+// частоте — по алфавиту. Полный список нужен для подсказок при поиске; для кнопок
+// берём только первые 20 (иначе на больших каталогах будет «простыня»).
 export function allTagsOf(feeds: { tags: string[] }[]): string[] {
-  return [...new Set(feeds.flatMap((f) => f.tags))].sort();
+  const cnt = new Map<string, number>();
+  for (const f of feeds) for (const t of f.tags) cnt.set(t, (cnt.get(t) ?? 0) + 1);
+  return [...cnt.keys()].sort((a, b) => (cnt.get(b)! - cnt.get(a)!) || a.localeCompare(b));
 }
