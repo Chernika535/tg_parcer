@@ -399,7 +399,7 @@ export default function AuthorCabinet() {
           const older = postedShown.filter((p) => new Date(p.sent_at).getTime() < weekAgo);
           const list = showAllPosted ? postedShown : recent;
           return (
-            <details className="card fold" open>
+            <details className="card fold">
               <summary>Опубликованные ({postedShown.length})</summary>
               <div className="muted" style={{ fontSize: 12, margin: "6px 0" }}>
                 {showAllPosted ? "Все посты." : "Посты за последнюю неделю."} Правка текста и удаление применяются прямо в Telegram-канале.
