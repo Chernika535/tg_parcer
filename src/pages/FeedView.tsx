@@ -8,6 +8,7 @@ import { shareLink, feedUrl } from "../lib/share.ts";
 import { linkify, plainPreview } from "../lib/linkify.tsx";
 import { useLikes } from "../lib/useLikes.ts";
 import { isAdultAllowed, confirmAdult } from "../lib/adult.ts";
+import GuestBanner from "../components/GuestBanner.tsx";
 
 // Кэш постов по ленте: в памяти (полный, с blob/data медиа) + в localStorage
 // (облегчённый, для мгновенного показа между сессиями).
@@ -397,6 +398,7 @@ export default function FeedView() {
     <>
       <TopBar title={feed?.title || "Лента"} onBack={() => nav(-1)} />
       <div className="content">
+        {!session && <GuestBanner />}
         {(feed?.description || feed?.author_name) && (
           <div className="card post-text" style={{ padding: 14 }}>
             {feed?.description && linkify(feed.description)}
