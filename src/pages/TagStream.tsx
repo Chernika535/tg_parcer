@@ -5,13 +5,15 @@ import { useAuth } from "../lib/auth.tsx";
 import { Loading, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import { useLikes } from "../lib/useLikes.ts";
+import { isAdultAllowed } from "../lib/adult.ts";
 
 // Лента из всех публичных лент с заданным тегом.
 export default function TagStream() {
   const { tag = "" } = useParams();
   const t = tag.toLowerCase();
   const nav = useNavigate();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+  const adultOk = isAdultAllowed(profile?.birth_date);
   const { liked, toggle: toggleLike } = useLikes(!!session);
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [count, setCount] = useState(0);
@@ -33,7 +35,9 @@ export default function TagStream() {
       setPosts(null);
       try {
         const { feeds } = await loadPublic();
-        const tagged = feeds.filter((f) => (f.tags || []).includes(t));
+        let tagged = feeds.filter((f) => (f.tags || []).includes(t));
+        // Ленты 18+ скрываем, если возраст не подтверждён / нет даты рождения.
+        if (!adultOk) tagged = tagged.filter((f) => !f.adult);
         setCount(tagged.length);
         const channels = [...new Set(tagged.flatMap((f) => f.channels))];
         if (channels.length === 0) { setPosts([]); return; }
@@ -43,7 +47,7 @@ export default function TagStream() {
         setPosts([]);
       }
     })();
-  }, [t]);
+  }, [t, adultOk]);
 
   useEffect(() => {
     if (session) favTags().then((tags) => setFav(tags.includes(t)));

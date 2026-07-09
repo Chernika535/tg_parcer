@@ -10,6 +10,7 @@ export type Profile = {
   display_name: string | null;
   photo_url: string | null;
   role: "user" | "admin";
+  birth_date: string | null;
 };
 
 export type TelegramUser = {

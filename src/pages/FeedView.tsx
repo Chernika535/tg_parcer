@@ -7,6 +7,7 @@ import PostCard from "../components/PostCard.tsx";
 import { shareLink, feedUrl } from "../lib/share.ts";
 import { linkify, plainPreview } from "../lib/linkify.tsx";
 import { useLikes } from "../lib/useLikes.ts";
+import { isAdultAllowed, confirmAdult } from "../lib/adult.ts";
 
 // Кэш постов по ленте: в памяти (полный, с blob/data медиа) + в localStorage
 // (облегчённый, для мгновенного показа между сессиями).
@@ -66,7 +67,8 @@ export default function FeedView() {
   const { id } = useParams();
   const feedId = Number(id);
   const nav = useNavigate();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const { liked, toggle: toggleLike } = useLikes(!!session);
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [feed, setFeed] = useState<Feed | null>(null);
@@ -389,6 +391,8 @@ export default function FeedView() {
     );
   }
 
+  const adultBlocked = !!feed?.adult && !ageConfirmed && !isAdultAllowed(profile?.birth_date);
+
   return (
     <>
       <TopBar title={feed?.title || "Лента"} onBack={() => nav(-1)} />
@@ -448,6 +452,22 @@ export default function FeedView() {
         </div>
 
 
+        {adultBlocked ? (
+          <div className="card adult-gate">
+            <div style={{ fontSize: 40, lineHeight: 1 }}>🔞</div>
+            <div style={{ fontWeight: 800, marginTop: 8 }}>Контент 18+</div>
+            <p className="muted" style={{ fontSize: 14, marginTop: 6 }}>
+              Данная подборка может содержать контент для взрослых или нецензурную лексику. Подтвердите, что вам есть 18 лет.
+            </p>
+            <button className="btn" style={{ marginTop: 6 }} onClick={() => { confirmAdult(); setAgeConfirmed(true); }}>
+              Мне есть 18 лет
+            </button>
+            <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => nav(-1)}>Назад</button>
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              Чтобы не подтверждать каждый раз, укажите дату рождения в разделе «Аккаунт».
+            </p>
+          </div>
+        ) : (<>
         {mtLoading && (
           <div className="card" style={{ fontSize: 13 }}>
             Дочитываю закрытые каналы… посты появляются по мере загрузки (скачиваю медиа).
@@ -501,6 +521,7 @@ export default function FeedView() {
             </button>
           )
         )}
+        </>)}
       </div>
     </>
   );

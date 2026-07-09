@@ -20,6 +20,7 @@ export default function Account() {
 
   const [name, setName] = useState(profile?.display_name || "");
   const [photo, setPhoto] = useState(profile?.photo_url || "");
+  const [birth, setBirth] = useState(profile?.birth_date || "");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
 
@@ -54,7 +55,7 @@ export default function Account() {
     setSavingProfile(true);
     setProfileMsg("");
     try {
-      await updateMyProfile({ display_name: name.trim(), photo_url: photo || "" });
+      await updateMyProfile({ display_name: name.trim(), photo_url: photo || "", birth_date: birth || null });
       await refreshProfile();
       setProfileMsg("Сохранено ✓");
     } catch (e) {
@@ -111,6 +112,13 @@ export default function Account() {
           <div className="field" style={{ marginTop: 10 }}>
             <label>Имя</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Как вас показывать" />
+          </div>
+          <div className="field" style={{ marginTop: 10 }}>
+            <label>Дата рождения</label>
+            <input type="date" value={birth} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setBirth(e.target.value)} />
+            <p className="muted" style={{ fontSize: 12 }}>
+              Нужна только для лент 18+: если вам есть 18, подтверждать возраст каждый раз не придётся. Мы её нигде не показываем.
+            </p>
           </div>
           {profile?.username && <p className="muted">Telegram: @{profile.username}</p>}
           <div className="muted">Роль: {isAdmin ? "администратор" : "пользователь"}</div>

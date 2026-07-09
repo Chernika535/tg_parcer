@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
       if (!body.id) return json({ error: "нет id" }, 400);
       const { data, error } = await db
         .from("feeds")
-        .select("id, title, description, channels, tags, author_name, cover_url, visibility")
+        .select("id, title, description, channels, tags, author_name, cover_url, visibility, adult")
         .eq("id", body.id)
         .maybeSingle();
       if (error) return json({ error: error.message }, 500);

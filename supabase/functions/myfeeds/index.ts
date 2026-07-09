@@ -62,10 +62,11 @@ Deno.serve(async (req: Request) => {
     };
 
     if (b.action === "update_profile") {
-      const p = (b.input ?? {}) as { display_name?: string; photo_url?: string };
+      const p = (b.input ?? {}) as { display_name?: string; photo_url?: string; birth_date?: string | null };
       const patch: Record<string, unknown> = { id: uid };
       if (p.display_name !== undefined) patch.display_name = p.display_name || null;
       if (p.photo_url !== undefined) patch.photo_url = p.photo_url || null;
+      if (p.birth_date !== undefined) patch.birth_date = p.birth_date || null;
       const { data, error } = await db.from("profiles").upsert(patch).select("*").maybeSingle();
       if (error) return json({ error: error.message }, 500);
       return json({ profile: data });

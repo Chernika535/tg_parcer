@@ -443,6 +443,8 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 }
 .tag-badge.official { background: var(--lime); color: var(--on-accent); }
 .tag-badge.admin { background: var(--pink); color: #fff; }
+.tag-badge.adult18 { background: #c1121f; color: #fff; }
+.adult-gate { text-align: center; padding: 24px 18px; }
 .feed-card-body { padding: 14px; }
 .feed-card-title { font-family: var(--head); font-weight: 800; font-size: 16px; cursor: pointer; letter-spacing: -0.3px; color: var(--text); }
 .hcard-title { color: var(--text); }

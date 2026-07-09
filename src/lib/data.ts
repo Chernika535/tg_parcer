@@ -94,6 +94,7 @@ export type Feed = {
   status: FeedStatus;
   official: boolean;
   by_admin: boolean;
+  adult: boolean;
   reject_reason: string | null;
   created_at: string;
   owner?: { display_name: string | null; username: string | null } | null;
@@ -212,7 +213,7 @@ export async function getFeedById(id: number): Promise<Feed | null> {
 // Превью любой ленты по ссылке (в т.ч. приватной) — мета для «Добавить себе».
 export type FeedPreview = {
   id: number; title: string; description: string | null; channels: string[];
-  tags: string[]; author_name: string | null; cover_url: string | null; visibility: Visibility;
+  tags: string[]; author_name: string | null; cover_url: string | null; visibility: Visibility; adult?: boolean;
 };
 export async function feedPreview(id: number): Promise<FeedPreview | null> {
   try {
@@ -258,6 +259,7 @@ export type FeedInput = {
   tags?: string[];
   official?: boolean;
   by_admin?: boolean;
+  adult?: boolean;
 };
 
 export async function createFeed(input: FeedInput): Promise<Feed> {
@@ -271,6 +273,7 @@ export async function createFeed(input: FeedInput): Promise<Feed> {
     tags: cleanTags(input.tags),
     official: !!input.official,
     by_admin: !!input.by_admin,
+    adult: !!input.adult,
   };
   const d = (await invokeFn("myfeeds", { action: "create", input: payload })) as { feed?: Feed; error?: string };
   if (d.error) throw new Error(d.error);
@@ -279,7 +282,7 @@ export async function createFeed(input: FeedInput): Promise<Feed> {
 
 export async function updateFeed(
   id: number,
-  fields: Partial<Pick<Feed, "title" | "description" | "cover_url" | "author_name" | "channels" | "visibility" | "tags" | "official" | "by_admin">>,
+  fields: Partial<Pick<Feed, "title" | "description" | "cover_url" | "author_name" | "channels" | "visibility" | "tags" | "official" | "by_admin" | "adult">>,
 ): Promise<void> {
   const patch: Record<string, unknown> = { ...fields };
   if (patch.tags) patch.tags = cleanTags(patch.tags as string[]);
@@ -473,7 +476,7 @@ export async function getMyProfile(): Promise<unknown> {
   return d.profile ?? null;
 }
 // Обновление профиля (имя/аватар) — через функцию по JWT.
-export async function updateMyProfile(fields: { display_name?: string; photo_url?: string }): Promise<void> {
+export async function updateMyProfile(fields: { display_name?: string; photo_url?: string; birth_date?: string | null }): Promise<void> {
   const d = (await invokeFn("myfeeds", { action: "update_profile", input: fields })) as { error?: string };
   if (d.error) throw new Error(d.error);
 }

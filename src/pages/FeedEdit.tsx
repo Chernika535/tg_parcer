@@ -26,6 +26,7 @@ export default function FeedEdit() {
   const [visibility, setVisibility] = useState<Visibility>("private");
   const [official, setOfficialFlag] = useState(false);
   const [byAdmin, setByAdmin] = useState(false);
+  const [adult, setAdult] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(!isNew);
   const [err, setErr] = useState("");
@@ -57,6 +58,7 @@ export default function FeedEdit() {
         setVisibility(f.visibility);
         setOfficialFlag(f.official);
         setByAdmin(f.by_admin);
+        setAdult(f.adult);
       } catch (e) {
         setErr((e as Error).message);
       } finally {
@@ -104,6 +106,7 @@ export default function FeedEdit() {
         tags,
         official: isAdmin ? official : false,
         by_admin: isAdmin ? byAdmin : false,
+        adult,
       };
       if (isNew) await createFeed(payload);
       else await updateFeed(feedId, payload);
@@ -168,6 +171,17 @@ export default function FeedEdit() {
         <div className="field">
           <label>Теги (темы: психология, фандомы, новости…)</label>
           <TagInput tags={tags} onChange={setTags} suggestions={allTags} />
+        </div>
+
+        <div className="field">
+          <label>Возрастное ограничение</label>
+          <label className="check">
+            <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} />
+            <span>18+ — контент для взрослых или нецензурная лексика</span>
+          </label>
+          <p className="muted" style={{ fontSize: 12 }}>
+            Такую ленту откроют только после подтверждения возраста. Пользователям младше 18 (или без указанной даты рождения) её посты не показываются в избранном и лентах по тегам.
+          </p>
         </div>
 
         <div className="field">

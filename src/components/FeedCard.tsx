@@ -36,6 +36,7 @@ export default function FeedCard({
           </button>
         )}
         <div className="feed-cover-badges">
+          {feed.adult && <span className="tag-badge adult18">18+</span>}
           {feed.official && (
             <span className="tag-badge official"><Icon name="check" size={12} /> официальный</span>
           )}

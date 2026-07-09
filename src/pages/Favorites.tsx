@@ -16,6 +16,8 @@ import { Loading, ErrorState, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import FeedCard from "../components/FeedCard.tsx";
 import { useLikes } from "../lib/useLikes.ts";
+import { useAuth } from "../lib/auth.tsx";
+import { isAdultAllowed } from "../lib/adult.ts";
 
 type Tab = "stream" | "posts" | "feeds" | "tags";
 
@@ -30,20 +32,24 @@ export default function Favorites() {
   const [tags, setTags] = useState<string[] | null>(null);
   const [err, setErr] = useState("");
   const { liked, toggle: toggleLike } = useLikes(true);
+  const { profile } = useAuth();
+  const adultOk = isAdultAllowed(profile?.birth_date);
 
   useEffect(() => {
     if (tab === "posts" && !posts) listFavorites().then(setPosts).catch((e) => setErr(e.message));
     if (tab === "feeds" && !feeds) favoriteFeeds().then(setFeeds).catch((e) => setErr(e.message));
     if (tab === "tags" && !tags) favTags().then(setTags).catch((e) => setErr(e.message));
-    if (tab === "stream" && !stream) loadStream();
-  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (tab === "stream") loadStream();
+  }, [tab, adultOk]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadStream() {
     setErr("");
     try {
       const favs = feeds ?? (await favoriteFeeds());
       setFeeds(favs);
-      const channels = [...new Set(favs.flatMap((f) => f.channels))];
+      // Каналы из лент 18+ не показываем, если возраст не подтверждён.
+      const src = adultOk ? favs : favs.filter((f) => !f.adult);
+      const channels = [...new Set(src.flatMap((f) => f.channels))];
       if (channels.length === 0) { setStream([]); return; }
       const { posts: p } = await readChannels(channels);
       setStream(p);
