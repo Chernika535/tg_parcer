@@ -250,8 +250,12 @@ button.chip { cursor: pointer; }
 /* Визуальный редактор поста */
 .rich { border: 3px solid var(--ink); border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
 .rich-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border-top: 2px solid var(--ink); background: var(--surface-2); }
-.rich-btn { min-width: 32px; height: 30px; border: 2px solid var(--ink); border-radius: 8px; background: var(--surface); color: var(--ink); font-weight: 800; cursor: pointer; font-size: 14px; }
+.rich-btn { min-width: 32px; height: 30px; border: 2px solid var(--ink); border-radius: 8px; background: var(--surface); color: var(--ink); font-weight: 800; cursor: pointer; font-size: 14px; padding: 0 6px; white-space: nowrap; }
 .rich-btn:active { transform: translateY(1px); }
+.mention-menu { display: flex; flex-direction: column; min-width: 160px; max-height: 220px; overflow-y: auto; background: var(--surface); border: 2px solid var(--ink); border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
+.mention-item { text-align: left; padding: 8px 12px; background: none; border: none; border-bottom: 1px solid var(--surface-2); color: var(--ink); font-weight: 700; cursor: pointer; }
+.mention-item:last-child { border-bottom: none; }
+.mention-item:hover, .mention-item:active { background: var(--surface-2); }
 .rich-area { min-height: 120px; padding: 12px 14px; font-size: 15px; line-height: 1.5; outline: none; white-space: pre-wrap; word-break: break-word; color: var(--text); }
 .rich-area:empty::before { content: attr(data-ph); color: var(--muted); }
 .rich-area a { color: var(--pink); text-decoration: underline; }

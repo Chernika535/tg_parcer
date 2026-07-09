@@ -41,7 +41,7 @@ function BotLinkHelp() {
 import {
   authorChannels, linkChannel, unlinkChannel, refreshChannel, sendPostNow, schedulePost,
   scheduledPosts, cancelScheduled, updateScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
-  postedList, editPosted, deletePosted,
+  postedList, editPosted, deletePosted, serviceChannels,
   type AuthorChannel, type PostMedia, type ScheduledPost, type PostedMessage,
 } from "../lib/data.ts";
 
@@ -74,6 +74,8 @@ export default function AuthorCabinet() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [filterChan, setFilterChan] = useState("all"); // фильтр отложки/опубликованных по каналу
   const [filterFor, setFilterFor] = useState<number | null>(null); // индекс медиа для выбора фильтра
+  const [mentionList, setMentionList] = useState<string[]>([]); // ники каналов для @-подсказок
+  const [showAllPosted, setShowAllPosted] = useState(false); // раскрыть посты старше недели
 
   async function reload() {
     const chs = await authorChannels().catch((e) => { setMsg(e.message); return []; });
@@ -83,6 +85,14 @@ export default function AuthorCabinet() {
     setPosted(await postedList().catch(() => []));
   }
   useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ники каналов для @-подсказок: свои каналы + все каналы из публичных лент.
+  useEffect(() => {
+    serviceChannels().then((svc) => {
+      const own = (channels ?? []).map((c) => (c.username || "").toLowerCase()).filter(Boolean);
+      setMentionList([...new Set([...own, ...svc])]);
+    }).catch(() => {});
+  }, [channels]);
 
   async function doLink() {
     if (!linkInput.trim()) return;
@@ -242,7 +252,7 @@ export default function AuthorCabinet() {
                 {channels.map((c) => <option key={c.id} value={c.chat_id}>{c.title || c.chat_id}</option>)}
               </select>
             </div>
-            <RichEditor key={editorKey} initialHtml={initialHtml} onChange={setHtml} placeholder="Текст поста — выделите текст и нажмите Ж/К/…" />
+            <RichEditor key={editorKey} initialHtml={initialHtml} onChange={setHtml} mentions={mentionList} placeholder="Текст поста — выделите текст и нажмите Ж/К/…" />
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }}>
               <label className="btn secondary sm" style={{ cursor: "pointer" }}>
@@ -382,17 +392,35 @@ export default function AuthorCabinet() {
           </details>
         )}
 
-        {/* Опубликованные — правка текста / удаление прямо в канале */}
-        {postedShown.length > 0 && (
-          <details className="card fold">
-            <summary>Опубликованные ({postedShown.length})</summary>
-            <div className="muted" style={{ fontSize: 12, margin: "6px 0" }}>Правка текста и удаление применяются прямо в Telegram-канале.</div>
-            {postedShown.map((p) => {
-              const ch = channels?.find((c) => c.chat_id === p.chat_id);
-              return <PostedItem key={p.id} post={p} channelName={ch?.title || p.chat_id} onChanged={async () => setPosted(await postedList().catch(() => []))} onMsg={setMsg} />;
-            })}
-          </details>
-        )}
+        {/* Опубликованные — по умолчанию за последнюю неделю; остальное по кнопке */}
+        {postedShown.length > 0 && (() => {
+          const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+          const recent = postedShown.filter((p) => new Date(p.sent_at).getTime() >= weekAgo);
+          const older = postedShown.filter((p) => new Date(p.sent_at).getTime() < weekAgo);
+          const list = showAllPosted ? postedShown : recent;
+          return (
+            <details className="card fold" open>
+              <summary>Опубликованные ({postedShown.length})</summary>
+              <div className="muted" style={{ fontSize: 12, margin: "6px 0" }}>
+                {showAllPosted ? "Все посты." : "Посты за последнюю неделю."} Правка текста и удаление применяются прямо в Telegram-канале.
+              </div>
+              {list.map((p) => {
+                const ch = channels?.find((c) => c.chat_id === p.chat_id);
+                return <PostedItem key={p.id} post={p} channelName={ch?.title || p.chat_id} mentions={mentionList} onChanged={async () => setPosted(await postedList().catch(() => []))} onMsg={setMsg} />;
+              })}
+              {!showAllPosted && older.length > 0 && (
+                <button className="btn ghost sm" style={{ marginTop: 10 }} onClick={() => setShowAllPosted(true)}>
+                  Другие посты ({older.length}) ▾
+                </button>
+              )}
+              {showAllPosted && older.length > 0 && (
+                <button className="btn ghost sm" style={{ marginTop: 10 }} onClick={() => setShowAllPosted(false)}>
+                  Свернуть до недели ▴
+                </button>
+              )}
+            </details>
+          );
+        })()}
 
         {/* Мои каналы */}
         {channels && channels.length > 0 && (
@@ -475,7 +503,7 @@ function ChannelSettings({ channel, onDone }: { channel: AuthorChannel; onDone: 
 }
 
 // Опубликованный пост: правка текста (editMessage*) и удаление (deleteMessage).
-function PostedItem({ post, channelName, onChanged, onMsg }: { post: PostedMessage; channelName: string; onChanged: () => void; onMsg: (s: string) => void }) {
+function PostedItem({ post, channelName, mentions, onChanged, onMsg }: { post: PostedMessage; channelName: string; mentions: string[]; onChanged: () => void; onMsg: (s: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [html, setHtml] = useState(post.text || "");
   const [busy, setBusy] = useState(false);
@@ -523,7 +551,7 @@ function PostedItem({ post, channelName, onChanged, onMsg }: { post: PostedMessa
       )}
       {editing && (
         <div style={{ marginTop: 8 }}>
-          <RichEditor initialHtml={post.text || ""} onChange={setHtml} />
+          <RichEditor initialHtml={post.text || ""} onChange={setHtml} mentions={mentions} />
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn sm" onClick={save} disabled={busy}>{busy ? "…" : "Сохранить"}</button>
             <button className="btn ghost sm" onClick={() => setEditing(false)}>Отмена</button>

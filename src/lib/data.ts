@@ -162,6 +162,28 @@ export async function loadPublic(): Promise<{ feeds: Feed[]; pins: Pin[] }> {
   return { feeds: d.feeds ?? [], pins: d.pins ?? [] };
 }
 
+// Уникальные ники всех каналов, встречающихся в публичных лентах, — для
+// автоподсказок при @-упоминании в редакторе поста. Кэшируем на сессию.
+let _svcChannels: string[] | null = null;
+export async function serviceChannels(): Promise<string[]> {
+  if (_svcChannels) return _svcChannels;
+  try {
+    const { feeds } = await loadPublic();
+    const set = new Set<string>();
+    for (const f of feeds)
+      for (const c of f.channels || []) {
+        const u = (c || "").trim().toLowerCase()
+          .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
+          .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
+        if (u.length >= 3) set.add(u);
+      }
+    _svcChannels = [...set].sort();
+    return _svcChannels;
+  } catch {
+    return [];
+  }
+}
+
 export async function getFeedById(id: number): Promise<Feed | null> {
   // Публичная лента — через GET-функцию (работает без VPN).
   try {
