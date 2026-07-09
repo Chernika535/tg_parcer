@@ -210,6 +210,12 @@ export default function AuthorCabinet() {
   const schedShown = scheduled.filter((p) => chOk(p.chat_id));
   const postedShown = posted.filter((p) => chOk(p.chat_id));
   const empty = !html.trim() && media.length === 0;
+  // Видимая длина текста (без HTML-тегов) — для счётчика лимитов Telegram.
+  const visibleLen = html.replace(/<[^>]+>/g, "")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&").trim().length;
+  const hasVisualMedia = media.some((m) => m.type === "photo" || m.type === "video" || m.type === "voice" || m.type === "audio" || m.type === "document");
+  const capLimit = hasVisualMedia ? 1024 : 4096;
+  const overCap = visibleLen > capLimit;
   const mediaLabel = (m: PostMedia) =>
     m.type === "photo" ? "🖼 фото" : m.type === "video" ? "🎬 видео" : m.type === "voice" ? "🎤 голос"
     : m.type === "audio" ? `🎵 ${m.title || "музыка"}` : m.type === "videonote" ? "⭕ кружок" : `📎 ${m.name || "файл"}`;
@@ -333,6 +339,12 @@ export default function AuthorCabinet() {
                 })}
               </div>
             )}
+
+            <div className="muted" style={{ fontSize: 12, marginTop: 8, color: overCap ? "var(--pink)" : undefined }}>
+              {hasVisualMedia
+                ? <>Подпись к медиа: {visibleLen} / {capLimit}{overCap && " · не влезает — текст уйдёт отдельным сообщением следом"}</>
+                : <>Символов: {visibleLen} / {capLimit}{overCap && " · превышен лимит Telegram, сократите текст"}</>}
+            </div>
 
             <label className="check-row" style={{ marginTop: 12 }}>
               <input type="checkbox" checked={noPreview} onChange={(e) => setNoPreview(e.target.checked)} />
