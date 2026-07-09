@@ -74,8 +74,14 @@ export function makeSender(botToken: string, supabaseUrl: string) {
 
       const visuals = media.filter((m) => m.type === "photo" || m.type === "video").slice(0, 10);
       const singles = media.filter((m) => m.type === "voice" || m.type === "audio" || m.type === "document" || m.type === "videonote");
+      // Подпись к медиа в Telegram — максимум 1024 символа (у обычного текста — 4096).
+      // Считаем видимую длину (без HTML-тегов). Если не влезает — не прикрепляем
+      // подписью, а отправим полный текст отдельным сообщением следом.
+      const visibleLen = (text || "").replace(/<[^>]+>/g, "")
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&").length;
+      const asCaption = !!text && visibleLen <= 1024;
       let used = false;
-      const cap = () => (!used && text ? ((used = true), text) : undefined);
+      const cap = () => (!used && asCaption && text ? ((used = true), text) : undefined);
       let firstErr = "";
       const fail = (d?: string) => { if (!firstErr && d) firstErr = d; };
       const noteText = (mid: number | undefined, isCap: boolean) => { if (used && textMsgId === undefined && mid) { textMsgId = mid; textIsCaption = isCap; } };

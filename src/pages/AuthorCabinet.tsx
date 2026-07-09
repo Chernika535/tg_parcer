@@ -76,6 +76,7 @@ export default function AuthorCabinet() {
   const [filterFor, setFilterFor] = useState<number | null>(null); // индекс медиа для выбора фильтра
   const [mentionList, setMentionList] = useState<string[]>([]); // ники каналов для @-подсказок
   const [showAllPosted, setShowAllPosted] = useState(false); // раскрыть посты старше недели
+  const [retryFn, setRetryFn] = useState<{ run: () => void } | null>(null); // повтор после ошибки
 
   async function reload() {
     const chs = await authorChannels().catch((e) => { setMsg(e.message); return []; });
@@ -173,12 +174,12 @@ export default function AuthorCabinet() {
   }
   async function doSaveEdit() {
     if (editingId == null || !when) { setMsg("Укажите дату и время"); return; }
-    setSending(true); setMsg("");
+    setSending(true); setMsg(""); setRetryFn(null);
     try {
       await updateScheduled(editingId, { ...payload(), publish_at: new Date(when).toISOString() });
       resetComposer(); setWhen(""); setMsg("Изменения сохранены ✓");
       setScheduled(await scheduledPosts().catch(() => []));
-    } catch (e) { setMsg("Ошибка: " + (e as Error).message); }
+    } catch (e) { setMsg("Ошибка: " + (e as Error).message); setRetryFn({ run: doSaveEdit }); }
     finally { setSending(false); }
   }
   function payload() {
@@ -186,22 +187,22 @@ export default function AuthorCabinet() {
   }
   async function doSend() {
     if (!chatId) return;
-    setSending(true); setMsg("");
+    setSending(true); setMsg(""); setRetryFn(null);
     try {
       await sendPostNow(payload());
       resetComposer(); setMsg("Опубликовано ✓");
       setPosted(await postedList().catch(() => []));
-    } catch (e) { setMsg("Ошибка: " + (e as Error).message); }
+    } catch (e) { setMsg("Ошибка: " + (e as Error).message); setRetryFn({ run: doSend }); }
     finally { setSending(false); }
   }
   async function doSchedule() {
     if (!chatId || !when) { setMsg("Укажите дату и время"); return; }
-    setSending(true); setMsg("");
+    setSending(true); setMsg(""); setRetryFn(null);
     try {
       await schedulePost({ ...payload(), publish_at: new Date(when).toISOString() });
       resetComposer(); setWhen(""); setMsg("Запланировано ✓");
       setScheduled(await scheduledPosts().catch(() => []));
-    } catch (e) { setMsg("Ошибка: " + (e as Error).message); }
+    } catch (e) { setMsg("Ошибка: " + (e as Error).message); setRetryFn({ run: doSchedule }); }
     finally { setSending(false); }
   }
 
@@ -217,7 +218,17 @@ export default function AuthorCabinet() {
     <>
       <TopBar title="Кабинет автора" />
       <div className="content">
-        {msg && <div className="card msg-card" style={{ fontSize: 13 }}>{msg}</div>}
+        {msg && (
+          <div className="card msg-card" style={{ fontSize: 13 }}>
+            {msg}
+            {retryFn && (
+              <button className="btn sm" style={{ marginTop: 8 }} disabled={sending}
+                onClick={() => retryFn.run()}>
+                {sending ? "…" : "↻ Повторить отправку"}
+              </button>
+            )}
+          </div>
+        )}
 
         {!channels && <Loading />}
 
