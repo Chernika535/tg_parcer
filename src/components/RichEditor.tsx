@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 const ALLOWED: Record<string, string> = {
   B: "b", STRONG: "b", I: "i", EM: "i", U: "u",
   S: "s", STRIKE: "s", DEL: "s", CODE: "code", PRE: "pre", A: "a",
+  BLOCKQUOTE: "blockquote",
 };
 
 function esc(s: string): string {
@@ -28,6 +29,9 @@ function serialize(node: Node): string {
       if (tag === "a") {
         const href = (el.getAttribute("href") || "").replace(/"/g, "&quot;");
         out += href ? `<a href="${href}">${inner}</a>` : inner;
+      } else if (tag === "blockquote") {
+        // Цитата — блочный элемент: отделяем переводом строки от предыдущего текста.
+        out += (out && !out.endsWith("\n") ? "\n" : "") + `<blockquote>${inner}</blockquote>`;
       } else if (tag) {
         out += `<${tag}>${inner}</${tag}>`;
       } else {
@@ -233,7 +237,8 @@ export default function RichEditor({
         <button type="button" className="rich-btn" title="Курсив" onClick={() => cmd("italic")}><i>К</i></button>
         <button type="button" className="rich-btn" title="Подчёркнутый" onClick={() => cmd("underline")}><u>П</u></button>
         <button type="button" className="rich-btn" title="Зачёркнутый" onClick={() => cmd("strikeThrough")}><s>З</s></button>
-        <button type="button" className="rich-btn" title="Моноширинный" onClick={() => cmd("formatBlock", "pre")}>{"</>"}</button>
+        <button type="button" className="rich-btn" title="Код (моноширинный)" onClick={() => cmd("formatBlock", "pre")}>{"</>"}</button>
+        <button type="button" className="rich-btn" title="Цитата" onClick={() => cmd("formatBlock", "blockquote")}>❝</button>
         <button type="button" className="rich-btn" title="Спойлер" onClick={spoiler}>▓</button>
         <button type="button" className="rich-btn" title="Ссылка на выделенном тексте" onClick={addLink}>🔗</button>
         <button type="button" className="rich-btn" title="Упомянуть канал (@)" onMouseDown={(e) => { e.preventDefault(); startMention(); }}>@</button>
