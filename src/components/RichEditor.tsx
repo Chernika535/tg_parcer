@@ -88,13 +88,21 @@ export default function RichEditor({
     if (!url) return;
     cmd("createLink", url);
   }
-  function spoiler() {
+  // Обернуть выделение в элемент (надёжнее, чем execCommand formatBlock,
+  // который на мобильных браузерах для "pre" часто не срабатывает).
+  function wrapSelection(tagName: string, className?: string) {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) return;
-    const span = document.createElement("span");
-    span.className = "tg-spoiler";
-    try { span.appendChild(sel.getRangeAt(0).extractContents()); sel.getRangeAt(0).insertNode(span); emit(); } catch { /* noop */ }
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+    const el = document.createElement(tagName);
+    if (className) el.className = className;
+    try {
+      el.appendChild(sel.getRangeAt(0).extractContents());
+      sel.getRangeAt(0).insertNode(el);
+      emit();
+    } catch { /* noop */ }
   }
+  function spoiler() { wrapSelection("span", "tg-spoiler"); }
+  function code() { wrapSelection("code"); }
 
   // ---- Ссылки-слова и @-упоминания ----
   // Вставить кликабельное слово по ссылке в позицию курсора.
@@ -237,7 +245,7 @@ export default function RichEditor({
         <button type="button" className="rich-btn" title="Курсив" onClick={() => cmd("italic")}><i>К</i></button>
         <button type="button" className="rich-btn" title="Подчёркнутый" onClick={() => cmd("underline")}><u>П</u></button>
         <button type="button" className="rich-btn" title="Зачёркнутый" onClick={() => cmd("strikeThrough")}><s>З</s></button>
-        <button type="button" className="rich-btn" title="Код (моноширинный)" onClick={() => cmd("formatBlock", "pre")}>{"</>"}</button>
+        <button type="button" className="rich-btn" title="Код (моноширинный) — выделите текст" onClick={code}>{"</>"}</button>
         <button type="button" className="rich-btn" title="Цитата" onClick={() => cmd("formatBlock", "blockquote")}>❝</button>
         <button type="button" className="rich-btn" title="Спойлер" onClick={spoiler}>▓</button>
         <button type="button" className="rich-btn" title="Ссылка на выделенном тексте" onClick={addLink}>🔗</button>

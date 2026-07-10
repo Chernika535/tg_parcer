@@ -258,6 +258,7 @@ button.chip { cursor: pointer; }
 .mention-item:hover, .mention-item:active { background: var(--surface-2); }
 .rich-area blockquote { margin: 6px 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--pink); color: var(--muted); }
 .rich-area pre { background: var(--surface-2); padding: 6px 8px; border-radius: 6px; white-space: pre-wrap; font-family: monospace; }
+.rich-area code { background: var(--surface-2); padding: 1px 4px; border-radius: 4px; font-family: monospace; }
 .rich-area { min-height: 120px; padding: 12px 14px; font-size: 15px; line-height: 1.5; outline: none; white-space: pre-wrap; word-break: break-word; color: var(--text); }
 .rich-area:empty::before { content: attr(data-ph); color: var(--muted); }
 .rich-area a { color: var(--pink); text-decoration: underline; }
