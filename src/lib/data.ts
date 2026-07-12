@@ -354,8 +354,35 @@ export async function listFavorites(): Promise<Post[]> {
   return d.posts ?? [];
 }
 
+// Перекладываем картинку в наш Storage (постоянный URL). Ссылки Telegram-CDN
+// со временем протухают, поэтому у сохранённых постов картинки переставали
+// грузиться — теперь копируем их себе в момент добавления в избранное.
+async function rehostImage(url?: string): Promise<string | undefined> {
+  if (!url) return url;
+  if (url.includes("/storage/v1/object/public/")) return url; // уже наше
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return url;
+    const blob = await r.blob();
+    if (!blob.size || blob.size > 8 * 1024 * 1024) return url; // пусто/слишком большое
+    const ext = (blob.type.split("/")[1] || "jpg").replace(/[^a-z0-9]/g, "") || "jpg";
+    return await uploadMedia(blob, ext);
+  } catch {
+    return url;
+  }
+}
+
 export async function addFavorite(post: Post): Promise<void> {
-  const d = (await invokeFn("myfeeds", { action: "fav_add", input: post as unknown as Record<string, unknown> })) as { error?: string };
+  // deno-lint-ignore no-explicit-any
+  const media = await Promise.all(((post.media ?? []) as any[]).map(async (m) => {
+    if (m.type === "photo" || m.type === "sticker") return { ...m, url: await rehostImage(m.url) };
+    if (m.type === "video" || m.type === "roundvideo") return { ...m, thumb: await rehostImage(m.thumb) };
+    if (m.type === "link" && m.image) return { ...m, image: await rehostImage(m.image) };
+    return m;
+  }));
+  const channelAvatar = await rehostImage(post.channelAvatar);
+  const persisted = { ...post, media, channelAvatar } as unknown as Record<string, unknown>;
+  const d = (await invokeFn("myfeeds", { action: "fav_add", input: persisted })) as { error?: string };
   if (d.error) throw new Error(d.error);
 }
 

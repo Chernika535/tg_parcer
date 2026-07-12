@@ -39,7 +39,7 @@ type Post = {
 const UA = "Mozilla/5.0 (compatible; FeedAggregator/1.0)";
 const TIMEOUT_MS = 8000;
 const HARD_MS = 9000;
-const CONCURRENCY = 8;
+const CONCURRENCY = 12;
 
 // База для прокси картинок задаётся клиентом (?imgbase=...): это либо домен
 // Onreza (/sb), либо сам Supabase. Если не передана — берём свой адрес.
