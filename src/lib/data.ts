@@ -128,6 +128,7 @@ export type Post = {
   channelTitle?: string;
   channelAvatar?: string;
   folder?: string | null; // папка избранного (только для сохранённых постов)
+  forwarded?: { name: string; channel?: string; link?: string }; // пересланное сообщение
 };
 
 function db() {

@@ -33,6 +33,7 @@ type Post = {
   views?: string;
   channelTitle?: string;
   channelAvatar?: string;
+  forwarded?: { name: string; channel?: string; link?: string };
 };
 
 const UA = "Mozilla/5.0 (compatible; FeedAggregator/1.0)";
@@ -323,6 +324,19 @@ function parsePosts(html: string, username: string): Post[] {
     const media = extractMedia(block);
     const views = attr(block, /tgme_widget_message_views[^>]*>([^<]+)/i);
 
+    // Пересланное сообщение: Telegram помечает источник (имя + ссылка на канал).
+    let forwarded: { name: string; channel?: string; link?: string } | undefined;
+    const nameM = block.match(/tgme_widget_message_forwarded_from_name"[^>]*>([\s\S]*?)<\/(?:a|span)>/i);
+    if (nameM) {
+      const name = decodeEntities(nameM[1].replace(/<[^>]+>/g, "")).trim();
+      if (name) {
+        const link = block.match(/tgme_widget_message_forwarded_from_name"[^>]*href="([^"]+)"/i)?.[1];
+        const cm = link?.match(/t\.me\/(?:s\/)?([^/?#]+)/i);
+        const channel = cm ? cm[1].toLowerCase().replace(/[^a-z0-9_]/g, "") : undefined;
+        forwarded = { name, channel, link };
+      }
+    }
+
     posts.push({
       channel: username,
       msgId,
@@ -334,6 +348,7 @@ function parsePosts(html: string, username: string): Post[] {
       views: views ? views.trim() : undefined,
       channelTitle: meta.title,
       channelAvatar: prox(meta.avatar),
+      forwarded,
     });
   }
   posts.sort((a, b) => a.postedAt.localeCompare(b.postedAt));

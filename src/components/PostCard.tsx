@@ -185,6 +185,21 @@ export default function PostCard({
         <AddChannelButton channel={post.channel} />
       </div>
 
+      {post.forwarded && (
+        <div className="post-fwd">
+          <span className="post-fwd-ico">⤷</span>
+          <span>Переслано из{" "}
+            {post.forwarded.channel ? (
+              <Link to={`/channel/${post.forwarded.channel}`} className="post-fwd-src">{post.forwarded.name}</Link>
+            ) : post.forwarded.link ? (
+              <a href={post.forwarded.link} target="_blank" rel="noreferrer" className="post-fwd-src">{post.forwarded.name}</a>
+            ) : (
+              <span className="post-fwd-src">{post.forwarded.name}</span>
+            )}
+          </span>
+        </div>
+      )}
+
       {nothing && (
         <a href={post.link} target="_blank" rel="noreferrer" className="media-doc" style={{ textAlign: "center" }}>
           📌 Пост нестандартного формата (опрос и т.п.). Открыть в канале ↗

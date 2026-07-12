@@ -447,6 +447,9 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .tag-badge.adult18 { background: #c1121f; color: #fff; }
 .adult-gate { text-align: center; padding: 24px 18px; }
 .guest-banner { border: 2px solid var(--ink); }
+.post-fwd { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 6px; padding-left: 8px; border-left: 3px solid var(--pink); font-size: 13px; color: var(--muted); }
+.post-fwd-ico { color: var(--pink); font-weight: 800; }
+.post-fwd-src { font-weight: 700; color: var(--ink); }
 .guest-banner-skip { display: block; width: 100%; margin-top: 12px; padding: 4px 0; background: none; border: none; color: var(--muted); font-size: 12px; text-decoration: underline; cursor: pointer; text-align: center; }
 .feed-card-body { padding: 14px; }
 .feed-card-title { font-family: var(--head); font-weight: 800; font-size: 16px; cursor: pointer; letter-spacing: -0.3px; color: var(--text); }

@@ -70,6 +70,7 @@ export default function FeedView() {
   const nav = useNavigate();
   const { session, profile } = useAuth();
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [renderLimit, setRenderLimit] = useState(40); // окно рендера постов (перф)
   const { liked, toggle: toggleLike } = useLikes(!!session);
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [feed, setFeed] = useState<Feed | null>(null);
@@ -313,18 +314,29 @@ export default function FeedView() {
   // Запоминаем позицию прокрутки ленты и восстанавливаем при возврате (со
   // свёрнутой вкладки/после перезагрузки), чтобы не начинать сверху.
   const restoredRef = useRef(false);
-  useEffect(() => { restoredRef.current = false; }, [feedId]);
+  useEffect(() => { restoredRef.current = false; setRenderLimit(40); }, [feedId]);
   useEffect(() => {
-    const save = () => { try { sessionStorage.setItem("tf_scroll_" + feedId, String(window.scrollY)); } catch { /* ignore */ } };
-    window.addEventListener("scroll", save, { passive: true });
-    return () => window.removeEventListener("scroll", save);
+    // Сохраняем позицию прокрутки и постепенно доращиваем окно рендера у низа
+    // страницы (иначе на больших лентах в DOM висят сотни карточек — тормозит).
+    const onScroll = () => {
+      try { sessionStorage.setItem("tf_scroll_" + feedId, String(window.scrollY)); } catch { /* ignore */ }
+      if (window.scrollY + window.innerHeight > document.body.scrollHeight - 1500) {
+        setRenderLimit((n) => n + 40);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, [feedId]);
   useEffect(() => {
     if (restoredRef.current || !posts || posts.length === 0) return;
     let y = 0;
     try { y = Number(sessionStorage.getItem("tf_scroll_" + feedId) || 0); } catch { /* ignore */ }
     restoredRef.current = true;
-    if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+    if (y > 0) {
+      // Доращиваем окно так, чтобы хватило контента до сохранённой позиции.
+      setRenderLimit((n) => Math.max(n, Math.ceil(y / 260) + 10));
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
   }, [posts, feedId]);
 
   async function toggleFav(post: Post) {
@@ -503,7 +515,7 @@ export default function FeedView() {
         {err && <ErrorState message={err} onRetry={load} />}
         {!err && (!posts || (openLoading && posts.length === 0)) && <Loading label="Читаю каналы…" />}
         {posts && posts.length === 0 && !openLoading && !mtLoading && !err && <Empty>Постов пока нет.</Empty>}
-        {posts?.map((p) => (
+        {posts?.slice(0, renderLimit).map((p) => (
           <PostCard
             key={`${p.channel}/${p.msgId}`}
             post={p}
@@ -514,7 +526,13 @@ export default function FeedView() {
           />
         ))}
 
-        {posts && posts.length > 0 && !openLoading && !mtLoading && (
+        {posts && renderLimit < posts.length && (
+          <button className="btn secondary" style={{ margin: "8px auto", display: "block" }} onClick={() => setRenderLimit((n) => n + 40)}>
+            Показать ещё
+          </button>
+        )}
+
+        {posts && posts.length > 0 && renderLimit >= posts.length && !openLoading && !mtLoading && (
           noMore ? (
             <div className="muted" style={{ textAlign: "center", padding: "14px 0" }}>Больше постов нет</div>
           ) : (
