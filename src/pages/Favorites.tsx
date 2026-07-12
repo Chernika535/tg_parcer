@@ -29,6 +29,7 @@ export default function Favorites() {
   const [folder, setFolder] = useState<string | "ALL" | "NONE">("ALL");
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [stream, setStream] = useState<Post[] | null>(null);
+  const [streamDays, setStreamDays] = useState(0); // 0 = только сегодня, +1 день за клик
   const [tags, setTags] = useState<string[] | null>(null);
   const [err, setErr] = useState("");
   const { liked, toggle: toggleLike } = useLikes(true);
@@ -180,13 +181,28 @@ export default function Favorites() {
           </>
         )}
 
-        {tab === "stream" && (
-          <>
-            {!stream && !err && <Loading label="Собираю ленту из избранных…" />}
-            {stream && stream.length === 0 && <Empty>Пусто. Добавьте ленты в избранное.</Empty>}
-            {stream?.map((p) => <PostCard key={`${p.channel}/${p.msgId}`} post={p} isLiked={liked.has(p.link)} onToggleLike={toggleLike} />)}
-          </>
-        )}
+        {tab === "stream" && (() => {
+          // Сначала показываем только сегодняшние посты, по кнопке — на день раньше.
+          const now = new Date();
+          const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - streamDays).getTime();
+          const shownStream = (stream ?? []).filter((p) => new Date(p.postedAt).getTime() >= cutoff);
+          const hasOlder = (stream ?? []).some((p) => new Date(p.postedAt).getTime() < cutoff);
+          return (
+            <>
+              {!stream && !err && <Loading label="Собираю ленту из избранных…" />}
+              {stream && stream.length === 0 && <Empty>Пусто. Добавьте ленты в избранное.</Empty>}
+              {stream && stream.length > 0 && shownStream.length === 0 && (
+                <div className="muted" style={{ padding: "8px 0" }}>За сегодня постов нет.</div>
+              )}
+              {shownStream.map((p) => <PostCard key={`${p.channel}/${p.msgId}`} post={p} isLiked={liked.has(p.link)} onToggleLike={toggleLike} />)}
+              {hasOlder && (
+                <button className="btn secondary" style={{ margin: "8px auto", display: "block" }} onClick={() => setStreamDays((d) => d + 1)}>
+                  Показать более ранние посты
+                </button>
+              )}
+            </>
+          );
+        })()}
       </div>
     </>
   );

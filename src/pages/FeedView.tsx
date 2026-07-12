@@ -70,7 +70,7 @@ export default function FeedView() {
   const nav = useNavigate();
   const { session, profile } = useAuth();
   const [ageConfirmed, setAgeConfirmed] = useState(false);
-  const [renderLimit, setRenderLimit] = useState(40); // окно рендера постов (перф)
+  const [renderLimit, setRenderLimit] = useState(15); // окно рендера постов (перф)
   const { liked, toggle: toggleLike } = useLikes(!!session);
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [feed, setFeed] = useState<Feed | null>(null);
@@ -314,14 +314,14 @@ export default function FeedView() {
   // Запоминаем позицию прокрутки ленты и восстанавливаем при возврате (со
   // свёрнутой вкладки/после перезагрузки), чтобы не начинать сверху.
   const restoredRef = useRef(false);
-  useEffect(() => { restoredRef.current = false; setRenderLimit(40); }, [feedId]);
+  useEffect(() => { restoredRef.current = false; setRenderLimit(15); }, [feedId]);
   useEffect(() => {
     // Сохраняем позицию прокрутки и постепенно доращиваем окно рендера у низа
     // страницы (иначе на больших лентах в DOM висят сотни карточек — тормозит).
     const onScroll = () => {
       try { sessionStorage.setItem("tf_scroll_" + feedId, String(window.scrollY)); } catch { /* ignore */ }
       if (window.scrollY + window.innerHeight > document.body.scrollHeight - 1500) {
-        setRenderLimit((n) => n + 40);
+        setRenderLimit((n) => n + 15);
       }
     };
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -527,7 +527,7 @@ export default function FeedView() {
         ))}
 
         {posts && renderLimit < posts.length && (
-          <button className="btn secondary" style={{ margin: "8px auto", display: "block" }} onClick={() => setRenderLimit((n) => n + 40)}>
+          <button className="btn secondary" style={{ margin: "8px auto", display: "block" }} onClick={() => setRenderLimit((n) => n + 15)}>
             Показать ещё
           </button>
         )}
