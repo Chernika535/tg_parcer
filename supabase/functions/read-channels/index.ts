@@ -3,11 +3,20 @@
 // на холодном старте долго и функция не укладывается в лимит → "Failed to fetch").
 // Вытаскиваем текст, фото, превью видео, голос, стикеры, превью ссылок, аватар.
 
+import { createClient } from "npm:@supabase/supabase-js@2.108.2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
+
+// Серверный кэш постов каналов: t.me/s читаем не чаще, чем раз в CACHE_TTL_MS,
+// остальное отдаём из таблицы channel_posts_cache (общей для всех).
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SB_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const cacheDb = SB_URL && SB_SERVICE ? createClient(SB_URL, SB_SERVICE, { auth: { persistSession: false } }) : null;
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "content-type": "application/json" } });
 }
@@ -431,18 +440,48 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ channels: infos.filter(Boolean) });
     }
 
-    const posts: Post[] = [];
-    const unavailable: string[] = [];
+    // 1) Что уже есть в кэше (и насколько свежо).
+    const cached = new Map<string, { posts: Post[]; fresh: boolean }>();
+    if (cacheDb) {
+      try {
+        const { data } = await cacheDb.from("channel_posts_cache")
+          .select("username, posts, updated_at").in("username", channels);
+        for (const r of (data ?? []) as { username: string; posts: Post[]; updated_at: string }[]) {
+          cached.set(r.username, { posts: r.posts ?? [], fresh: Date.now() - new Date(r.updated_at).getTime() < CACHE_TTL_MS });
+        }
+      } catch { /* кэш недоступен — читаем всё вживую */ }
+    }
+
+    // 2) Живьём читаем только устаревшие/отсутствующие каналы.
+    const toFetch = channels.filter((ch) => !cached.get(ch)?.fresh);
+    const fetched = new Map<string, Post[]>();
     let i = 0;
     async function worker() {
-      while (i < channels.length) {
-        const ch = channels[i++];
-        const p = await fetchChannel(ch);
-        if (p.length === 0) unavailable.push(ch);
-        else posts.push(...p);
+      while (i < toFetch.length) {
+        const ch = toFetch[i++];
+        fetched.set(ch, await fetchChannel(ch));
       }
     }
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, channels.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, toFetch.length) }, worker));
+
+    // 3) Обновляем кэш для тех, что реально прочитались (непустые).
+    if (cacheDb) {
+      const rows = [...fetched.entries()].filter(([, p]) => p.length > 0)
+        .map(([username, p]) => ({ username, posts: p, updated_at: new Date().toISOString() }));
+      if (rows.length) { try { await cacheDb.from("channel_posts_cache").upsert(rows); } catch { /* не критично */ } }
+    }
+
+    // 4) Собираем ответ: свежий кэш → живое чтение → устаревший кэш (fallback).
+    const posts: Post[] = [];
+    const unavailable: string[] = [];
+    for (const ch of channels) {
+      const c = cached.get(ch);
+      if (c?.fresh) { posts.push(...c.posts); continue; }
+      const live = fetched.get(ch);
+      if (live && live.length) { posts.push(...live); continue; }
+      if (c && c.posts.length) { posts.push(...c.posts); continue; } // Telegram не ответил — отдаём старое
+      unavailable.push(ch);
+    }
     posts.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
     return jsonResponse({ posts, unavailable });
   } catch (e) {
