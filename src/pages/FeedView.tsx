@@ -332,11 +332,18 @@ export default function FeedView() {
     let y = 0;
     try { y = Number(sessionStorage.getItem("tf_scroll_" + feedId) || 0); } catch { /* ignore */ }
     restoredRef.current = true;
-    if (y > 0) {
-      // Доращиваем окно так, чтобы хватило контента до сохранённой позиции.
-      setRenderLimit((n) => Math.max(n, Math.ceil(y / 260) + 10));
-      requestAnimationFrame(() => window.scrollTo(0, y));
-    }
+    if (y <= 0) return;
+    // Доращиваем окно, чтобы хватило контента до сохранённой позиции.
+    setRenderLimit((n) => Math.max(n, Math.ceil(y / 220) + 15));
+    // Картинки подгружаются и высота растёт уже после первого кадра — поэтому
+    // «подталкиваем» прокрутку к нужному месту несколько раз, пока не попадём.
+    let tries = 0;
+    const iv = setInterval(() => {
+      window.scrollTo(0, y);
+      tries++;
+      if (tries >= 24 || Math.abs(window.scrollY - y) <= 6) clearInterval(iv);
+    }, 120);
+    return () => clearInterval(iv);
   }, [posts, feedId]);
 
   async function toggleFav(post: Post) {

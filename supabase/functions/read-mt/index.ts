@@ -127,7 +127,7 @@ Deno.serve(async (req: Request) => {
     const { data: row } = await db.from("tg_session").select("session").eq("id", "default").maybeSingle();
     if (!row?.session) return json({ posts: [], unavailable: [], noAccount: true });
 
-    const body = (await req.json()) as { channels?: string[]; one?: { channel?: string; msgId?: number }; pinned?: { channel?: string }; meta?: { channel?: string } };
+    const body = (await req.json()) as { channels?: string[]; one?: { channel?: string; msgId?: number }; post?: { channel?: string; msgId?: number }; pinned?: { channel?: string }; meta?: { channel?: string } };
 
     // Режим «мета канала» (название/аватар) — для карточки канала в редакторе
     // ленты, когда публичного превью t.me/s недостаточно.
@@ -238,6 +238,91 @@ Deno.serve(async (req: Request) => {
       } catch (e) {
         try { await client.disconnect(); } catch { /* ignore */ }
         return json({ error: (e as Error).message || String(e) });
+      }
+    }
+
+    // Один КОНКРЕТНЫЙ пост по id (для ссылки «поделиться постом» — работает и для
+    // старых постов любой давности, и для открытых, и для закрытых каналов).
+    if (body.post?.channel && body.post?.msgId) {
+      const ch = norm(body.post.channel);
+      const center = Number(body.post.msgId);
+      if (!ch || !center) return json({ post: null });
+      const tg = await import("npm:telegram@2.26.22");
+      const client = new tg.TelegramClient(new tg.sessions.StringSession(row.session), API_ID, API_HASH, { connectionRetries: 2, useWSS: true });
+      await withTimeout(client.connect(), 9000);
+      try {
+        // deno-lint-ignore no-explicit-any
+        let entity: any = null;
+        try {
+          // deno-lint-ignore no-explicit-any
+          const res: any = await withTimeout(client.invoke(new (tg as any).Api.contacts.ResolveUsername({ username: ch })), 6000);
+          entity = res.chats?.[0] ?? res.users?.[0];
+        } catch { /* ниже */ }
+        if (!entity) { try { entity = await withTimeout(client.getEntity(ch), 4000); } catch { /* нет */ } }
+        if (!entity) { try { await client.disconnect(); } catch { /* ignore */ } return json({ post: null }); }
+
+        const channelTitle: string | undefined = entity.title || entity.username;
+        let channelAvatar: string | undefined;
+        try {
+          const buf = await withTimeout(client.downloadProfilePhoto(entity), 5000) as Uint8Array;
+          if (buf?.length && buf.length < 3_000_000) channelAvatar = `data:image/jpeg;base64,${encodeBase64(buf)}`;
+        } catch { /* без аватарки */ }
+
+        // Берём окно id вокруг искомого — чтобы собрать альбом (grouped_id).
+        const ids: number[] = [];
+        for (let d = -9; d <= 9; d++) ids.push(center + d);
+        // deno-lint-ignore no-explicit-any
+        const msgs: any[] = await withTimeout(client.getMessages(entity, { ids } as any), 9000);
+        const main = (msgs ?? []).find((x) => x && x.id === center);
+        if (!main) { try { await client.disconnect(); } catch { /* ignore */ } return json({ post: null }); }
+        const gid = main.groupedId ? main.groupedId.toString() : null;
+        // deno-lint-ignore no-explicit-any
+        const group: any[] = gid ? (msgs.filter((x) => x && x.groupedId && x.groupedId.toString() === gid)) : [main];
+        group.sort((a, b) => a.id - b.id);
+        const withText = group.find((x) => x.message && x.message.length) ?? group[0];
+        const text = stripReactions(entitiesToHtml(withText.message ?? "", withText.entities ?? []));
+        const head = group[0];
+
+        // deno-lint-ignore no-explicit-any
+        const media: Record<string, unknown>[] = [];
+        for (const m of group) {
+          try {
+            if (m.photo) {
+              const buf = await withTimeout(client.downloadMedia(m, {}), 15000) as Uint8Array;
+              if (buf?.length && buf.length < 6_000_000) media.push({ type: "photo", url: `data:image/jpeg;base64,${encodeBase64(buf)}` });
+            } else if (m.videoNote) {
+              const th = await withTimeout(client.downloadMedia(m, { thumb: -1 }), 8000) as Uint8Array;
+              media.push({ type: "roundvideo", thumb: th?.length ? `data:image/jpeg;base64,${encodeBase64(th)}` : undefined });
+            } else if (m.video || m.gif) {
+              const th = await withTimeout(client.downloadMedia(m, { thumb: -1 }), 8000) as Uint8Array;
+              media.push({ type: "video", thumb: th?.length ? `data:image/jpeg;base64,${encodeBase64(th)}` : undefined });
+            } else if (m.voice) {
+              media.push({ type: "voice" });
+            } else if (m.audio) {
+              let title: string | undefined, performer: string | undefined;
+              for (const at of m.audio.attributes ?? []) { if (at.title) title = at.title; if (at.performer) performer = at.performer; if (at.fileName && !title) title = at.fileName; }
+              media.push({ type: "audio", title, performer });
+            } else if (m.document && !m.sticker) {
+              let name = "файл";
+              for (const a of m.document.attributes ?? []) if (a.fileName) name = a.fileName;
+              media.push({ type: "document", title: name });
+            } else if (m.webPreview) {
+              const w = m.webPreview;
+              media.push({ type: "link", href: w.url, site: w.siteName, title: w.title, description: w.description });
+            }
+          } catch { /* пропускаем медиа */ }
+        }
+        try { await client.disconnect(); } catch { /* ignore */ }
+        if (!text && media.length === 0) return json({ post: null });
+        return json({ post: {
+          channel: ch, msgId: head.id,
+          postedAt: new Date((head.date ?? 0) * 1000).toISOString(),
+          text, hasMedia: media.length > 0, media,
+          link: `https://t.me/${ch}/${head.id}`, channelTitle, channelAvatar,
+        } });
+      } catch (e) {
+        try { await client.disconnect(); } catch { /* ignore */ }
+        return json({ post: null, error: (e as Error).message || String(e) });
       }
     }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { readChannels, readChannelsMTServer, readChannelsMT, type Post } from "../lib/data.ts";
+import { readChannels, readChannelsMTServer, readChannelsMT, postByIdMT, type Post } from "../lib/data.ts";
 import { Loading, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import { useAuth } from "../lib/auth.tsx";
@@ -21,7 +21,7 @@ export default function PostView() {
       setLoading(true);
       const find = (posts: Post[]) => posts.find((p) => p.channel === channel && p.msgId === id) ?? null;
       try {
-        // Открытый канал.
+        // Сначала ищем среди свежих записей (быстро, из кэша).
         const r = await readChannels([channel]);
         let p = find(r.posts);
         // Закрытый канал — пробуем через MTProto (сервер, затем браузер).
@@ -33,6 +33,9 @@ export default function PostView() {
             p = find(br.posts);
           }
         }
+        // Не нашли среди свежих (например, пост месячной давности) — тянем ровно
+        // этот пост по id через MTProto: работает для постов любой давности.
+        if (!p) p = await postByIdMT(channel, id);
         setPost(p);
       } catch {
         setPost(null);

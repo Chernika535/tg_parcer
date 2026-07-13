@@ -631,6 +631,17 @@ export async function readChannelsMTServer(
   }
 }
 
+// Один конкретный пост по id (для ссылки «поделиться постом») — работает и для
+// старых постов любой давности, через MTProto на сервере.
+export async function postByIdMT(channel: string, msgId: number): Promise<Post | null> {
+  try {
+    const d = (await mtCall("read-mt", { post: { channel, msgId } }, 38000)) as { post?: Post | null };
+    return d.post ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Статистика канала для его автора (иначе — null).
 export type ChannelStats = { favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> };
 export async function channelStats(username: string): Promise<ChannelStats | null> {
