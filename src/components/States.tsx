@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 export function Loading({ label = "Загрузка…" }: { label?: string }) {
   return (
     <div className="state">
@@ -28,10 +30,12 @@ export function TopBar({
   title,
   subtitle,
   onBack,
+  action,
 }: {
   title: string;
   subtitle?: string;
   onBack?: () => void;
+  action?: ReactNode;
 }) {
   return (
     <header className="topbar">
@@ -44,6 +48,7 @@ export function TopBar({
         <h1>{title}</h1>
         {subtitle && <div className="topbar-sub">{subtitle}</div>}
       </div>
+      {action}
     </header>
   );
 }

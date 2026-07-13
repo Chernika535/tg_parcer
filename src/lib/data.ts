@@ -716,14 +716,18 @@ export async function readChannelsMT(
 // ---- Чтение каналов через серверную edge-функцию ----
 export async function readChannels(
   channels: string[],
+  opts?: { fresh?: boolean },
 ): Promise<{ posts: Post[]; unavailable: string[] }> {
   if (channels.length === 0) return { posts: [], unavailable: [] };
   // GET: каналы через query. imgbase — чтобы картинки-прокси указывали на тот же
   // адрес, что использует клиент (Onreza /sb или напрямую Supabase).
-  const data = await invokeFnGet("read-channels", {
+  // fresh=1 — обход серверного кэша (кнопка «обновить» в ленте).
+  const params: Record<string, string> = {
     channels: channels.join(","),
     imgbase: appConfig().supabaseUrl,
-  });
+  };
+  if (opts?.fresh) params.fresh = "1";
+  const data = await invokeFnGet("read-channels", params);
   return data as { posts: Post[]; unavailable: string[] };
 }
 

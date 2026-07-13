@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   listFavorites,
+  favoriteLinks,
+  addFavorite,
   removeFavorite,
   setFavoriteFolder,
   favoriteFeeds,
@@ -32,9 +34,51 @@ export default function Favorites() {
   const [streamDays, setStreamDays] = useState(0); // 0 = только сегодня, +1 день за клик
   const [tags, setTags] = useState<string[] | null>(null);
   const [err, setErr] = useState("");
+  const [streamFav, setStreamFav] = useState<Set<string>>(new Set()); // избранные посты (для звёздочки в Ленте)
+  const [repairing, setRepairing] = useState(false);
   const { liked, toggle: toggleLike } = useLikes(true);
   const { profile } = useAuth();
   const adultOk = isAdultAllowed(profile?.birth_date);
+
+  // Пометить/снять пост в избранном прямо из «Ленты» (или любого потока постов).
+  async function toggleStreamFav(post: Post) {
+    const next = new Set(streamFav);
+    if (next.has(post.link)) {
+      next.delete(post.link); setStreamFav(next);
+      await removeFavorite(post.link);
+      setPosts((prev) => (prev ? prev.filter((p) => p.link !== post.link) : prev));
+    } else {
+      next.add(post.link); setStreamFav(next);
+      await addFavorite(post);
+      setPosts(null); // список сохранённых пересоберётся при заходе во вкладку
+    }
+  }
+
+  // Разовая «починка» картинок у уже сохранённых постов: перечитываем каналы и
+  // пере-сохраняем найденные посты (теперь картинки копируются в наш Storage).
+  async function repairPosts() {
+    setRepairing(true); setErr("");
+    try {
+      const favs = await listFavorites();
+      const channels = [...new Set(favs.map((p) => p.channel))];
+      const { posts: fresh } = await readChannels(channels, { fresh: true });
+      const byKey = new Map(fresh.map((p) => [`${p.channel}/${p.msgId}`, p]));
+      let fixed = 0;
+      for (const f of favs) {
+        const fp = byKey.get(`${f.channel}/${f.msgId}`);
+        if (fp && fp.media.length > 0) { await addFavorite({ ...fp, folder: f.folder }); fixed++; }
+      }
+      setPosts(null);
+      setErr(fixed ? "" : "Свежих версий постов не нашлось — часть постов уже недоступна в каналах.");
+      if (tab === "posts") listFavorites().then(setPosts).catch(() => {});
+    } catch (e) {
+      setErr("Не удалось обновить: " + (e as Error).message);
+    } finally {
+      setRepairing(false);
+    }
+  }
+
+  useEffect(() => { favoriteLinks().then((l) => setStreamFav(new Set(l))).catch(() => {}); }, []);
 
   useEffect(() => {
     if (tab === "posts" && !posts) listFavorites().then(setPosts).catch((e) => setErr(e.message));
@@ -107,6 +151,14 @@ export default function Favorites() {
           return (
             <>
               {!posts && !err && <Loading />}
+              {posts && posts.length > 0 && (
+                <div className="row spread" style={{ marginBottom: 8 }}>
+                  <span className="muted" style={{ fontSize: 12 }}>Картинки у старых постов не грузятся? Обновите их из каналов.</span>
+                  <button className="btn ghost sm" onClick={repairPosts} disabled={repairing}>
+                    {repairing ? "Обновляю…" : "↻ Обновить картинки"}
+                  </button>
+                </div>
+              )}
               {posts && posts.length === 0 && <Empty>Пока пусто. Нажимайте ♥ на постах.</Empty>}
               {posts && posts.length > 0 && (() => {
                 const noneCount = (posts ?? []).filter((p) => !p.folder).length;
@@ -194,7 +246,7 @@ export default function Favorites() {
               {stream && stream.length > 0 && shownStream.length === 0 && (
                 <div className="muted" style={{ padding: "8px 0" }}>За сегодня постов нет.</div>
               )}
-              {shownStream.map((p) => <PostCard key={`${p.channel}/${p.msgId}`} post={p} isLiked={liked.has(p.link)} onToggleLike={toggleLike} />)}
+              {shownStream.map((p) => <PostCard key={`${p.channel}/${p.msgId}`} post={p} isFav={streamFav.has(p.link)} onToggleFav={toggleStreamFav} isLiked={liked.has(p.link)} onToggleLike={toggleLike} />)}
               {hasOlder && (
                 <button className="btn secondary" style={{ margin: "8px auto", display: "block" }} onClick={() => setStreamDays((d) => d + 1)}>
                   Показать более ранние посты

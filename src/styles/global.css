@@ -450,6 +450,10 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .post-fwd { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 6px; padding-left: 8px; border-left: 3px solid var(--pink); font-size: 13px; color: var(--muted); }
 .post-fwd-ico { color: var(--pink); font-weight: 800; }
 .post-fwd-src { font-weight: 700; color: var(--ink); }
+.topbar-refresh { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--ink); background: var(--pink); color: #fff; font-size: 20px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.topbar-refresh:disabled { opacity: 0.6; }
+.topbar-refresh .spin { display: inline-block; animation: tf-spin 0.8s linear infinite; }
+@keyframes tf-spin { to { transform: rotate(360deg); } }
 .guest-banner-skip { display: block; width: 100%; margin-top: 12px; padding: 4px 0; background: none; border: none; color: var(--muted); font-size: 12px; text-decoration: underline; cursor: pointer; text-align: center; }
 .feed-card-body { padding: 14px; }
 .feed-card-title { font-family: var(--head); font-weight: 800; font-size: 16px; cursor: pointer; letter-spacing: -0.3px; color: var(--text); }

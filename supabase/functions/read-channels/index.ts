@@ -393,20 +393,23 @@ Deno.serve(async (req: Request) => {
     let raw: string[] = [];
     let imgbase = "";
     let infoOnly = false;
+    let forceFresh = false;
     let cursors: { channel?: string; before?: number }[] = [];
     if (req.method === "GET") {
       const sp = new URL(req.url).searchParams;
       raw = (sp.get("channels") ?? "").split(",");
       imgbase = sp.get("imgbase") ?? "";
       infoOnly = sp.get("info") === "1";
+      forceFresh = sp.get("fresh") === "1";
     } else {
       const body = (await req.json().catch(() => ({}))) as {
-        channels?: string[]; imgbase?: string; info?: boolean;
+        channels?: string[]; imgbase?: string; info?: boolean; fresh?: boolean;
         cursors?: { channel?: string; before?: number }[];
       };
       raw = body.channels ?? [];
       imgbase = body.imgbase ?? "";
       infoOnly = !!body.info;
+      forceFresh = !!body.fresh;
       cursors = body.cursors ?? [];
     }
     if (imgbase) IMG_BASE = imgbase;
@@ -452,8 +455,9 @@ Deno.serve(async (req: Request) => {
       } catch { /* кэш недоступен — читаем всё вживую */ }
     }
 
-    // 2) Живьём читаем только устаревшие/отсутствующие каналы.
-    const toFetch = channels.filter((ch) => !cached.get(ch)?.fresh);
+    // 2) Живьём читаем устаревшие/отсутствующие каналы (или ВСЕ при forceFresh —
+    // кнопка «обновить» в ленте, когда нужны свежие посты немедленно).
+    const toFetch = forceFresh ? channels : channels.filter((ch) => !cached.get(ch)?.fresh);
     const fetched = new Map<string, Post[]>();
     let i = 0;
     async function worker() {

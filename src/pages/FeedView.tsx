@@ -215,7 +215,7 @@ export default function FeedView() {
     }
   }
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (forceFresh = false) => {
     setErr("");
     setMtNote("");
     setPreview(null);
@@ -258,7 +258,7 @@ export default function FeedView() {
       // Так один холодный старт функции вместо 12 — заметно быстрее и надёжнее.
       let unavail: string[] = [];
       try {
-        const r = await readChannels(f.channels);
+        const r = await readChannels(f.channels, { fresh: forceFresh });
         r.posts.forEach(mergePost);
         unavail = r.unavailable;
       } catch (e) {
@@ -354,7 +354,7 @@ export default function FeedView() {
 
   async function refresh() {
     setRefreshing(true);
-    await load();
+    await load(true); // кнопка «обновить» — берём свежие посты в обход кэша
     setRefreshing(false);
   }
 

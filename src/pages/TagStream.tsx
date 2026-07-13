@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { loadPublic, readChannels, favTags, addFavTag, removeFavTag, favoriteLinks, addFavorite, removeFavorite, type Post } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
@@ -19,6 +19,7 @@ export default function TagStream() {
   const [count, setCount] = useState(0);
   const [fav, setFav] = useState(false);
   const [postFav, setPostFav] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (session) favoriteLinks().then((l) => setPostFav(new Set(l))).catch(() => {});
@@ -30,24 +31,26 @@ export default function TagStream() {
     else { next.add(post.link); setPostFav(next); await addFavorite(post); }
   }
 
-  useEffect(() => {
-    (async () => {
-      setPosts(null);
-      try {
-        const { feeds } = await loadPublic();
-        let tagged = feeds.filter((f) => (f.tags || []).includes(t));
-        // Ленты 18+ скрываем, если возраст не подтверждён / нет даты рождения.
-        if (!adultOk) tagged = tagged.filter((f) => !f.adult);
-        setCount(tagged.length);
-        const channels = [...new Set(tagged.flatMap((f) => f.channels))];
-        if (channels.length === 0) { setPosts([]); return; }
-        const { posts } = await readChannels(channels);
-        setPosts(posts);
-      } catch {
-        setPosts([]);
-      }
-    })();
+  const load = useCallback(async (fresh = false) => {
+    if (fresh) setRefreshing(true); else setPosts(null);
+    try {
+      const { feeds } = await loadPublic();
+      let tagged = feeds.filter((f) => (f.tags || []).includes(t));
+      // Ленты 18+ скрываем, если возраст не подтверждён / нет даты рождения.
+      if (!adultOk) tagged = tagged.filter((f) => !f.adult);
+      setCount(tagged.length);
+      const channels = [...new Set(tagged.flatMap((f) => f.channels))];
+      if (channels.length === 0) { setPosts([]); return; }
+      const { posts } = await readChannels(channels, { fresh });
+      setPosts(posts);
+    } catch {
+      setPosts((p) => p ?? []);
+    } finally {
+      setRefreshing(false);
+    }
   }, [t, adultOk]);
+
+  useEffect(() => { load(false); }, [load]);
 
   useEffect(() => {
     if (session) favTags().then((tags) => setFav(tags.includes(t)));
@@ -60,7 +63,15 @@ export default function TagStream() {
 
   return (
     <>
-      <TopBar title={`#${t}`} onBack={() => nav(-1)} />
+      <TopBar
+        title={`#${t}`}
+        onBack={() => nav(-1)}
+        action={
+          <button className="topbar-refresh" onClick={() => load(true)} disabled={refreshing} aria-label="Обновить" title="Загрузить свежие посты">
+            <span className={refreshing ? "spin" : ""}>↻</span>
+          </button>
+        }
+      />
       <div className="content">
         <div className="row spread">
           <span className="muted">{count} лент с этим тегом</span>
