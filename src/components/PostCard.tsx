@@ -55,50 +55,30 @@ function bust(url: string, n: number): string {
 function RImg({ src, className }: { src: string; className?: string }) {
   const [n, setN] = useState(0);
   const [failed, setFailed] = useState(false);
-  const autoRef = useRef(0);
-  // Первая загрузка картинки из Telegram-CDN часто отваливается по таймауту —
-  // пробуем сами до 3 раз с нарастающей паузой, и только потом просим кликнуть.
-  function onError() {
-    if (autoRef.current < 3) {
-      autoRef.current++;
-      setTimeout(() => setN((x) => x + 1), 500 * autoRef.current);
-    } else {
-      setFailed(true);
-    }
-  }
   if (failed) {
     return (
       <button
         type="button"
         className={`media-retry ${className ?? ""}`}
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFailed(false); autoRef.current = 0; setN((x) => x + 1); }}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFailed(false); setN((x) => x + 1); }}
         title="Загрузить ещё раз"
       >↻</button>
     );
   }
-  return <img className={className} alt="" loading="lazy" src={bust(src, n)} onError={onError} />;
+  return <img className={className} alt="" loading="lazy" src={bust(src, n)} onError={() => setFailed(true)} />;
 }
 
 function RVideo({ url, thumb, round }: { url: string; thumb?: string; round?: boolean }) {
   const [n, setN] = useState(0);
   const [failed, setFailed] = useState(false);
-  const autoRef = useRef(0);
-  function onError() {
-    if (autoRef.current < 2) {
-      autoRef.current++;
-      setTimeout(() => setN((x) => x + 1), 600 * autoRef.current);
-    } else {
-      setFailed(true);
-    }
-  }
   if (failed) {
     return (
-      <button type="button" className="media-retry block" onClick={() => { setFailed(false); autoRef.current = 0; setN((x) => x + 1); }}>
+      <button type="button" className="media-retry block" onClick={() => { setFailed(false); setN((x) => x + 1); }}>
         ↻ Видео не загрузилось — повторить
       </button>
     );
   }
-  if (round) return <RoundVideo src={bust(url, n)} thumb={thumb ? bust(thumb, n) : undefined} onError={onError} />;
+  if (round) return <RoundVideo src={bust(url, n)} thumb={thumb ? bust(thumb, n) : undefined} onError={() => setFailed(true)} />;
   return (
     <video
       className="media-video"
@@ -107,7 +87,7 @@ function RVideo({ url, thumb, round }: { url: string; thumb?: string; round?: bo
       controls
       playsInline
       preload="metadata"
-      onError={onError}
+      onError={() => setFailed(true)}
     />
   );
 }
