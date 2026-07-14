@@ -11,6 +11,7 @@ import { Loading, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import { linkify } from "../lib/linkify.tsx";
 import { useLikes } from "../lib/useLikes.ts";
+import { tgUrl } from "../lib/share.ts";
 
 function normCh(c: string): string {
   return c.trim().toLowerCase()
@@ -165,11 +166,11 @@ export default function ChannelView() {
             )}
             <div>
               <div style={{ fontWeight: 800, fontSize: 18 }}>{title}</div>
-              <a className="muted" href={`https://t.me/${ch}`} target="_blank" rel="noreferrer">@{ch}</a>
+              <a className="muted" href={tgUrl(ch)} target="_blank" rel="noreferrer">@{ch}</a>
             </div>
           </div>
           {info?.description && <div className="post-text" style={{ marginTop: 10 }}>{linkify(info.description)}</div>}
-          <a className="btn secondary sm" style={{ marginTop: 10 }} href={`https://t.me/${ch}`} target="_blank" rel="noreferrer">
+          <a className="btn secondary sm" style={{ marginTop: 10 }} href={tgUrl(ch)} target="_blank" rel="noreferrer">
             Открыть канал в Telegram ↗
           </a>
           {stats && (

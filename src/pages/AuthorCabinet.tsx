@@ -15,7 +15,7 @@ function BotLinkHelp() {
   const bot = appConfig().botUsername;
   const { profile } = useAuth();
   const rights = "post_messages+edit_messages+delete_messages+pin_messages+change_info";
-  const addLink = `https://t.me/${bot}?startchannel&admin=${rights}`;
+  const addLink = `https://telegram.me/${bot}?startchannel&admin=${rights}`;
   return (
     <div className="bot-help">
       {!profile?.telegram_id && (

@@ -5,6 +5,7 @@ import { Loading, Empty, TopBar } from "../components/States.tsx";
 import PostCard from "../components/PostCard.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useLikes } from "../lib/useLikes.ts";
+import { tgUrl } from "../lib/share.ts";
 
 // Отдельная страница поста — для ссылок «поделиться постом» внутри сервиса.
 export default function PostView() {
@@ -54,7 +55,7 @@ export default function PostView() {
         {!loading && !post && (
           <Empty>
             Пост не найден в свежих записях канала.{" "}
-            <a className="ln" href={`https://t.me/${channel}/${id}`} target="_blank" rel="noreferrer">
+            <a className="ln" href={tgUrl(`${channel}/${id}`)} target="_blank" rel="noreferrer">
               Открыть в Telegram ↗
             </a>
           </Empty>

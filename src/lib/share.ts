@@ -31,3 +31,13 @@ export function channelUrl(channel: string): string {
 export function postUrl(channel: string, msgId: number): string {
   return `${location.origin}/#/post/${channel}/${msgId}`;
 }
+
+// Пользовательские ссылки «Открыть в Telegram». t.me бывает недоступен в браузере,
+// поэтому наружу отдаём равнозначное зеркало telegram.me (приложение Telegram
+// одинаково перехватывает оба домена). Идентификатор поста (post.link) НЕ трогаем.
+export function tgUrl(path: string): string {
+  return `https://telegram.me/${path}`;
+}
+export function tgMirror(link: string): string {
+  return (link || "").replace(/^https?:\/\/(?:t\.me|telegram\.me|telegram\.dog)\//i, "https://telegram.me/");
+}

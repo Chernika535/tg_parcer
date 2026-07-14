@@ -3,11 +3,21 @@
 // на холодном старте долго и функция не укладывается в лимит → "Failed to fetch").
 // Вытаскиваем текст, фото, превью видео, голос, стикеры, превью ссылок, аватар.
 
+import { createClient } from "npm:@supabase/supabase-js@2.108.2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
+
+// Серверный кэш постов (общий для всех). ВАЖНО: в кэше храним СЫРЫЕ ссылки на
+// медиа Telegram; проксирование через /img применяем уже при отдаче (proxify),
+// поэтому кэш не зависит от imgbase конкретного клиента.
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SB_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const cacheDb = SB_URL && SB_SERVICE ? createClient(SB_URL, SB_SERVICE, { auth: { persistSession: false } }) : null;
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "content-type": "application/json" } });
 }
@@ -75,6 +85,20 @@ function prox(url: string | undefined): string | undefined {
   // Декодим HTML-сущности (t.me/s кодирует & как &amp; в адресах) — иначе адрес битый.
   const clean = url.replace(/&amp;/g, "&").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
   return `${IMG_BASE.replace(/\/$/, "")}/functions/v1/img?u=${encodeURIComponent(clean)}`;
+}
+
+// Оборачиваем СЫРЫЕ ссылки поста в прокси /img (по текущему IMG_BASE запроса).
+// Применяем при отдаче — и к свежим, и к взятым из кэша постам.
+function proxifyPost(p: Post): Post {
+  // deno-lint-ignore no-explicit-any
+  const media = (p.media ?? []).map((m: any) => {
+    const x = { ...m };
+    if (x.url && x.type !== "document" && x.type !== "link") x.url = prox(x.url);
+    if (x.thumb) x.thumb = prox(x.thumb);
+    if (x.image) x.image = prox(x.image);
+    return x;
+  });
+  return { ...p, channelAvatar: prox(p.channelAvatar), media };
 }
 
 function normalize(input: string): string | null {
@@ -256,26 +280,26 @@ function extractMedia(block: string): Media[] {
   // Фото
   for (const m of block.matchAll(/tgme_widget_message_photo_wrap[^>]*style="([^"]*)"/gi)) {
     const u = m[1].match(/background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i)?.[1];
-    if (u) media.push({ type: "photo", url: prox(u)! });
+    if (u) media.push({ type: "photo", url: u });
   }
   // Видео (превью + src если есть)
   for (const m of block.matchAll(/tgme_widget_message_video_player[\s\S]*?(?=tgme_widget_message_video_player|tgme_widget_message_footer|$)/gi)) {
     const seg = m[0];
     const thumb = seg.match(/tgme_widget_message_video_thumb[^>]*style="[^"]*background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i)?.[1];
     const url = seg.match(/<video[^>]+src="([^"]+)"/i)?.[1];
-    media.push({ type: "video", url: prox(url), thumb: prox(thumb) });
+    media.push({ type: "video", url, thumb });
   }
   // Кружочки
   const round = block.match(/tgme_widget_message_roundvideo[\s\S]*?(?=tgme_widget_message_footer|$)/i)?.[0];
   if (round) {
     const thumb = round.match(/background-image\s*:\s*url\(['"]?([^'")]+)['"]?\)/i)?.[1];
     const url = round.match(/<video[^>]+src="([^"]+)"/i)?.[1];
-    media.push({ type: "roundvideo", url: prox(url), thumb: prox(thumb) });
+    media.push({ type: "roundvideo", url, thumb });
   }
   // Голосовые
   const voice = block.match(/<audio[^>]*tgme_widget_message_voice[^>]*src="([^"]+)"/i)?.[1]
     || block.match(/tgme_widget_message_voice[^>]*>[\s\S]*?<audio[^>]+src="([^"]+)"/i)?.[1];
-  if (voice) media.push({ type: "voice", url: prox(voice) });
+  if (voice) media.push({ type: "voice", url: voice });
   // Музыка/аудиофайлы: отдельный виджет tgme_widget_message_audio (с исполнителем/
   // названием). Прямой ссылки на t.me/s обычно нет — догрузим по кнопке (MTProto).
   const isAudioWidget = /tgme_widget_message_audio\b/i.test(block) && !voice;
@@ -285,12 +309,12 @@ function extractMedia(block: string): Media[] {
     const title = attr(block, /tgme_widget_message_audio_title[^>]*>([^<]+)/i) || docTitle;
     const performer = attr(block, /tgme_widget_message_audio_performer[^>]*>([^<]+)/i);
     const aurl = block.match(/tgme_widget_message_audio[\s\S]*?<audio[^>]+src="([^"]+)"/i)?.[1];
-    media.push({ type: "audio", url: prox(aurl), title: title ? decodeEntities(title.trim()) : undefined, performer: performer ? decodeEntities(performer.trim()) : undefined });
+    media.push({ type: "audio", url: aurl, title: title ? decodeEntities(title.trim()) : undefined, performer: performer ? decodeEntities(performer.trim()) : undefined });
   }
   // Стикеры
   const sticker = block.match(/tgme_widget_message_sticker[^>]*data-webp="([^"]+)"/i)?.[1]
     || block.match(/tgme_widget_message_tgsticker[\s\S]*?<img[^>]+src="([^"]+)"/i)?.[1];
-  if (sticker) media.push({ type: "sticker", url: prox(sticker)! });
+  if (sticker) media.push({ type: "sticker", url: sticker });
   // Документы (кроме аудио, которое уже обработали выше)
   if (docTitle && !docIsAudio) {
     const extra = attr(block, /tgme_widget_message_document_extra[^>]*>([^<]+)/i);
@@ -305,7 +329,7 @@ function extractMedia(block: string): Media[] {
       site: attr(seg, /link_preview_site_name[^>]*>([^<]+)/i),
       title: attr(seg, /link_preview_title[^>]*>([^<]+)/i),
       description: attr(seg, /link_preview_description[^>]*>([\s\S]*?)<\/div>/i)?.replace(/<[^>]+>/g, "").trim(),
-      image: prox(firstBg(seg, /link_preview_image[^>]*style="[^"]*"/i)),
+      image: firstBg(seg, /link_preview_image[^>]*style="[^"]*"/i),
     });
   }
   return media;
@@ -363,7 +387,7 @@ function parsePosts(html: string, username: string): Post[] {
       link: `https://t.me/${username}/${msgId}`,
       views: views ? views.trim() : undefined,
       channelTitle: meta.title,
-      channelAvatar: prox(meta.avatar),
+      channelAvatar: meta.avatar,
       forwarded,
     });
   }
@@ -434,7 +458,7 @@ Deno.serve(async (req: Request) => {
       }
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, cworker));
       out.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
-      return jsonResponse({ posts: out, unavailable: [] });
+      return jsonResponse({ posts: out.map(proxifyPost), unavailable: [] });
     }
 
     const channels = [...new Set(raw.map(normalize).filter(Boolean) as string[])];
@@ -446,20 +470,51 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ channels: infos.filter(Boolean) });
     }
 
-    const posts: Post[] = [];
-    const unavailable: string[] = [];
+    // 1) Свежие данные из кэша (посты хранятся СЫРЫМИ, без прокси).
+    const cached = new Map<string, { posts: Post[]; fresh: boolean }>();
+    if (cacheDb) {
+      try {
+        const { data } = await cacheDb.from("channel_posts_cache")
+          .select("username, posts, updated_at").in("username", channels);
+        for (const r of (data ?? []) as { username: string; posts: Post[]; updated_at: string }[]) {
+          cached.set(r.username, { posts: r.posts ?? [], fresh: Date.now() - new Date(r.updated_at).getTime() < CACHE_TTL_MS });
+        }
+      } catch { /* кэш недоступен — читаем всё вживую */ }
+    }
+
+    // 2) Живьём читаем устаревшие/отсутствующие каналы (или ВСЕ при forceFresh).
+    const toFetch = forceFresh ? channels : channels.filter((ch) => !cached.get(ch)?.fresh);
+    const fetched = new Map<string, Post[]>();
     let i = 0;
     async function worker() {
-      while (i < channels.length) {
-        const ch = channels[i++];
-        const p = await fetchChannel(ch);
-        if (p.length === 0) unavailable.push(ch);
-        else posts.push(...p);
+      while (i < toFetch.length) {
+        const ch = toFetch[i++];
+        fetched.set(ch, await fetchChannel(ch));
       }
     }
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, channels.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, toFetch.length) }, worker));
+
+    // 3) Обновляем кэш непустыми (сырые ссылки — imgbase-независимо).
+    if (cacheDb) {
+      const rows = [...fetched.entries()].filter(([, p]) => p.length > 0)
+        .map(([username, p]) => ({ username, posts: p, updated_at: new Date().toISOString() }));
+      if (rows.length) { try { await cacheDb.from("channel_posts_cache").upsert(rows); } catch { /* не критично */ } }
+    }
+
+    // 4) Ответ: свежий кэш → живое чтение → устаревший кэш (fallback при сбое TG).
+    const posts: Post[] = [];
+    const unavailable: string[] = [];
+    for (const ch of channels) {
+      const c = cached.get(ch);
+      if (!forceFresh && c?.fresh) { posts.push(...c.posts); continue; }
+      const live = fetched.get(ch);
+      if (live && live.length) { posts.push(...live); continue; }
+      if (c && c.posts.length) { posts.push(...c.posts); continue; }
+      unavailable.push(ch);
+    }
     posts.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
-    return jsonResponse({ posts, unavailable });
+    // Проксируем ссылки на медиа уже при отдаче (по IMG_BASE текущего запроса).
+    return jsonResponse({ posts: posts.map(proxifyPost), unavailable });
   } catch (e) {
     return jsonResponse({ error: (e as Error).message }, 500);
   }

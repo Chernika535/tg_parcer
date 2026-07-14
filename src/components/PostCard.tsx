@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import type { Post, Media } from "../lib/data.ts";
 import { loadPostMedia, track } from "../lib/data.ts";
 import Icon from "./Icon.tsx";
-import { shareLink, postUrl } from "../lib/share.ts";
+import { shareLink, postUrl, tgMirror } from "../lib/share.ts";
 import AddChannelButton from "./AddChannelButton.tsx";
 import Lightbox from "./Lightbox.tsx";
 
@@ -192,7 +192,7 @@ export default function PostCard({
             {post.forwarded.channel ? (
               <Link to={`/channel/${post.forwarded.channel}`} className="post-fwd-src">{post.forwarded.name}</Link>
             ) : post.forwarded.link ? (
-              <a href={post.forwarded.link} target="_blank" rel="noreferrer" className="post-fwd-src">{post.forwarded.name}</a>
+              <a href={tgMirror(post.forwarded.link)} target="_blank" rel="noreferrer" className="post-fwd-src">{post.forwarded.name}</a>
             ) : (
               <span className="post-fwd-src">{post.forwarded.name}</span>
             )}
@@ -201,7 +201,7 @@ export default function PostCard({
       )}
 
       {nothing && (
-        <a href={post.link} target="_blank" rel="noreferrer" className="media-doc" style={{ textAlign: "center" }}>
+        <a href={tgMirror(post.link)} target="_blank" rel="noreferrer" className="media-doc" style={{ textAlign: "center" }}>
           📌 Пост нестандартного формата (опрос и т.п.). Открыть в канале ↗
         </a>
       )}
@@ -230,7 +230,7 @@ export default function PostCard({
       <div className="post-foot">
         <div className="post-foot-meta">
           <span>{shortDateTime(post.postedAt)}</span>
-          <a href={post.link} target="_blank" rel="noreferrer">в Telegram ↗</a>
+          <a href={tgMirror(post.link)} target="_blank" rel="noreferrer">в Telegram ↗</a>
         </div>
         <div className="post-actions">
           <button
@@ -280,11 +280,11 @@ function LoadableVideo({ thumb, link, channel, msgId, round }: { thumb?: string;
       <div className="play-badge" style={{ flexDirection: "column", gap: 8 }}>
         {state === "idle" && <button className="btn sm" onClick={load}>⬇ Загрузить видео</button>}
         {state === "loading" && <span>Загружаю видео…</span>}
-        {state === "toobig" && <a href={link} target="_blank" rel="noreferrer" className="btn sm">Видео большое — открыть в Telegram ↗</a>}
+        {state === "toobig" && <a href={tgMirror(link)} target="_blank" rel="noreferrer" className="btn sm">Видео большое — открыть в Telegram ↗</a>}
         {state === "error" && (
           <>
             <button className="btn sm" onClick={load}>↻ Повторить</button>
-            <a href={link} target="_blank" rel="noreferrer" style={{ color: "#fff" }}>или открыть в Telegram ↗</a>
+            <a href={tgMirror(link)} target="_blank" rel="noreferrer" style={{ color: "#fff" }}>или открыть в Telegram ↗</a>
           </>
         )}
       </div>
@@ -310,11 +310,11 @@ function LoadableAudio({ kind, label, link, channel, msgId }: { kind: "voice" | 
     <div className="media-doc" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
       {state === "idle" && <button className="btn secondary sm" onClick={load}>{idleLabel}</button>}
       {state === "loading" && <span className="muted">Загружаю аудио…</span>}
-      {state === "toobig" && <a href={link} target="_blank" rel="noreferrer">Файл большой — открыть в Telegram ↗</a>}
+      {state === "toobig" && <a href={tgMirror(link)} target="_blank" rel="noreferrer">Файл большой — открыть в Telegram ↗</a>}
       {state === "error" && (
         <>
           <button className="btn ghost sm" onClick={load}>↻ Повторить</button>
-          <a href={link} target="_blank" rel="noreferrer" className="muted">или в Telegram ↗</a>
+          <a href={tgMirror(link)} target="_blank" rel="noreferrer" className="muted">или в Telegram ↗</a>
         </>
       )}
     </div>
@@ -349,11 +349,11 @@ function LoadableDoc({ title, extra, link, channel, msgId }: { title: string; ex
       <span>📎 {title}{extra ? <span className="muted"> · {extra}</span> : null}</span>
       {state === "idle" && <button className="btn secondary sm" onClick={download}>⬇ Скачать</button>}
       {state === "loading" && <span className="muted">Загружаю файл…</span>}
-      {state === "toobig" && <a href={link} target="_blank" rel="noreferrer">Файл большой — открыть в Telegram ↗</a>}
+      {state === "toobig" && <a href={tgMirror(link)} target="_blank" rel="noreferrer">Файл большой — открыть в Telegram ↗</a>}
       {state === "error" && (
         <>
           <button className="btn ghost sm" onClick={download}>↻ Повторить</button>
-          <a href={link} target="_blank" rel="noreferrer" className="muted">или в Telegram ↗</a>
+          <a href={tgMirror(link)} target="_blank" rel="noreferrer" className="muted">или в Telegram ↗</a>
         </>
       )}
     </div>

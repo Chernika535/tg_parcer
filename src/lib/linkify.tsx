@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { tgUrl } from "./share.ts";
 
 // Короткий текст для маленьких превью: убираем «уродства» разметки — markdown-
 // ссылки [текст](url) → текст, голые ссылки и tg://-адреса вырезаем, схлопываем
@@ -35,7 +36,7 @@ export function linkify(text: string): ReactNode[] {
       const href = tok.startsWith("www.") ? "https://" + tok : tok;
       nodes.push(<a key={key++} href={href} target="_blank" rel="noreferrer" className="ln">{tok}</a>);
     } else {
-      nodes.push(<a key={key++} href={`https://t.me/${tok.slice(1)}`} target="_blank" rel="noreferrer" className="ln">{tok}</a>);
+      nodes.push(<a key={key++} href={tgUrl(tok.slice(1))} target="_blank" rel="noreferrer" className="ln">{tok}</a>);
     }
     last = m.index + tok.length;
   }
