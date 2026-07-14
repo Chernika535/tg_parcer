@@ -20,10 +20,12 @@ Deno.serve(async (req: Request) => {
     // Параметры берём из query (GET — проходит в РФ без VPN) или из тела (POST).
     let action: string | undefined;
     let id: number | undefined;
+    let channel: string | undefined;
     if (req.method === "GET") {
       const sp = new URL(req.url).searchParams;
       action = sp.get("action") ?? undefined;
       id = sp.get("id") ? Number(sp.get("id")) : undefined;
+      channel = sp.get("channel") ?? undefined;
     } else {
       const b = (await req.json().catch(() => ({}))) as { action?: string; id?: number };
       action = b.action;
@@ -42,6 +44,26 @@ Deno.serve(async (req: Request) => {
     // deno-lint-ignore no-explicit-any
     const stripBlocked = (feeds: any[], blocked: Set<string>) =>
       (feeds ?? []).map((f) => ({ ...f, channels: ((f.channels ?? []) as string[]).filter((c) => !blocked.has(norm(c))) }));
+
+    // Архив канала: посты, сохранённые у нас (переживают недоступность Telegram).
+    if (body.action === "archive") {
+      const un = norm(channel ?? "");
+      if (!un) return json({ posts: [] });
+      const { data } = await db.from("archived_posts")
+        .select("username, msg_id, posted_at, text, media")
+        .eq("username", un).order("posted_at", { ascending: false }).limit(100);
+      const posts = (data ?? []).map((r: Record<string, unknown>) => ({
+        channel: un,
+        msgId: Number(r.msg_id) || 0,
+        postedAt: r.posted_at,
+        text: r.text ?? "",
+        hasMedia: Array.isArray(r.media) && (r.media as unknown[]).length > 0,
+        media: r.media ?? [],
+        link: `https://t.me/${un}/${r.msg_id}`,
+        archived: true,
+      }));
+      return json({ posts });
+    }
 
     if (body.action === "blocked") {
       const { data } = await db.from("blocked_channels").select("username, reason, created_at").order("created_at", { ascending: false });

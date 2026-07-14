@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   channelsInfo, readChannels, readChannelsMTServer, readChannelsMT, readChannelsBefore,
-  loadPublic, favoriteLinks, addFavorite, removeFavorite,
+  loadPublic, favoriteLinks, addFavorite, removeFavorite, archivedPosts,
   pinnedPost, pinPost, unpinPost, channelPinnedBot, authorChannels, channelStats, track,
   type Post, type ChannelInfo, type Feed,
 } from "../lib/data.ts";
@@ -126,16 +126,22 @@ export default function ChannelView() {
     (async () => {
       setLoadingPosts(true);
       setPosts([]);
+      // Сначала наш архив — он показывается мгновенно и переживает Telegram.
+      // Медиа у архивных постов постоянные (наш Storage), поэтому живое чтение
+      // НЕ перетираем архивными msgId.
+      const arch = await archivedPosts(ch).catch(() => []);
+      const archIds = new Set(arch.map((p) => p.msgId));
+      arch.forEach(mergePost);
       try {
         const r = await readChannels([ch]);
-        r.posts.forEach(mergePost);
+        r.posts.filter((p) => !archIds.has(p.msgId)).forEach(mergePost);
         // Закрытый канал (защита от копирования) — только для вошедших.
         if (r.unavailable.includes(ch) && session) {
           const srv = await readChannelsMTServer([ch]);
-          if (srv.posts.length) srv.posts.forEach(mergePost);
-          else await readChannelsMT([ch], mergePost);
+          if (srv.posts.length) srv.posts.filter((p) => !archIds.has(p.msgId)).forEach(mergePost);
+          else await readChannelsMT([ch], (p) => { if (!archIds.has(p.msgId)) mergePost(p); });
         }
-      } catch { /* оставим что успели */ }
+      } catch { /* оставим что успели (хотя бы архив) */ }
       finally { setLoadingPosts(false); }
     })();
   }, [ch, session, mergePost]);

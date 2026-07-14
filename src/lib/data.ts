@@ -129,7 +129,19 @@ export type Post = {
   channelAvatar?: string;
   folder?: string | null; // папка избранного (только для сохранённых постов)
   forwarded?: { name: string; channel?: string; link?: string }; // пересланное сообщение
+  archived?: boolean; // пост из нашего архива (сохранён у нас, переживает Telegram)
 };
+
+// Архив канала: посты, сохранённые у нас (публикация через нас / импорт).
+// Показываются на странице канала независимо от доступности Telegram.
+export async function archivedPosts(channel: string): Promise<Post[]> {
+  try {
+    const d = (await invokeFnGet("feeds", { action: "archive", channel })) as { posts?: Post[] };
+    return d.posts ?? [];
+  } catch {
+    return [];
+  }
+}
 
 function db() {
   return supabase();

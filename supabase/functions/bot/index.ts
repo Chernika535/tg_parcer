@@ -36,6 +36,39 @@ async function tg(method: string, body: Record<string, unknown>): Promise<{ ok: 
 
 const sendPost = makeSender(BOT_TOKEN, SUPABASE_URL);
 
+// Медиа композера → форма читателя (как в постах ленты). Ссылки уже наши (Storage).
+// deno-lint-ignore no-explicit-any
+function mediaForReader(media: Media[]): Record<string, unknown>[] {
+  return (media ?? []).map((m) => {
+    if (m.type === "videonote") return { type: "roundvideo", url: m.url };
+    if (m.type === "audio") return { type: "audio", url: m.url, title: m.title, performer: m.performer };
+    if (m.type === "document") return { type: "document", title: m.name || "файл", url: m.url };
+    // photo | video | voice — как есть
+    return { type: m.type, url: m.url };
+  });
+}
+
+// Сохраняем опубликованный пост в наш архив (страница канала переживёт Telegram).
+// Пишем под service role — таблица публична на чтение, запись только сервером.
+async function archivePost(_db: unknown, ownerId: string, chatId: string, msgId: number, text: string, media: Media[], disablePreview: boolean): Promise<void> {
+  if (!SERVICE_ROLE) return;
+  try {
+    const svc = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+    const { data: ch } = await svc.from("author_channels").select("username").eq("chat_id", chatId).maybeSingle();
+    await svc.from("archived_posts").upsert({
+      owner_id: ownerId,
+      chat_id: chatId,
+      username: ch?.username ? normCh(ch.username) : null,
+      msg_id: msgId,
+      posted_at: new Date().toISOString(),
+      text: text || null,
+      media: mediaForReader(media),
+      disable_preview: disablePreview,
+      source: "publish",
+    }, { onConflict: "chat_id,msg_id" });
+  } catch { /* архив — best-effort, публикацию не ломаем */ }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -150,6 +183,8 @@ Deno.serve(async (req: Request) => {
           text_message_id: r.sent.textMessageId ?? null, is_caption: r.sent.isCaption,
           text: p.text ?? null, parse_mode: p.parse_mode ?? null,
         });
+        // Архивируем пост у нас: он останется на странице канала, даже если Telegram ляжет.
+        await archivePost(db, uid, p.chat_id, r.sent.messageIds[0], p.text ?? "", p.media ?? [], !!p.disable_preview);
       }
       return r.ok ? json({ ok: true }) : json({ error: r.error || "не удалось отправить" }, 400);
     }
