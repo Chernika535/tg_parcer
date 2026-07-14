@@ -38,8 +38,32 @@ type Post = {
 
 const UA = "Mozilla/5.0 (compatible; FeedAggregator/1.0)";
 const TIMEOUT_MS = 8000;
-const HARD_MS = 9000;
+const HARD_MS = 12000;
 const CONCURRENCY = 12;
+
+// Домены Telegram-превью. t.me периодически становится недоступен — тогда читаем
+// через равнозначные зеркала. Запрашиваем параллельно и берём первый валидный ответ.
+const TG_HOSTS = ["t.me", "telegram.me", "telegram.dog"];
+async function fetchTgHtml(pathAndQuery: string): Promise<string | null> {
+  const attempts = TG_HOSTS.map(async (host) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(`https://${host}/${pathAndQuery}`, { headers: { "user-agent": UA }, redirect: "follow", signal: ctrl.signal });
+      if (!res.ok) throw new Error(String(res.status));
+      const html = await res.text();
+      if (!html.includes("tgme_")) throw new Error("no tgme");
+      return html;
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    return null;
+  }
+}
 
 // База для прокси картинок задаётся клиентом (?imgbase=...): это либо домен
 // Onreza (/sb), либо сам Supabase. Если не передана — берём свой адрес.
@@ -220,18 +244,10 @@ function channelMeta(html: string): { title?: string; avatar?: string; descripti
 
 // Только мета-инфо канала (название, ник, аватар, описание, подписчики) — без постов.
 async function fetchChannelInfo(username: string): Promise<Record<string, unknown> | null> {
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-    const res = await fetch(`https://t.me/s/${username}`, { headers: { "user-agent": UA }, signal: ctrl.signal }).finally(() => clearTimeout(timer));
-    if (!res.ok) return null;
-    const html = await res.text();
-    if (!html.includes("tgme_")) return null;
-    const m = channelMeta(html);
-    return { username, title: m.title, avatar: prox(m.avatar), description: m.description, subscribers: m.subscribers };
-  } catch {
-    return null;
-  }
+  const html = await fetchTgHtml(`s/${username}`);
+  if (!html) return null;
+  const m = channelMeta(html);
+  return { username, title: m.title, avatar: prox(m.avatar), description: m.description, subscribers: m.subscribers };
 }
 
 function extractMedia(block: string): Media[] {
@@ -331,7 +347,7 @@ function parsePosts(html: string, username: string): Post[] {
       const name = decodeEntities(nameM[1].replace(/<[^>]+>/g, "")).trim();
       if (name) {
         const link = block.match(/tgme_widget_message_forwarded_from_name"[^>]*href="([^"]+)"/i)?.[1];
-        const cm = link?.match(/t\.me\/(?:s\/)?([^/?#]+)/i);
+        const cm = link?.match(/(?:t\.me|telegram\.me|telegram\.dog)\/(?:s\/)?([^/?#]+)/i);
         const channel = cm ? cm[1].toLowerCase().replace(/[^a-z0-9_]/g, "") : undefined;
         forwarded = { name, channel, link };
       }
@@ -357,14 +373,10 @@ function parsePosts(html: string, username: string): Post[] {
 
 async function fetchChannelInner(username: string, before?: number): Promise<Post[]> {
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     // ?before=<msgId> отдаёт окно постов СТАРШЕ указанного — для подгрузки «ещё».
-    const url = before && before > 0 ? `https://t.me/s/${username}?before=${before}` : `https://t.me/s/${username}`;
-    const res = await fetch(url, { headers: { "user-agent": UA }, signal: ctrl.signal }).finally(() => clearTimeout(timer));
-    if (!res.ok) return [];
-    const html = await res.text();
-    if (!html.includes("tgme_")) return [];
+    const path = before && before > 0 ? `s/${username}?before=${before}` : `s/${username}`;
+    const html = await fetchTgHtml(path);
+    if (!html) return [];
     return parsePosts(html, username);
   } catch {
     return [];
