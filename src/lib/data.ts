@@ -539,7 +539,13 @@ export async function uploadMedia(file: File | Blob, ext = "bin"): Promise<strin
 }
 
 // ---- Кабинет автора: постинг в свои каналы через бота ----
-export type AuthorChannel = { id: number; chat_id: string; username: string | null; title: string | null };
+export type AuthorChannel = { id: number; chat_id: string; username: string | null; title: string | null; archive_live?: boolean };
+
+// Вкл/выкл архивации новых постов из Telegram по каналу.
+export async function setChannelArchive(chatId: string, on: boolean): Promise<void> {
+  const d = (await invokeFn("myfeeds", { action: "set_channel_archive", input: { chat_id: chatId, on } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
 export type PostMedia = {
   type: "photo" | "video" | "voice" | "audio" | "document" | "videonote";
   url: string;

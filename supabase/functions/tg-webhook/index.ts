@@ -43,8 +43,10 @@ Deno.serve(async (req: Request) => {
     const svc = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
     // Архивируем только привязанные каналы (бот там админ, автор их подключил).
-    const { data: ch } = await svc.from("author_channels").select("owner_id, username").eq("chat_id", chatId).maybeSingle();
+    const { data: ch } = await svc.from("author_channels").select("owner_id, username, archive_live").eq("chat_id", chatId).maybeSingle();
     if (!ch) return new Response("ok");
+    // Архивируем прямые посты только если автор включил это для канала.
+    if (!ch.archive_live) return new Response("ok");
 
     // Пропускаем посты, опубликованные ЧЕРЕЗ НАС: они уже архивируются полноценно
     // (все медиа + форматирование). posted_messages.message_ids содержит все id

@@ -42,7 +42,7 @@ function BotLinkHelp() {
 import {
   authorChannels, linkChannel, unlinkChannel, refreshChannel, sendPostNow, schedulePost,
   scheduledPosts, cancelScheduled, updateScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
-  postedList, editPosted, deletePosted, serviceChannels,
+  postedList, editPosted, deletePosted, serviceChannels, setChannelArchive,
   type AuthorChannel, type PostMedia, type ScheduledPost, type PostedMessage,
 } from "../lib/data.ts";
 
@@ -468,6 +468,22 @@ export default function AuthorCabinet() {
                       }} disabled={busy}>🔄 Обновить данные</button>
                       <button className="btn ghost sm" onClick={async () => { if (confirm("Отвязать канал?")) { await unlinkChannel(c.id); reload(); } }}>Отвязать</button>
                     </div>
+                    <label className="check-row" style={{ marginTop: 8, fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!c.archive_live}
+                        onChange={async (e) => {
+                          const on = e.target.checked;
+                          setChannels((prev) => (prev ? prev.map((x) => (x.id === c.id ? { ...x, archive_live: on } : x)) : prev));
+                          try { await setChannelArchive(c.chat_id, on); }
+                          catch (err) {
+                            setChannels((prev) => (prev ? prev.map((x) => (x.id === c.id ? { ...x, archive_live: !on } : x)) : prev));
+                            setMsg("Не удалось: " + (err as Error).message);
+                          }
+                        }}
+                      />
+                      Сохранять у нас новые посты из Telegram (прямые публикации в канале)
+                    </label>
                     {settingsFor === c.id && <ChannelSettings channel={c} onDone={() => setMsg("Изменения канала применены (если у бота есть права).")} />}
                   </div>
                 </div>

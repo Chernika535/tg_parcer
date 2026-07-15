@@ -359,6 +359,17 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // ---- Вкл/выкл архивации новых постов из Telegram по каналу ----
+    if (b.action === "set_channel_archive") {
+      const inp = (b.input ?? {}) as { chat_id?: string; on?: boolean };
+      if (!inp.chat_id) return json({ error: "нет канала" }, 400);
+      const { data, error } = await db.from("author_channels")
+        .update({ archive_live: !!inp.on }).eq("owner_id", uid).eq("chat_id", inp.chat_id).select("id");
+      if (error) return json({ error: error.message }, 500);
+      if (!data || data.length === 0) return json({ error: "канал не привязан к вам" }, 403);
+      return json({ ok: true });
+    }
+
     // ---- Импорт истории канала из экспорта Telegram (владелец канала) ----
     if (b.action === "import_archive") {
       const inp = (b.input ?? {}) as { chat_id?: string; posts?: Record<string, unknown>[] };
