@@ -42,7 +42,7 @@ function BotLinkHelp() {
 import {
   authorChannels, linkChannel, unlinkChannel, refreshChannel, sendPostNow, schedulePost,
   scheduledPosts, cancelScheduled, updateScheduled, updateChannelInfo, uploadMedia, uploadAvatar,
-  postedList, editPosted, deletePosted, serviceChannels, setChannelArchive,
+  postedList, editPosted, deletePosted, serviceChannels, setChannelArchive, setupWebhook,
   type AuthorChannel, type PostMedia, type ScheduledPost, type PostedMessage,
 } from "../lib/data.ts";
 
@@ -53,6 +53,7 @@ function toLocalInput(iso: string): string {
 }
 
 export default function AuthorCabinet() {
+  const { isAdmin } = useAuth();
   const [channels, setChannels] = useState<AuthorChannel[] | null>(null);
   const [scheduled, setScheduled] = useState<ScheduledPost[]>([]);
   const [posted, setPosted] = useState<PostedMessage[]>([]);
@@ -501,6 +502,21 @@ export default function AuthorCabinet() {
         )}
 
         {channels && channels.length > 0 && <ArchiveImport channels={channels} />}
+
+        {isAdmin && (
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Ловля новых постов из Telegram (админ)</h3>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Разово включите вебхук — тогда прямые посты в каналах с галочкой «Сохранять у нас новые посты» будут архивироваться. Токен не нужен, сервер сделает всё сам.
+            </p>
+            <button className="btn sm" disabled={busy} onClick={async () => {
+              setBusy(true); setMsg("");
+              try { const url = await setupWebhook(); setMsg("Вебхук включён ✓ (" + url + ")"); }
+              catch (e) { setMsg("Не удалось включить вебхук: " + (e as Error).message); }
+              finally { setBusy(false); }
+            }}>Включить вебхук</button>
+          </div>
+        )}
       </div>
     </>
   );

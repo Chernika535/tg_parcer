@@ -132,6 +132,20 @@ Deno.serve(async (req: Request) => {
       return "error" in r ? json({ error: r.error }, 400) : json(r);
     }
 
+    // Включить вебхук Telegram одной кнопкой (только админ) — без ручного токена.
+    if (b.action === "setup_webhook") {
+      const { data: prof } = await db.from("profiles").select("role").eq("id", uid).maybeSingle();
+      if (prof?.role !== "admin") return json({ error: "только для админа" }, 403);
+      const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+      const url = `${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/tg-webhook`;
+      const r = await tg("setWebhook", {
+        url,
+        allowed_updates: ["channel_post", "edited_channel_post"],
+        ...(secret ? { secret_token: secret } : {}),
+      });
+      return r.ok ? json({ ok: true, url }) : json({ error: r.description || "не удалось включить вебхук" }, 400);
+    }
+
     if (b.action === "link") {
       if (!b.channel) return json({ error: "нет канала" }, 400);
       const r = await inspect(b.channel);

@@ -541,6 +541,13 @@ export async function uploadMedia(file: File | Blob, ext = "bin"): Promise<strin
 // ---- Кабинет автора: постинг в свои каналы через бота ----
 export type AuthorChannel = { id: number; chat_id: string; username: string | null; title: string | null; archive_live?: boolean };
 
+// Включить вебхук Telegram одной кнопкой (админ) — сервер сам вызовет setWebhook.
+export async function setupWebhook(): Promise<string> {
+  const d = (await invokeFn("bot", { action: "setup_webhook" })) as { ok?: boolean; url?: string; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.url ?? "";
+}
+
 // Вкл/выкл архивации новых постов из Telegram по каналу.
 export async function setChannelArchive(chatId: string, on: boolean): Promise<void> {
   const d = (await invokeFn("myfeeds", { action: "set_channel_archive", input: { chat_id: chatId, on } })) as { error?: string };
