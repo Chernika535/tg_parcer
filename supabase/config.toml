@@ -35,3 +35,7 @@ verify_jwt = false
 
 [functions.analytics]
 verify_jwt = false
+
+# Вебхук Telegram: приходит без JWT, проверяем секретным токеном внутри функции.
+[functions.tg-webhook]
+verify_jwt = false
