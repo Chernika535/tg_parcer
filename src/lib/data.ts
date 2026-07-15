@@ -548,6 +548,20 @@ export async function setupWebhook(): Promise<string> {
   return d.url ?? "";
 }
 
+// Соцссылки канала (TikTok): чтение публичное, запись — владельцем канала.
+export async function channelLinks(channel: string): Promise<{ tiktok: string | null }> {
+  try {
+    const d = (await invokeFnGet("feeds", { action: "channel_links", channel })) as { tiktok?: string | null };
+    return { tiktok: d.tiktok ?? null };
+  } catch {
+    return { tiktok: null };
+  }
+}
+export async function setChannelSocial(chatId: string, tiktok: string | null): Promise<void> {
+  const d = (await invokeFn("bot", { action: "set_social", input: { chat_id: chatId, tiktok } })) as { error?: string };
+  if (d.error) throw new Error(d.error);
+}
+
 // Вкл/выкл архивации новых постов из Telegram по каналу.
 export async function setChannelArchive(chatId: string, on: boolean): Promise<void> {
   const d = (await invokeFn("myfeeds", { action: "set_channel_archive", input: { chat_id: chatId, on } })) as { error?: string };

@@ -146,6 +146,18 @@ Deno.serve(async (req: Request) => {
       return r.ok ? json({ ok: true, url }) : json({ error: r.description || "не удалось включить вебхук" }, 400);
     }
 
+    // Соцссылки канала (TikTok) — задаёт владелец канала.
+    if (b.action === "set_social") {
+      const inp = (b.input ?? {}) as { chat_id?: string; tiktok?: string | null };
+      if (!inp.chat_id) return json({ error: "нет канала" }, 400);
+      const tiktok = (inp.tiktok ?? "").trim() || null;
+      const { data, error } = await db.from("author_channels")
+        .update({ tiktok_url: tiktok }).eq("owner_id", uid).eq("chat_id", inp.chat_id).select("id");
+      if (error) return json({ error: error.message }, 500);
+      if (!data || data.length === 0) return json({ error: "канал не привязан к вам" }, 403);
+      return json({ ok: true });
+    }
+
     if (b.action === "link") {
       if (!b.channel) return json({ error: "нет канала" }, 400);
       const r = await inspect(b.channel);

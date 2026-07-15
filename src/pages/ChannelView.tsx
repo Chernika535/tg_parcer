@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   channelsInfo, readChannels, readChannelsMTServer, readChannelsMT, readChannelsBefore,
-  loadPublic, favoriteLinks, addFavorite, removeFavorite, archivedPosts,
+  loadPublic, favoriteLinks, addFavorite, removeFavorite, archivedPosts, channelLinks, setChannelSocial,
   pinnedPost, pinPost, unpinPost, channelPinnedBot, authorChannels, channelStats, track,
   type Post, type ChannelInfo, type Feed,
 } from "../lib/data.ts";
@@ -17,6 +17,17 @@ function normCh(c: string): string {
   return c.trim().toLowerCase()
     .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
     .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
+}
+
+// TikTok: из ввода (ссылка или @ник) делаем корректный URL и «ник» для показа.
+function tiktokHref(v: string): string {
+  const raw = (v || "").trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://www.tiktok.com/@${raw.replace(/^@/, "")}`;
+}
+function tiktokNick(v: string): string {
+  const m = (v || "").match(/tiktok\.com\/@?([^/?#]+)/i);
+  return "@" + (m ? m[1] : (v || "").replace(/^@/, "")).replace(/^@/, "");
 }
 
 // Страница одного канала: шапка (название/ник/описание/в каких лентах) + посты.
@@ -37,6 +48,9 @@ export default function ChannelView() {
   const [pinnedId, setPinnedId] = useState<number | null>(null);
   const [pinText, setPinText] = useState("");
   const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
+  const [tiktok, setTiktok] = useState<string | null>(null);
+  const [tiktokInput, setTiktokInput] = useState("");
+  const [editTiktok, setEditTiktok] = useState(false);
   const [stats, setStats] = useState<{ favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> } | null>(null);
   const { liked, toggle: toggleLike } = useLikes(!!session);
 
@@ -66,6 +80,20 @@ export default function ChannelView() {
   }, []);
 
   useEffect(() => { if (ch) track("channel", ch); }, [ch]);
+
+  useEffect(() => {
+    setTiktok(null); setEditTiktok(false);
+    channelLinks(ch).then((l) => { setTiktok(l.tiktok); setTiktokInput(l.tiktok ?? ""); }).catch(() => {});
+  }, [ch]);
+
+  async function saveTiktok() {
+    if (!myChatId) return;
+    try {
+      const v = tiktokInput.trim() || null;
+      await setChannelSocial(myChatId, v);
+      setTiktok(v); setEditTiktok(false);
+    } catch (e) { alert("Не удалось сохранить: " + (e as Error).message); }
+  }
 
   useEffect(() => {
     channelsInfo([ch]).then((list) => setInfo(list[0] ?? { username: ch }));
@@ -176,9 +204,30 @@ export default function ChannelView() {
             </div>
           </div>
           {info?.description && <div className="post-text" style={{ marginTop: 10 }}>{linkify(info.description)}</div>}
-          <a className="btn secondary sm" style={{ marginTop: 10 }} href={tgUrl(ch)} target="_blank" rel="noreferrer">
-            Открыть канал в Telegram ↗
-          </a>
+
+          <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            <a className="btn secondary sm" href={tgUrl(ch)} target="_blank" rel="noreferrer">
+              Открыть канал в Telegram ↗
+            </a>
+            {tiktok && (
+              <a className="btn secondary sm tiktok-btn" href={tiktokHref(tiktok)} target="_blank" rel="noreferrer">
+                <span aria-hidden>♪</span> TikTok {tiktokNick(tiktok)}
+              </a>
+            )}
+            {myChatId && !editTiktok && (
+              <button className="btn ghost sm" onClick={() => setEditTiktok(true)}>
+                {tiktok ? "✎ TikTok" : "+ Ссылка на TikTok"}
+              </button>
+            )}
+          </div>
+          {myChatId && editTiktok && (
+            <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+              <input type="text" style={{ flex: "1 1 200px" }} placeholder="@ник или ссылка на TikTok"
+                value={tiktokInput} onChange={(e) => setTiktokInput(e.target.value)} />
+              <button className="btn sm" onClick={saveTiktok}>Сохранить</button>
+              <button className="btn ghost sm" onClick={() => { setTiktokInput(tiktok ?? ""); setEditTiktok(false); }}>Отмена</button>
+            </div>
+          )}
           {stats && (
             <div className="chan-stats">
               <div className="chan-stat"><span className="chan-stat-num">{stats.likesTotal}</span><span className="chan-stat-lbl">лайков постов</span></div>

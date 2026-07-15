@@ -45,6 +45,14 @@ Deno.serve(async (req: Request) => {
     const stripBlocked = (feeds: any[], blocked: Set<string>) =>
       (feeds ?? []).map((f) => ({ ...f, channels: ((f.channels ?? []) as string[]).filter((c) => !blocked.has(norm(c))) }));
 
+    // Соцссылки канала (TikTok) — публично, для страницы канала.
+    if (body.action === "channel_links") {
+      const un = norm(channel ?? "");
+      if (!un) return json({ tiktok: null });
+      const { data } = await db.from("author_channels").select("tiktok_url").ilike("username", un).limit(1).maybeSingle();
+      return json({ tiktok: (data as { tiktok_url?: string } | null)?.tiktok_url ?? null });
+    }
+
     // Архив канала: посты, сохранённые у нас (переживают недоступность Telegram).
     if (body.action === "archive") {
       const un = norm(channel ?? "");
