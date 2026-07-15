@@ -64,10 +64,10 @@ export default function ChannelView() {
   const [pinnedId, setPinnedId] = useState<number | null>(null);
   const [pinText, setPinText] = useState("");
   const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
-  const emptySocials: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, boosty: null, vk: null, website: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
+  const emptySocials: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, boosty: null, vk: null, website: null, zen: null, rutube: null, teletype: null, musicCaption: null, spotify: null, yandexmusic: null, zvuk: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
   const [socials, setSocials] = useState<ChannelSocials>(emptySocials);
   const [editSocial, setEditSocial] = useState(false);
-  const [sForm, setSForm] = useState({ tiktok: "", youtube: "", bandlink: "", litres: "", boosty: "", vk: "", website: "", podcastUrl: "", podcastTitle: "", podcastCover: "" });
+  const [sForm, setSForm] = useState({ tiktok: "", youtube: "", bandlink: "", litres: "", boosty: "", vk: "", website: "", zen: "", rutube: "", teletype: "", musicCaption: "", spotify: "", yandexmusic: "", zvuk: "", podcastUrl: "", podcastTitle: "", podcastCover: "" });
   const [savingSocial, setSavingSocial] = useState(false);
   const [stats, setStats] = useState<{ favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> } | null>(null);
   const { liked, toggle: toggleLike } = useLikes(!!session);
@@ -103,7 +103,7 @@ export default function ChannelView() {
     setSocials(emptySocials); setEditSocial(false);
     channelLinks(ch).then((l) => {
       setSocials(l);
-      setSForm({ tiktok: l.tiktok ?? "", youtube: l.youtube ?? "", bandlink: l.bandlink ?? "", litres: l.litres ?? "", boosty: l.boosty ?? "", vk: l.vk ?? "", website: l.website ?? "", podcastUrl: l.podcastUrl ?? "", podcastTitle: l.podcastTitle ?? "", podcastCover: l.podcastCover ?? "" });
+      setSForm({ tiktok: l.tiktok ?? "", youtube: l.youtube ?? "", bandlink: l.bandlink ?? "", litres: l.litres ?? "", boosty: l.boosty ?? "", vk: l.vk ?? "", website: l.website ?? "", zen: l.zen ?? "", rutube: l.rutube ?? "", teletype: l.teletype ?? "", musicCaption: l.musicCaption ?? "", spotify: l.spotify ?? "", yandexmusic: l.yandexmusic ?? "", zvuk: l.zvuk ?? "", podcastUrl: l.podcastUrl ?? "", podcastTitle: l.podcastTitle ?? "", podcastCover: l.podcastCover ?? "" });
     }).catch(() => {});
   }, [ch]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -120,12 +120,16 @@ export default function ChannelView() {
       await setChannelSocial(myChatId, {
         tiktok: sForm.tiktok, youtube: sForm.youtube, bandlink: sForm.bandlink, litres: sForm.litres,
         boosty: sForm.boosty, vk: sForm.vk, website: sForm.website,
+        zen: sForm.zen, rutube: sForm.rutube, teletype: sForm.teletype,
+        music_caption: sForm.musicCaption, spotify: sForm.spotify, yandexmusic: sForm.yandexmusic, zvuk: sForm.zvuk,
         podcast_url: sForm.podcastUrl, podcast_title: sForm.podcastTitle, podcast_cover: sForm.podcastCover,
       });
       setSocials({
         tiktok: sForm.tiktok.trim() || null, youtube: sForm.youtube.trim() || null,
         bandlink: sForm.bandlink.trim() || null, litres: sForm.litres.trim() || null,
         boosty: sForm.boosty.trim() || null, vk: sForm.vk.trim() || null, website: sForm.website.trim() || null,
+        zen: sForm.zen.trim() || null, rutube: sForm.rutube.trim() || null, teletype: sForm.teletype.trim() || null,
+        musicCaption: sForm.musicCaption.trim() || null, spotify: sForm.spotify.trim() || null, yandexmusic: sForm.yandexmusic.trim() || null, zvuk: sForm.zvuk.trim() || null,
         podcastUrl: sForm.podcastUrl.trim() || null, podcastTitle: sForm.podcastTitle.trim() || null,
         podcastCover: sForm.podcastCover.trim() || null,
       });
@@ -253,6 +257,9 @@ export default function ChannelView() {
               socials.litres && { key: "litres", href: extHref(socials.litres), label: "ЛитРес", glyph: "📚" },
               socials.boosty && { key: "boosty", href: extHref(socials.boosty), label: "Boosty", glyph: "🚀" },
               socials.vk && { key: "vk", href: extHref(socials.vk), label: "VK", glyph: "𝐕" },
+              socials.zen && { key: "zen", href: extHref(socials.zen), label: "Дзен", glyph: "Ⓩ" },
+              socials.rutube && { key: "rutube", href: extHref(socials.rutube), label: "Rutube", glyph: "▶" },
+              socials.teletype && { key: "teletype", href: extHref(socials.teletype), label: "Teletype", glyph: "✎" },
               socials.website && { key: "site", href: extHref(socials.website), label: "Сайт", glyph: "🌐" },
             ].filter(Boolean) as { key: string; href: string; label: string; glyph: string }[]).map((s) => (
               <a key={s.key} className={`link-pill brand-${s.key}`} href={s.href} target="_blank" rel="noreferrer">
@@ -277,6 +284,17 @@ export default function ChannelView() {
             </a>
           )}
 
+          {(socials.musicCaption || socials.spotify || socials.yandexmusic || socials.zvuk) && (
+            <div className="music-block">
+              <div className="music-head">🎵 {socials.musicCaption || "Моя музыка"}</div>
+              <div className="music-links">
+                {socials.spotify && <a className="music-pill brand-spotify" href={extHref(socials.spotify)} target="_blank" rel="noreferrer">Spotify</a>}
+                {socials.yandexmusic && <a className="music-pill brand-yamusic" href={extHref(socials.yandexmusic)} target="_blank" rel="noreferrer">Яндекс Музыка</a>}
+                {socials.zvuk && <a className="music-pill brand-zvuk" href={extHref(socials.zvuk)} target="_blank" rel="noreferrer">Звук</a>}
+              </div>
+            </div>
+          )}
+
           {myChatId && editSocial && (
             <div className="social-edit">
               <div className="field"><label>TikTok (@ник или ссылка)</label>
@@ -293,6 +311,23 @@ export default function ChannelView() {
                 <input type="text" value={sForm.vk} onChange={(e) => setSForm((f) => ({ ...f, vk: e.target.value }))} placeholder="vk.com/..." /></div>
               <div className="field"><label>Личный сайт — ссылка</label>
                 <input type="text" value={sForm.website} onChange={(e) => setSForm((f) => ({ ...f, website: e.target.value }))} placeholder="example.com" /></div>
+              <div className="field"><label>Дзен — ссылка</label>
+                <input type="text" value={sForm.zen} onChange={(e) => setSForm((f) => ({ ...f, zen: e.target.value }))} placeholder="dzen.ru/..." /></div>
+              <div className="field"><label>Rutube — ссылка</label>
+                <input type="text" value={sForm.rutube} onChange={(e) => setSForm((f) => ({ ...f, rutube: e.target.value }))} placeholder="rutube.ru/channel/..." /></div>
+              <div className="field"><label>Teletype — ссылка</label>
+                <input type="text" value={sForm.teletype} onChange={(e) => setSForm((f) => ({ ...f, teletype: e.target.value }))} placeholder="teletype.in/@..." /></div>
+
+              <div style={{ borderTop: "1px solid var(--surface-2)", margin: "10px 0 6px", paddingTop: 8, fontWeight: 800 }}>🎵 Музыкальный блок</div>
+              <div className="field"><label>Подпись (например: «Плейлист, который меня отражает»)</label>
+                <input type="text" value={sForm.musicCaption} onChange={(e) => setSForm((f) => ({ ...f, musicCaption: e.target.value }))} placeholder="Что я слушаю" /></div>
+              <div className="field"><label>Spotify — ссылка на трек/плейлист</label>
+                <input type="text" value={sForm.spotify} onChange={(e) => setSForm((f) => ({ ...f, spotify: e.target.value }))} placeholder="open.spotify.com/..." /></div>
+              <div className="field"><label>Яндекс Музыка — ссылка</label>
+                <input type="text" value={sForm.yandexmusic} onChange={(e) => setSForm((f) => ({ ...f, yandexmusic: e.target.value }))} placeholder="music.yandex.ru/..." /></div>
+              <div className="field"><label>Звук — ссылка</label>
+                <input type="text" value={sForm.zvuk} onChange={(e) => setSForm((f) => ({ ...f, zvuk: e.target.value }))} placeholder="zvuk.com/..." /></div>
+
               <div className="field"><label>Подкаст — ссылка</label>
                 <input type="text" value={sForm.podcastUrl} onChange={(e) => setSForm((f) => ({ ...f, podcastUrl: e.target.value }))} placeholder="https://oba-vsem.mave.digital/" /></div>
               <div className="field"><label>Подкаст — название</label>

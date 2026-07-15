@@ -152,6 +152,8 @@ Deno.serve(async (req: Request) => {
         chat_id?: string; tiktok?: string | null; youtube?: string | null;
         bandlink?: string | null; litres?: string | null;
         boosty?: string | null; vk?: string | null; website?: string | null;
+        zen?: string | null; rutube?: string | null; teletype?: string | null;
+        music_caption?: string | null; spotify?: string | null; yandexmusic?: string | null; zvuk?: string | null;
         podcast_url?: string | null; podcast_title?: string | null; podcast_cover?: string | null;
       };
       if (!inp.chat_id) return json({ error: "нет канала" }, 400);
@@ -164,6 +166,13 @@ Deno.serve(async (req: Request) => {
       if (inp.boosty !== undefined) patch.boosty_url = clean(inp.boosty);
       if (inp.vk !== undefined) patch.vk_url = clean(inp.vk);
       if (inp.website !== undefined) patch.website_url = clean(inp.website);
+      if (inp.zen !== undefined) patch.zen_url = clean(inp.zen);
+      if (inp.rutube !== undefined) patch.rutube_url = clean(inp.rutube);
+      if (inp.teletype !== undefined) patch.teletype_url = clean(inp.teletype);
+      if (inp.music_caption !== undefined) patch.music_caption = clean(inp.music_caption);
+      if (inp.spotify !== undefined) patch.spotify_url = clean(inp.spotify);
+      if (inp.yandexmusic !== undefined) patch.yandexmusic_url = clean(inp.yandexmusic);
+      if (inp.zvuk !== undefined) patch.zvuk_url = clean(inp.zvuk);
       if (inp.podcast_url !== undefined) patch.podcast_url = clean(inp.podcast_url);
       if (inp.podcast_title !== undefined) patch.podcast_title = clean(inp.podcast_title);
       if (inp.podcast_cover !== undefined) patch.podcast_cover = clean(inp.podcast_cover);
