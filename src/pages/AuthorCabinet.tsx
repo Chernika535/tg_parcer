@@ -6,6 +6,7 @@ import VoiceRecorder from "../components/VoiceRecorder.tsx";
 import CircleRecorder from "../components/CircleRecorder.tsx";
 import PostPreview from "../components/PostPreview.tsx";
 import MediaFilterPicker from "../components/MediaFilterPicker.tsx";
+import ArchiveImport from "../components/ArchiveImport.tsx";
 import { appConfig } from "../lib/supabase.ts";
 import { useAuth } from "../lib/auth.tsx";
 
@@ -482,6 +483,8 @@ export default function AuthorCabinet() {
             </details>
           </div>
         )}
+
+        {channels && channels.length > 0 && <ArchiveImport channels={channels} />}
       </div>
     </>
   );

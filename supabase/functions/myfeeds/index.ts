@@ -359,6 +359,29 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // ---- Импорт истории канала из экспорта Telegram (владелец канала) ----
+    if (b.action === "import_archive") {
+      const inp = (b.input ?? {}) as { chat_id?: string; posts?: Record<string, unknown>[] };
+      if (!inp.chat_id) return json({ error: "нет канала" }, 400);
+      if (!SERVICE_ROLE) return json({ error: "функция не сконфигурирована (service role)" }, 500);
+      // Владелец канала? (бот там админ, автор его подключил)
+      const { data: ch } = await db.from("author_channels").select("username").eq("owner_id", uid).eq("chat_id", inp.chat_id).maybeSingle();
+      if (!ch) return json({ error: "канал не привязан к вам" }, 403);
+      const username = ch.username ? norm(ch.username) : null;
+      const svc = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+      const rows = (inp.posts ?? [])
+        .filter((p) => p && p.msgId != null)
+        .map((p) => ({
+          owner_id: uid, chat_id: inp.chat_id, username,
+          msg_id: Number(p.msgId), posted_at: (p.postedAt as string) || new Date().toISOString(),
+          text: (p.text as string) || null, media: (p.media as unknown[]) ?? [], source: "import",
+        }));
+      if (rows.length === 0) return json({ ok: true, count: 0 });
+      const { error } = await svc.from("archived_posts").upsert(rows, { onConflict: "chat_id,msg_id" });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true, count: rows.length });
+    }
+
     // ---- Блокировка каналов (только админ; пишем под service role) ----
     if (b.action === "blocked_list") {
       const { data } = await db.from("blocked_channels")

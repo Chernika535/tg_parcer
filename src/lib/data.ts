@@ -132,6 +132,14 @@ export type Post = {
   archived?: boolean; // пост из нашего архива (сохранён у нас, переживает Telegram)
 };
 
+// Импорт истории канала: отправляем пачку архивных постов (медиа уже залиты в
+// наш Storage браузером). Владельца канала проверяет сервер.
+export async function importArchive(chatId: string, posts: Record<string, unknown>[]): Promise<number> {
+  const d = (await invokeFn("myfeeds", { action: "import_archive", input: { chat_id: chatId, posts } })) as { count?: number; error?: string };
+  if (d.error) throw new Error(d.error);
+  return d.count ?? 0;
+}
+
 // Архив канала: посты, сохранённые у нас (публикация через нас / импорт).
 // Показываются на странице канала независимо от доступности Telegram.
 export async function archivedPosts(channel: string): Promise<Post[]> {
