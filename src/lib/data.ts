@@ -550,11 +550,11 @@ export async function setupWebhook(): Promise<string> {
 
 // Соцссылки канала (TikTok / YouTube / подкаст): чтение публичное, запись — владельцем.
 export type ChannelSocials = {
-  tiktok: string | null; youtube: string | null;
+  tiktok: string | null; youtube: string | null; bandlink: string | null; litres: string | null;
   podcastUrl: string | null; podcastTitle: string | null; podcastCover: string | null;
 };
 export async function channelLinks(channel: string): Promise<ChannelSocials> {
-  const empty: ChannelSocials = { tiktok: null, youtube: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
+  const empty: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
   try {
     const d = (await invokeFnGet("feeds", { action: "channel_links", channel })) as Partial<ChannelSocials>;
     return { ...empty, ...d };
@@ -563,7 +563,7 @@ export async function channelLinks(channel: string): Promise<ChannelSocials> {
   }
 }
 export async function setChannelSocial(chatId: string, s: {
-  tiktok?: string | null; youtube?: string | null;
+  tiktok?: string | null; youtube?: string | null; bandlink?: string | null; litres?: string | null;
   podcast_url?: string | null; podcast_title?: string | null; podcast_cover?: string | null;
 }): Promise<void> {
   const d = (await invokeFn("bot", { action: "set_social", input: { chat_id: chatId, ...s } })) as { error?: string };

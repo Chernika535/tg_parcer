@@ -150,6 +150,7 @@ Deno.serve(async (req: Request) => {
     if (b.action === "set_social") {
       const inp = (b.input ?? {}) as {
         chat_id?: string; tiktok?: string | null; youtube?: string | null;
+        bandlink?: string | null; litres?: string | null;
         podcast_url?: string | null; podcast_title?: string | null; podcast_cover?: string | null;
       };
       if (!inp.chat_id) return json({ error: "нет канала" }, 400);
@@ -157,6 +158,8 @@ Deno.serve(async (req: Request) => {
       const patch: Record<string, unknown> = {};
       if (inp.tiktok !== undefined) patch.tiktok_url = clean(inp.tiktok);
       if (inp.youtube !== undefined) patch.youtube_url = clean(inp.youtube);
+      if (inp.bandlink !== undefined) patch.bandlink_url = clean(inp.bandlink);
+      if (inp.litres !== undefined) patch.litres_url = clean(inp.litres);
       if (inp.podcast_url !== undefined) patch.podcast_url = clean(inp.podcast_url);
       if (inp.podcast_title !== undefined) patch.podcast_title = clean(inp.podcast_title);
       if (inp.podcast_cover !== undefined) patch.podcast_cover = clean(inp.podcast_cover);

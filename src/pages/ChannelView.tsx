@@ -40,6 +40,11 @@ function youtubeLabel(v: string): string {
   if ((v || "").trim().startsWith("@")) return v.trim();
   return "YouTube";
 }
+// Обычная внешняя ссылка (Bandlink/ЛитРес) — добавляем https:// если нет схемы.
+function extHref(v: string): string {
+  const raw = (v || "").trim();
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
 
 // Страница одного канала: шапка (название/ник/описание/в каких лентах) + посты.
 export default function ChannelView() {
@@ -59,10 +64,10 @@ export default function ChannelView() {
   const [pinnedId, setPinnedId] = useState<number | null>(null);
   const [pinText, setPinText] = useState("");
   const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
-  const emptySocials: ChannelSocials = { tiktok: null, youtube: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
+  const emptySocials: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
   const [socials, setSocials] = useState<ChannelSocials>(emptySocials);
   const [editSocial, setEditSocial] = useState(false);
-  const [sForm, setSForm] = useState({ tiktok: "", youtube: "", podcastUrl: "", podcastTitle: "", podcastCover: "" });
+  const [sForm, setSForm] = useState({ tiktok: "", youtube: "", bandlink: "", litres: "", podcastUrl: "", podcastTitle: "", podcastCover: "" });
   const [savingSocial, setSavingSocial] = useState(false);
   const [stats, setStats] = useState<{ favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> } | null>(null);
   const { liked, toggle: toggleLike } = useLikes(!!session);
@@ -98,7 +103,7 @@ export default function ChannelView() {
     setSocials(emptySocials); setEditSocial(false);
     channelLinks(ch).then((l) => {
       setSocials(l);
-      setSForm({ tiktok: l.tiktok ?? "", youtube: l.youtube ?? "", podcastUrl: l.podcastUrl ?? "", podcastTitle: l.podcastTitle ?? "", podcastCover: l.podcastCover ?? "" });
+      setSForm({ tiktok: l.tiktok ?? "", youtube: l.youtube ?? "", bandlink: l.bandlink ?? "", litres: l.litres ?? "", podcastUrl: l.podcastUrl ?? "", podcastTitle: l.podcastTitle ?? "", podcastCover: l.podcastCover ?? "" });
     }).catch(() => {});
   }, [ch]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -113,11 +118,12 @@ export default function ChannelView() {
     setSavingSocial(true);
     try {
       await setChannelSocial(myChatId, {
-        tiktok: sForm.tiktok, youtube: sForm.youtube,
+        tiktok: sForm.tiktok, youtube: sForm.youtube, bandlink: sForm.bandlink, litres: sForm.litres,
         podcast_url: sForm.podcastUrl, podcast_title: sForm.podcastTitle, podcast_cover: sForm.podcastCover,
       });
       setSocials({
         tiktok: sForm.tiktok.trim() || null, youtube: sForm.youtube.trim() || null,
+        bandlink: sForm.bandlink.trim() || null, litres: sForm.litres.trim() || null,
         podcastUrl: sForm.podcastUrl.trim() || null, podcastTitle: sForm.podcastTitle.trim() || null,
         podcastCover: sForm.podcastCover.trim() || null,
       });
@@ -250,6 +256,16 @@ export default function ChannelView() {
                 <span aria-hidden>▶</span> YouTube {youtubeLabel(socials.youtube)}
               </a>
             )}
+            {socials.bandlink && (
+              <a className="btn secondary sm tiktok-btn" href={extHref(socials.bandlink)} target="_blank" rel="noreferrer">
+                <span aria-hidden>🎧</span> Музыка
+              </a>
+            )}
+            {socials.litres && (
+              <a className="btn secondary sm tiktok-btn" href={extHref(socials.litres)} target="_blank" rel="noreferrer">
+                <span aria-hidden>📚</span> ЛитРес
+              </a>
+            )}
             {myChatId && !editSocial && (
               <button className="btn ghost sm" onClick={() => setEditSocial(true)}>✎ Ссылки и подкаст</button>
             )}
@@ -274,6 +290,10 @@ export default function ChannelView() {
                 <input type="text" value={sForm.tiktok} onChange={(e) => setSForm((f) => ({ ...f, tiktok: e.target.value }))} placeholder="@oba_vsem" /></div>
               <div className="field"><label>YouTube (@ник или ссылка)</label>
                 <input type="text" value={sForm.youtube} onChange={(e) => setSForm((f) => ({ ...f, youtube: e.target.value }))} placeholder="@obavsem или ссылка" /></div>
+              <div className="field"><label>Bandlink (музыка) — ссылка</label>
+                <input type="text" value={sForm.bandlink} onChange={(e) => setSForm((f) => ({ ...f, bandlink: e.target.value }))} placeholder="band.link/... или ссылка" /></div>
+              <div className="field"><label>ЛитРес (книги) — ссылка</label>
+                <input type="text" value={sForm.litres} onChange={(e) => setSForm((f) => ({ ...f, litres: e.target.value }))} placeholder="litres.ru/author/... или ссылка" /></div>
               <div className="field"><label>Подкаст — ссылка</label>
                 <input type="text" value={sForm.podcastUrl} onChange={(e) => setSForm((f) => ({ ...f, podcastUrl: e.target.value }))} placeholder="https://oba-vsem.mave.digital/" /></div>
               <div className="field"><label>Подкаст — название</label>
