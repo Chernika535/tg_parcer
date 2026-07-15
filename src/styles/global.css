@@ -446,8 +446,20 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .tag-badge.admin { background: var(--pink); color: #fff; }
 .tag-badge.adult18 { background: #c1121f; color: #fff; }
 .adult-gate { text-align: center; padding: 24px 18px; }
-.tiktok-btn { display: inline-flex; align-items: center; gap: 6px; }
-.tiktok-btn span { font-size: 15px; }
+/* Линк-хаб канала: фирменные цветные кнопки платформ */
+.link-hub { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.link-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: 2px solid var(--ink); font-weight: 800; font-size: 13px; color: #fff; text-decoration: none; cursor: pointer; line-height: 1; }
+.link-pill:active { transform: translateY(1px); }
+.link-pill-ico { font-size: 14px; }
+.brand-tg { background: #29a9eb; }
+.brand-tiktok { background: #010101; }
+.brand-youtube { background: #ff0000; }
+.brand-music { background: #7b2ff7; }
+.brand-litres { background: #d5442c; }
+.brand-boosty { background: #f15f2c; }
+.brand-vk { background: #0077ff; }
+.brand-site { background: #444; }
+.link-pill-edit { background: var(--surface); color: var(--ink); }
 .podcast-card { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 8px; border: 2px solid var(--ink); border-radius: 12px; background: var(--surface); text-decoration: none; color: var(--ink); }
 .podcast-cover { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex: 0 0 auto; border: 1px solid var(--surface-2); }
 .podcast-cover-ph { display: inline-flex; align-items: center; justify-content: center; font-size: 22px; background: var(--surface-2); }

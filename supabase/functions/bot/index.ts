@@ -151,6 +151,7 @@ Deno.serve(async (req: Request) => {
       const inp = (b.input ?? {}) as {
         chat_id?: string; tiktok?: string | null; youtube?: string | null;
         bandlink?: string | null; litres?: string | null;
+        boosty?: string | null; vk?: string | null; website?: string | null;
         podcast_url?: string | null; podcast_title?: string | null; podcast_cover?: string | null;
       };
       if (!inp.chat_id) return json({ error: "нет канала" }, 400);
@@ -160,6 +161,9 @@ Deno.serve(async (req: Request) => {
       if (inp.youtube !== undefined) patch.youtube_url = clean(inp.youtube);
       if (inp.bandlink !== undefined) patch.bandlink_url = clean(inp.bandlink);
       if (inp.litres !== undefined) patch.litres_url = clean(inp.litres);
+      if (inp.boosty !== undefined) patch.boosty_url = clean(inp.boosty);
+      if (inp.vk !== undefined) patch.vk_url = clean(inp.vk);
+      if (inp.website !== undefined) patch.website_url = clean(inp.website);
       if (inp.podcast_url !== undefined) patch.podcast_url = clean(inp.podcast_url);
       if (inp.podcast_title !== undefined) patch.podcast_title = clean(inp.podcast_title);
       if (inp.podcast_cover !== undefined) patch.podcast_cover = clean(inp.podcast_cover);

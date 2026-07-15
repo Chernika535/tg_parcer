@@ -64,10 +64,10 @@ export default function ChannelView() {
   const [pinnedId, setPinnedId] = useState<number | null>(null);
   const [pinText, setPinText] = useState("");
   const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
-  const emptySocials: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
+  const emptySocials: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, boosty: null, vk: null, website: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
   const [socials, setSocials] = useState<ChannelSocials>(emptySocials);
   const [editSocial, setEditSocial] = useState(false);
-  const [sForm, setSForm] = useState({ tiktok: "", youtube: "", bandlink: "", litres: "", podcastUrl: "", podcastTitle: "", podcastCover: "" });
+  const [sForm, setSForm] = useState({ tiktok: "", youtube: "", bandlink: "", litres: "", boosty: "", vk: "", website: "", podcastUrl: "", podcastTitle: "", podcastCover: "" });
   const [savingSocial, setSavingSocial] = useState(false);
   const [stats, setStats] = useState<{ favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> } | null>(null);
   const { liked, toggle: toggleLike } = useLikes(!!session);
@@ -103,7 +103,7 @@ export default function ChannelView() {
     setSocials(emptySocials); setEditSocial(false);
     channelLinks(ch).then((l) => {
       setSocials(l);
-      setSForm({ tiktok: l.tiktok ?? "", youtube: l.youtube ?? "", bandlink: l.bandlink ?? "", litres: l.litres ?? "", podcastUrl: l.podcastUrl ?? "", podcastTitle: l.podcastTitle ?? "", podcastCover: l.podcastCover ?? "" });
+      setSForm({ tiktok: l.tiktok ?? "", youtube: l.youtube ?? "", bandlink: l.bandlink ?? "", litres: l.litres ?? "", boosty: l.boosty ?? "", vk: l.vk ?? "", website: l.website ?? "", podcastUrl: l.podcastUrl ?? "", podcastTitle: l.podcastTitle ?? "", podcastCover: l.podcastCover ?? "" });
     }).catch(() => {});
   }, [ch]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -119,11 +119,13 @@ export default function ChannelView() {
     try {
       await setChannelSocial(myChatId, {
         tiktok: sForm.tiktok, youtube: sForm.youtube, bandlink: sForm.bandlink, litres: sForm.litres,
+        boosty: sForm.boosty, vk: sForm.vk, website: sForm.website,
         podcast_url: sForm.podcastUrl, podcast_title: sForm.podcastTitle, podcast_cover: sForm.podcastCover,
       });
       setSocials({
         tiktok: sForm.tiktok.trim() || null, youtube: sForm.youtube.trim() || null,
         bandlink: sForm.bandlink.trim() || null, litres: sForm.litres.trim() || null,
+        boosty: sForm.boosty.trim() || null, vk: sForm.vk.trim() || null, website: sForm.website.trim() || null,
         podcastUrl: sForm.podcastUrl.trim() || null, podcastTitle: sForm.podcastTitle.trim() || null,
         podcastCover: sForm.podcastCover.trim() || null,
       });
@@ -242,32 +244,23 @@ export default function ChannelView() {
           </div>
           {info?.description && <div className="post-text" style={{ marginTop: 10 }}>{linkify(info.description)}</div>}
 
-          <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-            <a className="btn secondary sm" href={tgUrl(ch)} target="_blank" rel="noreferrer">
-              Открыть канал в Telegram ↗
-            </a>
-            {socials.tiktok && (
-              <a className="btn secondary sm tiktok-btn" href={tiktokHref(socials.tiktok)} target="_blank" rel="noreferrer">
-                <span aria-hidden>♪</span> TikTok {tiktokNick(socials.tiktok)}
+          <div className="link-hub">
+            {([
+              { key: "tg", href: tgUrl(ch), label: "Telegram", glyph: "✈" },
+              socials.tiktok && { key: "tiktok", href: tiktokHref(socials.tiktok), label: `TikTok ${tiktokNick(socials.tiktok)}`, glyph: "♪" },
+              socials.youtube && { key: "youtube", href: youtubeHref(socials.youtube), label: `YouTube ${youtubeLabel(socials.youtube)}`, glyph: "▶" },
+              socials.bandlink && { key: "music", href: extHref(socials.bandlink), label: "Музыка", glyph: "🎧" },
+              socials.litres && { key: "litres", href: extHref(socials.litres), label: "ЛитРес", glyph: "📚" },
+              socials.boosty && { key: "boosty", href: extHref(socials.boosty), label: "Boosty", glyph: "🚀" },
+              socials.vk && { key: "vk", href: extHref(socials.vk), label: "VK", glyph: "𝐕" },
+              socials.website && { key: "site", href: extHref(socials.website), label: "Сайт", glyph: "🌐" },
+            ].filter(Boolean) as { key: string; href: string; label: string; glyph: string }[]).map((s) => (
+              <a key={s.key} className={`link-pill brand-${s.key}`} href={s.href} target="_blank" rel="noreferrer">
+                <span className="link-pill-ico" aria-hidden>{s.glyph}</span>{s.label}
               </a>
-            )}
-            {socials.youtube && (
-              <a className="btn secondary sm tiktok-btn" href={youtubeHref(socials.youtube)} target="_blank" rel="noreferrer">
-                <span aria-hidden>▶</span> YouTube {youtubeLabel(socials.youtube)}
-              </a>
-            )}
-            {socials.bandlink && (
-              <a className="btn secondary sm tiktok-btn" href={extHref(socials.bandlink)} target="_blank" rel="noreferrer">
-                <span aria-hidden>🎧</span> Музыка
-              </a>
-            )}
-            {socials.litres && (
-              <a className="btn secondary sm tiktok-btn" href={extHref(socials.litres)} target="_blank" rel="noreferrer">
-                <span aria-hidden>📚</span> ЛитРес
-              </a>
-            )}
+            ))}
             {myChatId && !editSocial && (
-              <button className="btn ghost sm" onClick={() => setEditSocial(true)}>✎ Ссылки и подкаст</button>
+              <button className="link-pill link-pill-edit" onClick={() => setEditSocial(true)}>✎ Ссылки и подкаст</button>
             )}
           </div>
 
@@ -294,6 +287,12 @@ export default function ChannelView() {
                 <input type="text" value={sForm.bandlink} onChange={(e) => setSForm((f) => ({ ...f, bandlink: e.target.value }))} placeholder="band.link/... или ссылка" /></div>
               <div className="field"><label>ЛитРес (книги) — ссылка</label>
                 <input type="text" value={sForm.litres} onChange={(e) => setSForm((f) => ({ ...f, litres: e.target.value }))} placeholder="litres.ru/author/... или ссылка" /></div>
+              <div className="field"><label>Boosty — ссылка</label>
+                <input type="text" value={sForm.boosty} onChange={(e) => setSForm((f) => ({ ...f, boosty: e.target.value }))} placeholder="boosty.to/..." /></div>
+              <div className="field"><label>VK — ссылка</label>
+                <input type="text" value={sForm.vk} onChange={(e) => setSForm((f) => ({ ...f, vk: e.target.value }))} placeholder="vk.com/..." /></div>
+              <div className="field"><label>Личный сайт — ссылка</label>
+                <input type="text" value={sForm.website} onChange={(e) => setSForm((f) => ({ ...f, website: e.target.value }))} placeholder="example.com" /></div>
               <div className="field"><label>Подкаст — ссылка</label>
                 <input type="text" value={sForm.podcastUrl} onChange={(e) => setSForm((f) => ({ ...f, podcastUrl: e.target.value }))} placeholder="https://oba-vsem.mave.digital/" /></div>
               <div className="field"><label>Подкаст — название</label>
