@@ -152,7 +152,7 @@ Deno.serve(async (req: Request) => {
         chat_id?: string; tiktok?: string | null; youtube?: string | null;
         bandlink?: string | null; litres?: string | null;
         boosty?: string | null; vk?: string | null; website?: string | null;
-        zen?: string | null; rutube?: string | null; teletype?: string | null;
+        zen?: string | null; rutube?: string | null; teletype?: string | null; pinterest?: string | null;
         music_caption?: string | null; spotify?: string | null; yandexmusic?: string | null; zvuk?: string | null;
         podcast_url?: string | null; podcast_title?: string | null; podcast_cover?: string | null;
       };
@@ -169,6 +169,7 @@ Deno.serve(async (req: Request) => {
       if (inp.zen !== undefined) patch.zen_url = clean(inp.zen);
       if (inp.rutube !== undefined) patch.rutube_url = clean(inp.rutube);
       if (inp.teletype !== undefined) patch.teletype_url = clean(inp.teletype);
+      if (inp.pinterest !== undefined) patch.pinterest_url = clean(inp.pinterest);
       if (inp.music_caption !== undefined) patch.music_caption = clean(inp.music_caption);
       if (inp.spotify !== undefined) patch.spotify_url = clean(inp.spotify);
       if (inp.yandexmusic !== undefined) patch.yandexmusic_url = clean(inp.yandexmusic);

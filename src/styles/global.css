@@ -461,6 +461,7 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .brand-zen { background: #000; }
 .brand-rutube { background: #14191f; }
 .brand-teletype { background: #ff8a00; }
+.brand-pinterest { background: #e60023; }
 .brand-site { background: #444; }
 .link-pill-edit { background: var(--surface); color: var(--ink); }
 

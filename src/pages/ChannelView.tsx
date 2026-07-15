@@ -64,10 +64,10 @@ export default function ChannelView() {
   const [pinnedId, setPinnedId] = useState<number | null>(null);
   const [pinText, setPinText] = useState("");
   const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
-  const emptySocials: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, boosty: null, vk: null, website: null, zen: null, rutube: null, teletype: null, musicCaption: null, spotify: null, yandexmusic: null, zvuk: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
+  const emptySocials: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, boosty: null, vk: null, website: null, zen: null, rutube: null, teletype: null, pinterest: null, musicCaption: null, spotify: null, yandexmusic: null, zvuk: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
   const [socials, setSocials] = useState<ChannelSocials>(emptySocials);
   const [editSocial, setEditSocial] = useState(false);
-  const [sForm, setSForm] = useState({ tiktok: "", youtube: "", bandlink: "", litres: "", boosty: "", vk: "", website: "", zen: "", rutube: "", teletype: "", musicCaption: "", spotify: "", yandexmusic: "", zvuk: "", podcastUrl: "", podcastTitle: "", podcastCover: "" });
+  const [sForm, setSForm] = useState({ tiktok: "", youtube: "", bandlink: "", litres: "", boosty: "", vk: "", website: "", zen: "", rutube: "", teletype: "", pinterest: "", musicCaption: "", spotify: "", yandexmusic: "", zvuk: "", podcastUrl: "", podcastTitle: "", podcastCover: "" });
   const [savingSocial, setSavingSocial] = useState(false);
   const [stats, setStats] = useState<{ favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> } | null>(null);
   const { liked, toggle: toggleLike } = useLikes(!!session);
@@ -103,7 +103,7 @@ export default function ChannelView() {
     setSocials(emptySocials); setEditSocial(false);
     channelLinks(ch).then((l) => {
       setSocials(l);
-      setSForm({ tiktok: l.tiktok ?? "", youtube: l.youtube ?? "", bandlink: l.bandlink ?? "", litres: l.litres ?? "", boosty: l.boosty ?? "", vk: l.vk ?? "", website: l.website ?? "", zen: l.zen ?? "", rutube: l.rutube ?? "", teletype: l.teletype ?? "", musicCaption: l.musicCaption ?? "", spotify: l.spotify ?? "", yandexmusic: l.yandexmusic ?? "", zvuk: l.zvuk ?? "", podcastUrl: l.podcastUrl ?? "", podcastTitle: l.podcastTitle ?? "", podcastCover: l.podcastCover ?? "" });
+      setSForm({ tiktok: l.tiktok ?? "", youtube: l.youtube ?? "", bandlink: l.bandlink ?? "", litres: l.litres ?? "", boosty: l.boosty ?? "", vk: l.vk ?? "", website: l.website ?? "", zen: l.zen ?? "", rutube: l.rutube ?? "", teletype: l.teletype ?? "", pinterest: l.pinterest ?? "", musicCaption: l.musicCaption ?? "", spotify: l.spotify ?? "", yandexmusic: l.yandexmusic ?? "", zvuk: l.zvuk ?? "", podcastUrl: l.podcastUrl ?? "", podcastTitle: l.podcastTitle ?? "", podcastCover: l.podcastCover ?? "" });
     }).catch(() => {});
   }, [ch]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -120,7 +120,7 @@ export default function ChannelView() {
       await setChannelSocial(myChatId, {
         tiktok: sForm.tiktok, youtube: sForm.youtube, bandlink: sForm.bandlink, litres: sForm.litres,
         boosty: sForm.boosty, vk: sForm.vk, website: sForm.website,
-        zen: sForm.zen, rutube: sForm.rutube, teletype: sForm.teletype,
+        zen: sForm.zen, rutube: sForm.rutube, teletype: sForm.teletype, pinterest: sForm.pinterest,
         music_caption: sForm.musicCaption, spotify: sForm.spotify, yandexmusic: sForm.yandexmusic, zvuk: sForm.zvuk,
         podcast_url: sForm.podcastUrl, podcast_title: sForm.podcastTitle, podcast_cover: sForm.podcastCover,
       });
@@ -128,7 +128,7 @@ export default function ChannelView() {
         tiktok: sForm.tiktok.trim() || null, youtube: sForm.youtube.trim() || null,
         bandlink: sForm.bandlink.trim() || null, litres: sForm.litres.trim() || null,
         boosty: sForm.boosty.trim() || null, vk: sForm.vk.trim() || null, website: sForm.website.trim() || null,
-        zen: sForm.zen.trim() || null, rutube: sForm.rutube.trim() || null, teletype: sForm.teletype.trim() || null,
+        zen: sForm.zen.trim() || null, rutube: sForm.rutube.trim() || null, teletype: sForm.teletype.trim() || null, pinterest: sForm.pinterest.trim() || null,
         musicCaption: sForm.musicCaption.trim() || null, spotify: sForm.spotify.trim() || null, yandexmusic: sForm.yandexmusic.trim() || null, zvuk: sForm.zvuk.trim() || null,
         podcastUrl: sForm.podcastUrl.trim() || null, podcastTitle: sForm.podcastTitle.trim() || null,
         podcastCover: sForm.podcastCover.trim() || null,
@@ -260,6 +260,7 @@ export default function ChannelView() {
               socials.zen && { key: "zen", href: extHref(socials.zen), label: "Дзен", glyph: "Ⓩ" },
               socials.rutube && { key: "rutube", href: extHref(socials.rutube), label: "Rutube", glyph: "▶" },
               socials.teletype && { key: "teletype", href: extHref(socials.teletype), label: "Teletype", glyph: "✎" },
+              socials.pinterest && { key: "pinterest", href: extHref(socials.pinterest), label: "Pinterest", glyph: "📌" },
               socials.website && { key: "site", href: extHref(socials.website), label: "Сайт", glyph: "🌐" },
             ].filter(Boolean) as { key: string; href: string; label: string; glyph: string }[]).map((s) => (
               <a key={s.key} className={`link-pill brand-${s.key}`} href={s.href} target="_blank" rel="noreferrer">
@@ -317,6 +318,8 @@ export default function ChannelView() {
                 <input type="text" value={sForm.rutube} onChange={(e) => setSForm((f) => ({ ...f, rutube: e.target.value }))} placeholder="rutube.ru/channel/..." /></div>
               <div className="field"><label>Teletype — ссылка</label>
                 <input type="text" value={sForm.teletype} onChange={(e) => setSForm((f) => ({ ...f, teletype: e.target.value }))} placeholder="teletype.in/@..." /></div>
+              <div className="field"><label>Pinterest — ссылка</label>
+                <input type="text" value={sForm.pinterest} onChange={(e) => setSForm((f) => ({ ...f, pinterest: e.target.value }))} placeholder="pinterest.com/..." /></div>
 
               <div style={{ borderTop: "1px solid var(--surface-2)", margin: "10px 0 6px", paddingTop: 8, fontWeight: 800 }}>🎵 Музыкальный блок</div>
               <div className="field"><label>Подпись (например: «Плейлист, который меня отражает»)</label>

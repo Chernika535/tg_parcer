@@ -552,12 +552,12 @@ export async function setupWebhook(): Promise<string> {
 export type ChannelSocials = {
   tiktok: string | null; youtube: string | null; bandlink: string | null; litres: string | null;
   boosty: string | null; vk: string | null; website: string | null;
-  zen: string | null; rutube: string | null; teletype: string | null;
+  zen: string | null; rutube: string | null; teletype: string | null; pinterest: string | null;
   musicCaption: string | null; spotify: string | null; yandexmusic: string | null; zvuk: string | null;
   podcastUrl: string | null; podcastTitle: string | null; podcastCover: string | null;
 };
 export async function channelLinks(channel: string): Promise<ChannelSocials> {
-  const empty: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, boosty: null, vk: null, website: null, zen: null, rutube: null, teletype: null, musicCaption: null, spotify: null, yandexmusic: null, zvuk: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
+  const empty: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, boosty: null, vk: null, website: null, zen: null, rutube: null, teletype: null, pinterest: null, musicCaption: null, spotify: null, yandexmusic: null, zvuk: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
   try {
     const d = (await invokeFnGet("feeds", { action: "channel_links", channel })) as Partial<ChannelSocials>;
     return { ...empty, ...d };
@@ -568,7 +568,7 @@ export async function channelLinks(channel: string): Promise<ChannelSocials> {
 export async function setChannelSocial(chatId: string, s: {
   tiktok?: string | null; youtube?: string | null; bandlink?: string | null; litres?: string | null;
   boosty?: string | null; vk?: string | null; website?: string | null;
-  zen?: string | null; rutube?: string | null; teletype?: string | null;
+  zen?: string | null; rutube?: string | null; teletype?: string | null; pinterest?: string | null;
   music_caption?: string | null; spotify?: string | null; yandexmusic?: string | null; zvuk?: string | null;
   podcast_url?: string | null; podcast_title?: string | null; podcast_cover?: string | null;
 }): Promise<void> {
