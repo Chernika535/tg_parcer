@@ -46,6 +46,13 @@ Deno.serve(async (req: Request) => {
     const { data: ch } = await svc.from("author_channels").select("owner_id, username").eq("chat_id", chatId).maybeSingle();
     if (!ch) return new Response("ok");
 
+    // Пропускаем посты, опубликованные ЧЕРЕЗ НАС: они уже архивируются полноценно
+    // (все медиа + форматирование). posted_messages.message_ids содержит все id
+    // публикации, включая элементы альбома, — так исключаем и «затирание», и обрывки.
+    const { data: mine } = await svc.from("posted_messages")
+      .select("id").eq("chat_id", chatId).contains("message_ids", [msg.message_id]).limit(1);
+    if (mine && mine.length) return new Response("ok");
+
     const username = ch.username ? normCh(ch.username) : (msg.chat.username ? normCh(msg.chat.username) : null);
     const text: string = msg.text ?? msg.caption ?? "";
 
@@ -84,7 +91,8 @@ Deno.serve(async (req: Request) => {
       text: text || null,
       media,
       source: "live",
-    }, { onConflict: "chat_id,msg_id" });
+      // Не перезаписываем уже сохранённый пост (напр. богатую версию из публикации).
+    }, { onConflict: "chat_id,msg_id", ignoreDuplicates: true });
 
     return new Response("ok");
   } catch {
