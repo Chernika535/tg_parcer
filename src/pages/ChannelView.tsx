@@ -2,9 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   channelsInfo, readChannels, readChannelsMTServer, readChannelsMT, readChannelsBefore,
-  loadPublic, favoriteLinks, addFavorite, removeFavorite, archivedPosts, channelLinks, setChannelSocial,
+  loadPublic, favoriteLinks, addFavorite, removeFavorite, archivedPosts, channelLinks, setChannelSocial, uploadMedia,
   pinnedPost, pinPost, unpinPost, channelPinnedBot, authorChannels, channelStats, track,
-  type Post, type ChannelInfo, type Feed,
+  type Post, type ChannelInfo, type Feed, type ChannelSocials,
 } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { Loading, Empty, TopBar } from "../components/States.tsx";
@@ -29,6 +29,17 @@ function tiktokNick(v: string): string {
   const m = (v || "").match(/tiktok\.com\/@?([^/?#]+)/i);
   return "@" + (m ? m[1] : (v || "").replace(/^@/, "")).replace(/^@/, "");
 }
+function youtubeHref(v: string): string {
+  const raw = (v || "").trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://www.youtube.com/${raw.startsWith("@") ? raw : "@" + raw}`;
+}
+function youtubeLabel(v: string): string {
+  const m = (v || "").match(/youtube\.com\/(@[^/?#]+)/i);
+  if (m) return m[1];
+  if ((v || "").trim().startsWith("@")) return v.trim();
+  return "YouTube";
+}
 
 // Страница одного канала: шапка (название/ник/описание/в каких лентах) + посты.
 export default function ChannelView() {
@@ -48,9 +59,11 @@ export default function ChannelView() {
   const [pinnedId, setPinnedId] = useState<number | null>(null);
   const [pinText, setPinText] = useState("");
   const [myChatId, setMyChatId] = useState<string | null>(null); // если это мой канал (бот-админ)
-  const [tiktok, setTiktok] = useState<string | null>(null);
-  const [tiktokInput, setTiktokInput] = useState("");
-  const [editTiktok, setEditTiktok] = useState(false);
+  const emptySocials: ChannelSocials = { tiktok: null, youtube: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
+  const [socials, setSocials] = useState<ChannelSocials>(emptySocials);
+  const [editSocial, setEditSocial] = useState(false);
+  const [sForm, setSForm] = useState({ tiktok: "", youtube: "", podcastUrl: "", podcastTitle: "", podcastCover: "" });
+  const [savingSocial, setSavingSocial] = useState(false);
   const [stats, setStats] = useState<{ favorites: number; privateFeeds: number; likesTotal: number; likesByLink: Record<string, number> } | null>(null);
   const { liked, toggle: toggleLike } = useLikes(!!session);
 
@@ -82,17 +95,35 @@ export default function ChannelView() {
   useEffect(() => { if (ch) track("channel", ch); }, [ch]);
 
   useEffect(() => {
-    setTiktok(null); setEditTiktok(false);
-    channelLinks(ch).then((l) => { setTiktok(l.tiktok); setTiktokInput(l.tiktok ?? ""); }).catch(() => {});
-  }, [ch]);
+    setSocials(emptySocials); setEditSocial(false);
+    channelLinks(ch).then((l) => {
+      setSocials(l);
+      setSForm({ tiktok: l.tiktok ?? "", youtube: l.youtube ?? "", podcastUrl: l.podcastUrl ?? "", podcastTitle: l.podcastTitle ?? "", podcastCover: l.podcastCover ?? "" });
+    }).catch(() => {});
+  }, [ch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function saveTiktok() {
+  async function pickPodcastCover(file: File) {
+    setSavingSocial(true);
+    try { const url = await uploadMedia(file, (file.name.split(".").pop() || "jpg")); setSForm((f) => ({ ...f, podcastCover: url })); }
+    catch (e) { alert("Не удалось загрузить обложку: " + (e as Error).message); }
+    finally { setSavingSocial(false); }
+  }
+  async function saveSocials() {
     if (!myChatId) return;
+    setSavingSocial(true);
     try {
-      const v = tiktokInput.trim() || null;
-      await setChannelSocial(myChatId, v);
-      setTiktok(v); setEditTiktok(false);
+      await setChannelSocial(myChatId, {
+        tiktok: sForm.tiktok, youtube: sForm.youtube,
+        podcast_url: sForm.podcastUrl, podcast_title: sForm.podcastTitle, podcast_cover: sForm.podcastCover,
+      });
+      setSocials({
+        tiktok: sForm.tiktok.trim() || null, youtube: sForm.youtube.trim() || null,
+        podcastUrl: sForm.podcastUrl.trim() || null, podcastTitle: sForm.podcastTitle.trim() || null,
+        podcastCover: sForm.podcastCover.trim() || null,
+      });
+      setEditSocial(false);
     } catch (e) { alert("Не удалось сохранить: " + (e as Error).message); }
+    finally { setSavingSocial(false); }
   }
 
   useEffect(() => {
@@ -209,23 +240,58 @@ export default function ChannelView() {
             <a className="btn secondary sm" href={tgUrl(ch)} target="_blank" rel="noreferrer">
               Открыть канал в Telegram ↗
             </a>
-            {tiktok && (
-              <a className="btn secondary sm tiktok-btn" href={tiktokHref(tiktok)} target="_blank" rel="noreferrer">
-                <span aria-hidden>♪</span> TikTok {tiktokNick(tiktok)}
+            {socials.tiktok && (
+              <a className="btn secondary sm tiktok-btn" href={tiktokHref(socials.tiktok)} target="_blank" rel="noreferrer">
+                <span aria-hidden>♪</span> TikTok {tiktokNick(socials.tiktok)}
               </a>
             )}
-            {myChatId && !editTiktok && (
-              <button className="btn ghost sm" onClick={() => setEditTiktok(true)}>
-                {tiktok ? "✎ TikTok" : "+ Ссылка на TikTok"}
-              </button>
+            {socials.youtube && (
+              <a className="btn secondary sm tiktok-btn" href={youtubeHref(socials.youtube)} target="_blank" rel="noreferrer">
+                <span aria-hidden>▶</span> YouTube {youtubeLabel(socials.youtube)}
+              </a>
+            )}
+            {myChatId && !editSocial && (
+              <button className="btn ghost sm" onClick={() => setEditSocial(true)}>✎ Ссылки и подкаст</button>
             )}
           </div>
-          {myChatId && editTiktok && (
-            <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-              <input type="text" style={{ flex: "1 1 200px" }} placeholder="@ник или ссылка на TikTok"
-                value={tiktokInput} onChange={(e) => setTiktokInput(e.target.value)} />
-              <button className="btn sm" onClick={saveTiktok}>Сохранить</button>
-              <button className="btn ghost sm" onClick={() => { setTiktokInput(tiktok ?? ""); setEditTiktok(false); }}>Отмена</button>
+
+          {socials.podcastUrl && (
+            <a className="podcast-card" href={socials.podcastUrl} target="_blank" rel="noreferrer">
+              {socials.podcastCover
+                ? <img src={socials.podcastCover} alt="" className="podcast-cover" />
+                : <span className="podcast-cover podcast-cover-ph">🎙</span>}
+              <span className="podcast-body">
+                <span className="podcast-kicker">🎙 Подкаст</span>
+                <span className="podcast-title">{socials.podcastTitle || "Слушать подкаст"}</span>
+              </span>
+              <span className="podcast-go" aria-hidden>↗</span>
+            </a>
+          )}
+
+          {myChatId && editSocial && (
+            <div className="social-edit">
+              <div className="field"><label>TikTok (@ник или ссылка)</label>
+                <input type="text" value={sForm.tiktok} onChange={(e) => setSForm((f) => ({ ...f, tiktok: e.target.value }))} placeholder="@oba_vsem" /></div>
+              <div className="field"><label>YouTube (@ник или ссылка)</label>
+                <input type="text" value={sForm.youtube} onChange={(e) => setSForm((f) => ({ ...f, youtube: e.target.value }))} placeholder="@obavsem или ссылка" /></div>
+              <div className="field"><label>Подкаст — ссылка</label>
+                <input type="text" value={sForm.podcastUrl} onChange={(e) => setSForm((f) => ({ ...f, podcastUrl: e.target.value }))} placeholder="https://oba-vsem.mave.digital/" /></div>
+              <div className="field"><label>Подкаст — название</label>
+                <input type="text" value={sForm.podcastTitle} onChange={(e) => setSForm((f) => ({ ...f, podcastTitle: e.target.value }))} placeholder="Оба всем" /></div>
+              <div className="field"><label>Подкаст — обложка (маленькая)</label>
+                <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  {sForm.podcastCover && <img src={sForm.podcastCover} alt="" className="podcast-cover" />}
+                  <label className="btn secondary sm" style={{ cursor: "pointer" }}>
+                    {savingSocial ? "…" : sForm.podcastCover ? "Заменить" : "Загрузить"}
+                    <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && pickPodcastCover(e.target.files[0])} />
+                  </label>
+                  {sForm.podcastCover && <button className="btn ghost sm" onClick={() => setSForm((f) => ({ ...f, podcastCover: "" }))}>Убрать</button>}
+                </div>
+              </div>
+              <div className="row" style={{ gap: 8, marginTop: 4 }}>
+                <button className="btn sm" onClick={saveSocials} disabled={savingSocial}>{savingSocial ? "Сохранение…" : "Сохранить"}</button>
+                <button className="btn ghost sm" onClick={() => setEditSocial(false)}>Отмена</button>
+              </div>
             </div>
           )}
           {stats && (

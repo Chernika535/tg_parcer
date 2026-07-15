@@ -146,13 +146,22 @@ Deno.serve(async (req: Request) => {
       return r.ok ? json({ ok: true, url }) : json({ error: r.description || "не удалось включить вебхук" }, 400);
     }
 
-    // Соцссылки канала (TikTok) — задаёт владелец канала.
+    // Соцссылки канала (TikTok / YouTube / подкаст) — задаёт владелец канала.
     if (b.action === "set_social") {
-      const inp = (b.input ?? {}) as { chat_id?: string; tiktok?: string | null };
+      const inp = (b.input ?? {}) as {
+        chat_id?: string; tiktok?: string | null; youtube?: string | null;
+        podcast_url?: string | null; podcast_title?: string | null; podcast_cover?: string | null;
+      };
       if (!inp.chat_id) return json({ error: "нет канала" }, 400);
-      const tiktok = (inp.tiktok ?? "").trim() || null;
+      const clean = (v?: string | null) => (v ?? "").trim() || null;
+      const patch: Record<string, unknown> = {};
+      if (inp.tiktok !== undefined) patch.tiktok_url = clean(inp.tiktok);
+      if (inp.youtube !== undefined) patch.youtube_url = clean(inp.youtube);
+      if (inp.podcast_url !== undefined) patch.podcast_url = clean(inp.podcast_url);
+      if (inp.podcast_title !== undefined) patch.podcast_title = clean(inp.podcast_title);
+      if (inp.podcast_cover !== undefined) patch.podcast_cover = clean(inp.podcast_cover);
       const { data, error } = await db.from("author_channels")
-        .update({ tiktok_url: tiktok }).eq("owner_id", uid).eq("chat_id", inp.chat_id).select("id");
+        .update(patch).eq("owner_id", uid).eq("chat_id", inp.chat_id).select("id");
       if (error) return json({ error: error.message }, 500);
       if (!data || data.length === 0) return json({ error: "канал не привязан к вам" }, 403);
       return json({ ok: true });

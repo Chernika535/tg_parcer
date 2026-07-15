@@ -548,17 +548,25 @@ export async function setupWebhook(): Promise<string> {
   return d.url ?? "";
 }
 
-// Соцссылки канала (TikTok): чтение публичное, запись — владельцем канала.
-export async function channelLinks(channel: string): Promise<{ tiktok: string | null }> {
+// Соцссылки канала (TikTok / YouTube / подкаст): чтение публичное, запись — владельцем.
+export type ChannelSocials = {
+  tiktok: string | null; youtube: string | null;
+  podcastUrl: string | null; podcastTitle: string | null; podcastCover: string | null;
+};
+export async function channelLinks(channel: string): Promise<ChannelSocials> {
+  const empty: ChannelSocials = { tiktok: null, youtube: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
   try {
-    const d = (await invokeFnGet("feeds", { action: "channel_links", channel })) as { tiktok?: string | null };
-    return { tiktok: d.tiktok ?? null };
+    const d = (await invokeFnGet("feeds", { action: "channel_links", channel })) as Partial<ChannelSocials>;
+    return { ...empty, ...d };
   } catch {
-    return { tiktok: null };
+    return empty;
   }
 }
-export async function setChannelSocial(chatId: string, tiktok: string | null): Promise<void> {
-  const d = (await invokeFn("bot", { action: "set_social", input: { chat_id: chatId, tiktok } })) as { error?: string };
+export async function setChannelSocial(chatId: string, s: {
+  tiktok?: string | null; youtube?: string | null;
+  podcast_url?: string | null; podcast_title?: string | null; podcast_cover?: string | null;
+}): Promise<void> {
+  const d = (await invokeFn("bot", { action: "set_social", input: { chat_id: chatId, ...s } })) as { error?: string };
   if (d.error) throw new Error(d.error);
 }
 

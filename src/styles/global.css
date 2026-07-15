@@ -448,6 +448,14 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .adult-gate { text-align: center; padding: 24px 18px; }
 .tiktok-btn { display: inline-flex; align-items: center; gap: 6px; }
 .tiktok-btn span { font-size: 15px; }
+.podcast-card { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 8px; border: 2px solid var(--ink); border-radius: 12px; background: var(--surface); text-decoration: none; color: var(--ink); }
+.podcast-cover { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex: 0 0 auto; border: 1px solid var(--surface-2); }
+.podcast-cover-ph { display: inline-flex; align-items: center; justify-content: center; font-size: 22px; background: var(--surface-2); }
+.podcast-body { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.podcast-kicker { font-size: 11px; color: var(--muted); font-weight: 700; }
+.podcast-title { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podcast-go { flex: 0 0 auto; color: var(--pink); font-weight: 800; }
+.social-edit { margin-top: 10px; padding: 12px; border: 2px dashed var(--surface-2); border-radius: 12px; }
 .guest-banner { border: 2px solid var(--ink); }
 .post-fwd { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 6px; padding-left: 8px; border-left: 3px solid var(--pink); font-size: 13px; color: var(--muted); }
 .post-fwd-ico { color: var(--pink); font-weight: 800; }
