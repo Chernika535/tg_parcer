@@ -22,6 +22,7 @@ import DataPolicy from "./pages/DataPolicy.tsx";
 import Tags from "./pages/Tags.tsx";
 import Diag from "./pages/Diag.tsx";
 import Favorites from "./pages/Favorites.tsx";
+import LikedView from "./pages/LikedView.tsx";
 import MenuDrawer from "./components/MenuDrawer.tsx";
 import type { ReactElement } from "react";
 
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="/my/:id/edit" element={<RequireAuth><FeedEdit /></RequireAuth>} />
         <Route path="/admin" element={<RequireAdmin><Admin /></RequireAdmin>} />
         <Route path="/favorites" element={<RequireAuth><Favorites /></RequireAuth>} />
+        <Route path="/liked" element={<RequireAuth><LikedView /></RequireAuth>} />
         <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
         <Route path="/author" element={<RequireAuth><AuthorCabinet /></RequireAuth>} />
         <Route path="/recover" element={<RequireAuth><RecoverFeeds /></RequireAuth>} />

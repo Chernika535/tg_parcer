@@ -552,12 +552,12 @@ export async function setupWebhook(): Promise<string> {
 export type ChannelSocials = {
   tiktok: string | null; youtube: string | null; bandlink: string | null; litres: string | null;
   boosty: string | null; vk: string | null; website: string | null;
-  zen: string | null; rutube: string | null; teletype: string | null; pinterest: string | null;
+  zen: string | null; rutube: string | null; teletype: string | null; pinterest: string | null; email: string | null;
   musicCaption: string | null; spotify: string | null; yandexmusic: string | null; zvuk: string | null;
   podcastUrl: string | null; podcastTitle: string | null; podcastCover: string | null;
 };
 export async function channelLinks(channel: string): Promise<ChannelSocials> {
-  const empty: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, boosty: null, vk: null, website: null, zen: null, rutube: null, teletype: null, pinterest: null, musicCaption: null, spotify: null, yandexmusic: null, zvuk: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
+  const empty: ChannelSocials = { tiktok: null, youtube: null, bandlink: null, litres: null, boosty: null, vk: null, website: null, zen: null, rutube: null, teletype: null, pinterest: null, email: null, musicCaption: null, spotify: null, yandexmusic: null, zvuk: null, podcastUrl: null, podcastTitle: null, podcastCover: null };
   try {
     const d = (await invokeFnGet("feeds", { action: "channel_links", channel })) as Partial<ChannelSocials>;
     return { ...empty, ...d };
@@ -568,7 +568,7 @@ export async function channelLinks(channel: string): Promise<ChannelSocials> {
 export async function setChannelSocial(chatId: string, s: {
   tiktok?: string | null; youtube?: string | null; bandlink?: string | null; litres?: string | null;
   boosty?: string | null; vk?: string | null; website?: string | null;
-  zen?: string | null; rutube?: string | null; teletype?: string | null; pinterest?: string | null;
+  zen?: string | null; rutube?: string | null; teletype?: string | null; pinterest?: string | null; email?: string | null;
   music_caption?: string | null; spotify?: string | null; yandexmusic?: string | null; zvuk?: string | null;
   podcast_url?: string | null; podcast_title?: string | null; podcast_cover?: string | null;
 }): Promise<void> {
@@ -727,11 +727,27 @@ export async function likeLinks(): Promise<string[]> {
   const d = (await invokeFn("myfeeds", { action: "like_links" })) as { links?: string[] };
   return d.links ?? [];
 }
-export async function addLike(link: string, channel: string): Promise<void> {
-  await invokeFn("myfeeds", { action: "like_add", input: { link, channel } }).catch(() => {});
+// Лайк поста — сохраняем весь пост (для раздела «Понравилось»).
+export async function addLike(post: Post): Promise<void> {
+  await invokeFn("myfeeds", { action: "like_add", input: post as unknown as Record<string, unknown> }).catch(() => {});
 }
 export async function removeLike(link: string): Promise<void> {
   await invokeFn("myfeeds", { action: "like_remove", input: { link } }).catch(() => {});
+}
+// Понравившиеся посты (для раздела «Понравилось»).
+export async function likedPosts(): Promise<Post[]> {
+  if (!getAccessToken()) return [];
+  const d = (await invokeFn("myfeeds", { action: "like_list" })) as { posts?: Post[] };
+  return d.posts ?? [];
+}
+// Лайки каналов.
+export async function likedChannels(): Promise<string[]> {
+  if (!getAccessToken()) return [];
+  const d = (await invokeFn("myfeeds", { action: "chlike_list" })) as { channels?: string[] };
+  return d.channels ?? [];
+}
+export async function likeChannel(channel: string, on: boolean): Promise<void> {
+  await invokeFn("myfeeds", { action: on ? "chlike_add" : "chlike_remove", input: { channel } }).catch(() => {});
 }
 
 // Закреплённый пост канала (через общий читающий аккаунт, MTProto).

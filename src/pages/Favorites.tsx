@@ -34,6 +34,7 @@ export default function Favorites() {
   const [streamDays, setStreamDays] = useState(0); // 0 = только сегодня, +1 день за клик
   const [tags, setTags] = useState<string[] | null>(null);
   const [err, setErr] = useState("");
+  const [postQuery, setPostQuery] = useState("");
   const [streamFav, setStreamFav] = useState<Set<string>>(new Set()); // избранные посты (для звёздочки в Ленте)
   const [repairing, setRepairing] = useState(false);
   const { liked, toggle: toggleLike } = useLikes(true);
@@ -145,12 +146,20 @@ export default function Favorites() {
 
         {tab === "posts" && (() => {
           const folders = [...new Set((posts ?? []).map((p) => p.folder).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b));
-          const shown = (posts ?? []).filter((p) =>
-            folder === "ALL" ? true : folder === "NONE" ? !p.folder : p.folder === folder,
-          );
+          const q = postQuery.trim().toLowerCase();
+          const shown = (posts ?? [])
+            .filter((p) => (folder === "ALL" ? true : folder === "NONE" ? !p.folder : p.folder === folder))
+            .filter((p) => !q || (p.text || "").replace(/<[^>]+>/g, "").toLowerCase().includes(q) || p.channel.toLowerCase().includes(q));
           return (
             <>
               {!posts && !err && <Loading />}
+              {posts && posts.length > 0 && (
+                <div className="search" style={{ marginBottom: 8 }}>
+                  <span className="search-ico">🔍</span>
+                  <input type="text" placeholder="Поиск по тексту постов…" value={postQuery} onChange={(e) => setPostQuery(e.target.value)} />
+                  {postQuery && <button className="search-clear" onClick={() => setPostQuery("")} aria-label="Очистить">✕</button>}
+                </div>
+              )}
               {posts && posts.length > 0 && (
                 <div className="row spread" style={{ marginBottom: 8 }}>
                   <span className="muted" style={{ fontSize: 12 }}>Картинки у старых постов не грузятся? Обновите их из каналов.</span>

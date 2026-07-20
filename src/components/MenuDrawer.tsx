@@ -47,6 +47,7 @@ export default function MenuDrawer() {
               <Item icon="cloud" label="Теги" onClick={() => go("/tags")} />
               <Item icon="feed" label="Блог / О нас" onClick={() => go("/channel/polistay_online")} />
               {session && <Item icon="star" label="Избранное" onClick={() => go("/favorites")} />}
+              {session && <Item icon="heart" label="Понравилось" onClick={() => go("/liked")} />}
               {session && <Item icon="plus" label="Кабинет автора" onClick={() => go("/author")} />}
               {isAdmin && <Item icon="shield" label="Модерация" onClick={() => go("/admin")} />}
               <Item

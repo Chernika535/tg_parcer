@@ -11,7 +11,7 @@ export function useLikes(enabled: boolean) {
     setLiked((prev) => {
       const next = new Set(prev);
       if (next.has(post.link)) { next.delete(post.link); removeLike(post.link); }
-      else { next.add(post.link); addLike(post.link, post.channel); }
+      else { next.add(post.link); addLike(post); }
       return next;
     });
   }, []);

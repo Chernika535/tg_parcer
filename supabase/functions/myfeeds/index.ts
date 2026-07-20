@@ -286,7 +286,8 @@ Deno.serve(async (req: Request) => {
     if (b.action === "like_add") {
       const p = (b.input ?? {}) as { link?: string; channel?: string };
       if (!p.link || !p.channel) return json({ error: "нет данных" }, 400);
-      const { error } = await db.from("post_likes").upsert({ user_id: uid, link: p.link, channel: p.channel });
+      // Сохраняем и данные поста (data) — для раздела «Понравилось».
+      const { error } = await db.from("post_likes").upsert({ user_id: uid, link: p.link, channel: p.channel, data: p });
       if (error) return json({ error: error.message }, 500);
       return json({ ok: true });
     }
@@ -294,6 +295,32 @@ Deno.serve(async (req: Request) => {
       const link = (b.input as { link?: string } | undefined)?.link;
       if (!link) return json({ error: "нет ссылки" }, 400);
       const { error } = await db.from("post_likes").delete().eq("user_id", uid).eq("link", link);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+    // Понравившиеся посты (с данными) — для раздела «Понравилось».
+    if (b.action === "like_list") {
+      const { data, error } = await db.from("post_likes").select("data, link, channel").eq("user_id", uid).order("created_at", { ascending: false });
+      if (error) return json({ error: error.message }, 500);
+      const posts = (data ?? []).map((r: { data: Record<string, unknown> | null; link: string; channel: string }) => r.data ?? { link: r.link, channel: r.channel }).filter(Boolean);
+      return json({ posts });
+    }
+    // ---- Лайки каналов (♥ на канале) ----
+    if (b.action === "chlike_list") {
+      const { data } = await db.from("channel_likes").select("channel").eq("user_id", uid).order("created_at", { ascending: false });
+      return json({ channels: (data ?? []).map((r: { channel: string }) => r.channel) });
+    }
+    if (b.action === "chlike_add") {
+      const chn = (b.input as { channel?: string } | undefined)?.channel;
+      if (!chn) return json({ error: "нет канала" }, 400);
+      const { error } = await db.from("channel_likes").upsert({ user_id: uid, channel: chn });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+    if (b.action === "chlike_remove") {
+      const chn = (b.input as { channel?: string } | undefined)?.channel;
+      if (!chn) return json({ error: "нет канала" }, 400);
+      const { error } = await db.from("channel_likes").delete().eq("user_id", uid).eq("channel", chn);
       if (error) return json({ error: error.message }, 500);
       return json({ ok: true });
     }

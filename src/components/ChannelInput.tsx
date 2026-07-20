@@ -62,22 +62,27 @@ export default function ChannelInput({
     busyRef.current.delete(c);
   }
 
+  // Массовое добавление: несколько ников/ссылок одним блоком через ; , перенос
+  // строки или пробел — сами разложим на каналы.
   function add() {
-    const c = clean(value);
-    if (!c) return;
-    if (!channels.includes(c)) onChange([...channels, c]);
+    const parts = value.split(/[\s;,]+/).map(clean).filter(Boolean) as string[];
+    if (!parts.length) return;
+    const next = [...channels];
+    for (const c of parts) if (!next.includes(c)) next.push(c);
+    onChange(next);
     setValue("");
   }
 
   return (
     <div>
-      <div className="row">
-        <input
-          type="text"
-          placeholder="@channel, t.me/channel или ссылка"
+      <div className="row" style={{ alignItems: "flex-start" }}>
+        <textarea
+          rows={2}
+          style={{ flex: 1 }}
+          placeholder="@channel или ссылка. Можно сразу много — через ; запятую или с новой строки"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); add(); } }}
         />
         <button type="button" className="btn sm" onClick={add}>+</button>
       </div>

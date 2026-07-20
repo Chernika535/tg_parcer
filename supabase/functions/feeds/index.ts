@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
       const un = norm(channel ?? "");
       if (!un) return json({ tiktok: null });
       const { data } = await db.from("author_channels")
-        .select("tiktok_url, youtube_url, bandlink_url, litres_url, boosty_url, vk_url, website_url, zen_url, rutube_url, teletype_url, pinterest_url, music_caption, spotify_url, yandexmusic_url, zvuk_url, podcast_url, podcast_title, podcast_cover")
+        .select("tiktok_url, youtube_url, bandlink_url, litres_url, boosty_url, vk_url, website_url, zen_url, rutube_url, teletype_url, pinterest_url, email_contact, music_caption, spotify_url, yandexmusic_url, zvuk_url, podcast_url, podcast_title, podcast_cover")
         .ilike("username", un).limit(1).maybeSingle();
       const r = (data ?? {}) as Record<string, string | null>;
       return json({
@@ -65,6 +65,7 @@ Deno.serve(async (req: Request) => {
         rutube: r.rutube_url ?? null,
         teletype: r.teletype_url ?? null,
         pinterest: r.pinterest_url ?? null,
+        email: r.email_contact ?? null,
         musicCaption: r.music_caption ?? null,
         spotify: r.spotify_url ?? null,
         yandexmusic: r.yandexmusic_url ?? null,

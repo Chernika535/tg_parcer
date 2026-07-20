@@ -5,8 +5,14 @@ import Icon from "./Icon.tsx";
 
 // Маленькая кнопка «+» на посте: добавить этот канал в одну из своих лент
 // (или создать новую) — не запоминая ник и не выходя из ленты.
+function nc(c: string): string {
+  return (c || "").trim().toLowerCase()
+    .replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/^s\//, "").replace(/^@/, "")
+    .split(/[/?#]/)[0].replace(/[^a-z0-9_]/g, "");
+}
+
 export default function AddChannelButton({ channel }: { channel: string }) {
-  const { session } = useAuth();
+  const { session, isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,8 +28,22 @@ export default function AddChannelButton({ channel }: { channel: string }) {
     }
   }
 
-  async function addTo(f: Feed) {
-    if (f.channels.includes(channel)) { setDone(`Уже в «${f.title}»`); return; }
+  // Клик по ленте: нет канала → добавить; есть (✓) → убрать (с подтверждением).
+  async function toggle(f: Feed) {
+    const inFeed = f.channels.some((c) => nc(c) === nc(channel));
+    if (inFeed) {
+      if (!isAdmin && f.visibility !== "private") { setDone("Убирать из публичной ленты может только админ"); return; }
+      if (!confirm(`Убрать @${channel} из ленты «${f.title}»?`)) return;
+      setBusy(true);
+      try {
+        const next = f.channels.filter((c) => nc(c) !== nc(channel));
+        await updateFeed(f.id, { channels: next });
+        setFeeds((prev) => (prev ?? []).map((x) => (x.id === f.id ? { ...x, channels: next } : x)));
+        setDone(`Убрано из «${f.title}» ✓`);
+      } catch (e) { setDone("Ошибка: " + (e as Error).message); }
+      finally { setBusy(false); }
+      return;
+    }
     setBusy(true);
     try {
       await updateFeed(f.id, { channels: [...f.channels, channel] });
@@ -37,9 +57,11 @@ export default function AddChannelButton({ channel }: { channel: string }) {
   }
 
   async function newFeed() {
+    const title = prompt("Название новой ленты:")?.trim();
+    if (!title) return;
     setBusy(true);
     try {
-      const f = await createFeed({ title: `@${channel}`, visibility: "private", channels: [channel] });
+      const f = await createFeed({ title, visibility: "private", channels: [channel] });
       setFeeds((prev) => [f, ...(prev ?? [])]);
       setDone(`Создана лента «${f.title}» ✓`);
     } catch (e) {
@@ -65,11 +87,12 @@ export default function AddChannelButton({ channel }: { channel: string }) {
             {feeds && feeds.length === 0 && <p className="muted">У вас пока нет лент — создайте новую ниже.</p>}
             <div className="sheet-list">
               {feeds?.map((f) => (
-                <button key={f.id} className="sheet-item" disabled={busy} onClick={() => addTo(f)}>
-                  {f.channels.includes(channel) ? "✓ " : "+ "}{f.title}
+                <button key={f.id} className="sheet-item" disabled={busy} onClick={() => toggle(f)}>
+                  {f.channels.some((c) => nc(c) === nc(channel)) ? "✓ " : "+ "}{f.title}
                 </button>
               ))}
             </div>
+            <div className="muted" style={{ fontSize: 12, margin: "6px 0" }}>Нажмите ленту с ✓, чтобы убрать канал из неё.</div>
             <button className="btn sm" disabled={busy} onClick={newFeed}>+ Новая лента из этого канала</button>
             {done && <p className="muted" style={{ marginTop: 8 }}>{done}</p>}
           </div>
