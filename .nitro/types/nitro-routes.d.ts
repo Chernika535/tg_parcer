@@ -9,6 +9,9 @@ declare module "nitropack/types" {
     '/feed/:id': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../routes/feed/[id].get').default>>>>
     }
+    '/post/:channel/:msgId': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../routes/post/[channel]/[msgId].get').default>>>>
+    }
     '/sb/**': {
       'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../routes/sb/[...]').default>>>>
     }

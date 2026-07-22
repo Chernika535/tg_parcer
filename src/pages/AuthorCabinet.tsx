@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { TopBar, Loading } from "../components/States.tsx";
+import { TopBar, Loading, Empty } from "../components/States.tsx";
 import RichEditor from "../components/RichEditor.tsx";
 import VoiceRecorder from "../components/VoiceRecorder.tsx";
 import CircleRecorder from "../components/CircleRecorder.tsx";
@@ -79,6 +79,7 @@ export default function AuthorCabinet() {
   const [mentionList, setMentionList] = useState<string[]>([]); // ники каналов для @-подсказок
   const [showAllPosted, setShowAllPosted] = useState(false); // раскрыть посты старше недели
   const [retryFn, setRetryFn] = useState<{ run: () => void } | null>(null); // повтор после ошибки
+  const [tab, setTab] = useState<"write" | "channels" | "posts" | "more">("write");
 
   async function reload() {
     const chs = await authorChannels().catch((e) => { setMsg(e.message); return []; });
@@ -172,6 +173,7 @@ export default function AuthorCabinet() {
     setEditingId(p.id);
     setEditorKey((k) => k + 1);
     setMsg("");
+    setTab("write"); // редактор живёт на вкладке «Написать»
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   async function doSaveEdit() {
@@ -258,8 +260,18 @@ export default function AuthorCabinet() {
           </>
         )}
 
-        {/* Композер */}
+        {/* Вкладки кабинета */}
         {channels && channels.length > 0 && (
+          <div className="tabs-row">
+            <button className={`seg ${tab === "write" ? "on" : ""}`} onClick={() => setTab("write")}>✍ Написать</button>
+            <button className={`seg ${tab === "channels" ? "on" : ""}`} onClick={() => setTab("channels")}>📡 Каналы</button>
+            <button className={`seg ${tab === "posts" ? "on" : ""}`} onClick={() => setTab("posts")}>📅 Посты</button>
+            {isAdmin && <button className={`seg ${tab === "more" ? "on" : ""}`} onClick={() => setTab("more")}>⚙</button>}
+          </div>
+        )}
+
+        {/* Композер */}
+        {channels && channels.length > 0 && tab === "write" && (
           <div className="card">
             <div className="row spread">
               <h3 style={{ marginTop: 0 }}>{editingId ? "Редактирование поста" : "Новый пост"}</h3>
@@ -378,8 +390,13 @@ export default function AuthorCabinet() {
           </div>
         )}
 
+        {/* Вкладка «Посты»: отложка + опубликованное */}
+        {channels && channels.length > 0 && tab === "posts" && scheduled.length === 0 && posted.length === 0 && (
+          <Empty>Здесь появятся ваши запланированные и опубликованные посты.</Empty>
+        )}
+
         {/* Фильтр отложки/опубликованных по каналу */}
-        {channels && channels.length > 1 && (scheduled.length > 0 || posted.length > 0) && (
+        {tab === "posts" && channels && channels.length > 1 && (scheduled.length > 0 || posted.length > 0) && (
           <div className="field" style={{ marginBottom: 0 }}>
             <label>Показывать посты канала</label>
             <select value={filterChan} onChange={(e) => setFilterChan(e.target.value)}>
@@ -390,8 +407,8 @@ export default function AuthorCabinet() {
         )}
 
         {/* Запланированные — свёрнуто, с превью «как в ленте» */}
-        {schedShown.length > 0 && (
-          <details className="card fold">
+        {tab === "posts" && schedShown.length > 0 && (
+          <details className="card fold" open>
             <summary>Запланировано ({schedShown.length})</summary>
             <div style={{ marginTop: 10, display: "grid", gap: 14 }}>
               {schedShown.map((p) => {
@@ -418,7 +435,7 @@ export default function AuthorCabinet() {
         )}
 
         {/* Опубликованные — по умолчанию за последнюю неделю; остальное по кнопке */}
-        {postedShown.length > 0 && (() => {
+        {tab === "posts" && postedShown.length > 0 && (() => {
           const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
           const recent = postedShown.filter((p) => new Date(p.sent_at).getTime() >= weekAgo);
           const older = postedShown.filter((p) => new Date(p.sent_at).getTime() < weekAgo);
@@ -448,7 +465,7 @@ export default function AuthorCabinet() {
         })()}
 
         {/* Мои каналы */}
-        {channels && channels.length > 0 && (
+        {channels && channels.length > 0 && tab === "channels" && (
           <div className="card">
             <h3 style={{ marginTop: 0 }}>Мои каналы</h3>
             <div className="chan-list">
@@ -501,9 +518,9 @@ export default function AuthorCabinet() {
           </div>
         )}
 
-        {channels && channels.length > 0 && <ArchiveImport channels={channels} />}
+        {channels && channels.length > 0 && tab === "channels" && <ArchiveImport channels={channels} />}
 
-        {isAdmin && (
+        {tab === "more" && isAdmin && (
           <div className="card">
             <h3 style={{ marginTop: 0 }}>Ловля новых постов из Telegram (админ)</h3>
             <p className="muted" style={{ fontSize: 13 }}>

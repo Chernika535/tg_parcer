@@ -66,6 +66,15 @@ export default defineEventHandler(async (event) => {
 <meta name="twitter:description" content="${esc(desc)}" />
 <meta name="twitter:image" content="${esc(img)}" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: title,
+    description: desc,
+    url,
+    inLanguage: "ru",
+    isPartOf: { "@type": "WebSite", name: "Полистай", url: SITE },
+  })}</script>
 <script>location.replace(${JSON.stringify(hash)});</script>
 <noscript><meta http-equiv="refresh" content="0; url=${esc(hash)}" /></noscript>
 </head>
