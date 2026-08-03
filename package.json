@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && nitro build",
+    "build": "tsc -b && vite build && nitro build && node scripts/prerender.mjs",
     "preview": "vite preview",
     "start": "node .output/server/index.mjs",
     "dev:server": "nitro dev"
