@@ -95,8 +95,6 @@ Deno.serve(async (req: Request) => {
     if (ct) headers.set("content-type", ct);
     const cr = upstream.headers.get("content-range");
     if (cr) headers.set("content-range", cr);
-    const ar = upstream.headers.get("accept-ranges");
-    if (ar) headers.set("accept-ranges", ar);
     headers.set("cache-control", "public, max-age=86400");
 
     // 3) Изображение без range — буферизуем, кэшируем (если ≤ лимита) и отдаём.
@@ -106,10 +104,19 @@ Deno.serve(async (req: Request) => {
         try { await svc.storage.from(BUCKET).upload(key, buf, { contentType: ct || "image/jpeg", upsert: true }); } catch { /* не критично */ }
       }
       maybeCleanup();
+      headers.set("accept-ranges", upstream.headers.get("accept-ranges") || "bytes");
+      const cl = upstream.headers.get("content-length");
+      if (cl) headers.set("content-length", cl);
       return new Response(buf, { status: 200, headers });
     }
 
-    // Прочее (range/большое/не картинка) — стримим как раньше, без кэша.
+    // 4) Медиа (видео/аудио/голосовые) и всё крупное — стримим без кэша.
+    // Плеерам <video>/<audio> обязательно нужны длина файла и поддержка
+    // диапазонов, иначе большие файлы не перематываются и не играют (особенно
+    // Safari/iOS). Поэтому всегда объявляем accept-ranges и прокидываем длину.
+    headers.set("accept-ranges", upstream.headers.get("accept-ranges") || "bytes");
+    const cl = upstream.headers.get("content-length");
+    if (cl) headers.set("content-length", cl);
     return new Response(upstream.body, { status: upstream.status, headers });
   } catch (e) {
     return new Response("proxy error: " + (e as Error).message, { status: 502, headers: cors });
