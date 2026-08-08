@@ -1,0 +1,76 @@
+name: Deploy (SEO + Edge Functions)
+
+# Зачем: Onreza раздаёт статику dist/ (сервер не запускает), а Supabase
+# Edge Functions живут отдельно. Раннер GitHub имеет полный интернет, поэтому
+# именно здесь мы:
+#   1) собираем фронтенд и прогоняем пре-генерацию SEO с ЖИВЫМИ данными
+#      (настоящие sitemap.xml и страницы лент/каналов), коммитим готовый dist;
+#   2) деплоим все edge-функции в Supabase (в т.ч. img с range-прокси медиа).
+#
+# Триггер — push в main. Пуш самого dist игнорируем (paths-ignore), чтобы
+# коммит собранной статики не запускал воркфлоу повторно.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "dist/**"
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  seo:
+    name: Сборка SEO и обновление dist
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      # Собирает dist + прогоняет scripts/prerender.mjs (тянет публичные ленты
+      # и каналы из Supabase, делает sitemap.xml и feed/channel/*/index.html).
+      - name: Build + prerender
+        run: npm run build
+        env:
+          SITE_URL: https://polistay.online
+
+      - name: Commit dist back to main
+        run: |
+          git config user.name  "polistay-ci"
+          git config user.email "ci@polistay.online"
+          git add dist
+          if git diff --cached --quiet; then
+            echo "dist без изменений — коммитить нечего"
+          else
+            git commit -m "chore(ci): пересобранный dist (SEO) [skip ci]"
+            git push origin HEAD:main
+          fi
+
+  functions:
+    name: Деплой edge-функций Supabase
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # project_id и verify_jwt берутся из supabase/config.toml.
+      # SUPABASE_ACCESS_TOKEN — персональный токен из аккаунта Supabase (секрет).
+      - name: Deploy all functions
+        run: supabase functions deploy --project-ref kklxahjnptrgnwcrpauh
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
