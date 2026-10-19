@@ -20,6 +20,7 @@ import RecoverFeeds from "./pages/RecoverFeeds.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import DataPolicy from "./pages/DataPolicy.tsx";
 import Tags from "./pages/Tags.tsx";
+import { BlogIndex, BlogArticle, BlogEditor } from "./pages/Blog.tsx";
 import Diag from "./pages/Diag.tsx";
 import Favorites from "./pages/Favorites.tsx";
 import LikedView from "./pages/LikedView.tsx";
@@ -42,6 +43,10 @@ export default function App() {
         <Route path="/channel/:channel" element={<ChannelView />} />
         <Route path="/login" element={<Login />} />
         <Route path="/tags" element={<Tags />} />
+        <Route path="/blog" element={<BlogIndex />} />
+        <Route path="/blog/editor" element={<RequireAdmin><BlogEditor /></RequireAdmin>} />
+        <Route path="/blog/editor/:slug" element={<RequireAdmin><BlogEditor /></RequireAdmin>} />
+        <Route path="/blog/:slug" element={<BlogArticle />} />
         <Route path="/tag/:tag" element={<TagStream />} />
         <Route path="/diag" element={<Diag />} />
         <Route path="/privacy" element={<Privacy />} />
