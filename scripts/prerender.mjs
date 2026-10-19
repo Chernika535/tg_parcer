@@ -226,8 +226,9 @@ async function main() {
       const body = (a.blocks || []).map((b) => {
         if (b.type === "heading") return "<h2>" + esc(b.text) + "</h2>";
         if (b.type === "quote") return "<blockquote>" + esc(b.text) + "</blockquote>";
-        if (b.type === "image" && /^https?:\\/\\//.test(b.url || "")) return '<figure><img src="' + esc(b.url) + '" alt="' + esc(b.caption) + '"/><figcaption>' + esc(b.caption) + '</figcaption></figure>';
-        if (b.type === "video" && /^https?:\\/\\//.test(b.url || "")) return '<p><a href="' + esc(b.url) + '">' + esc(b.caption || "Видео") + "</a></p>";
+        if (b.type === "image" && String(b.url || "").startsWith("https://")) return '<figure><img src="' + esc(b.url) + '" alt="' + esc(b.caption) + '"/><figcaption>' + esc(b.caption) + '</figcaption></figure>';
+        if (b.type === "video" && String(b.url || "").startsWith("https://")) return '<p><a href="' + esc(b.url) + '">' + esc(b.caption || "Видео") + "</a></p>";
+        if (b.type === "file" && String(b.url || "").startsWith("https://")) return '<p><a href="' + esc(b.url) + '">Скачать: ' + esc(b.caption || "Файл") + "</a></p>";
         return "<p>" + esc(b.text) + "</p>";
       }).join("");
       const html = pageHtml({
