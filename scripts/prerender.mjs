@@ -149,14 +149,71 @@ async function main() {
     urls.push({ loc: url });
   }
 
-  // 3) Карта сайта — настоящий файл.
+
+  // 3) Индивидуальные SEO-страницы свежих публичных постов.
+  // Берём только каналы из одобренных не-18+ лент; не публикуем закрытые источники.
+  let postCount = 0;
+  const publicChannels = new Set();
+  for (const feed of feeds) {
+    if (feed.adult) continue;
+    for (const raw of feed.channels ?? []) {
+      const name = normCh(raw);
+      if (name.length >= 3) publicChannels.add(name);
+    }
+  }
+  const MAX_POSTS = 3000;
+  const POST_BATCH = 10;
+  for (const name of publicChannels) {
+    if (postCount >= MAX_POSTS) break;
+    try {
+      const q = new URLSearchParams({ apikey: key, channels: name });
+      const response = await fetch(`${base}/functions/v1/read-channels?${q}`, {
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const posts = Array.isArray(data?.posts) ? data.posts.slice(0, POST_BATCH) : [];
+      for (const post of posts) {
+        if (postCount >= MAX_POSTS) break;
+        const channel = normCh(post.channel);
+        const msgId = Number(post.msgId);
+        if (channel !== name || !Number.isSafeInteger(msgId) || msgId <= 0) continue;
+        const rawText = String(post.text || "").replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ").trim();
+        const channelName = String(post.channelTitle || infoByName[name]?.title || `@${name}`);
+        const title = (rawText ? rawText.slice(0, 85) : `Публикация канала ${channelName}`) + " — Полистай";
+        const desc = (rawText || `Пост Telegram-канала ${channelName} на сервисе «Полистай».`).slice(0, 300);
+        const url = `${SITE}/post/${channel}/${msgId}`;
+        const imageMedia = Array.isArray(post.media) ? post.media.find((m) => m?.type === "photo" && /^https?:\\/\\//.test(m.url || "")) : null;
+        const img = imageMedia?.url || DEFAULT_IMG;
+        const date = typeof post.postedAt === "string" && /^\\d{4}-\\d{2}-\\d{2}/.test(post.postedAt) ? post.postedAt : undefined;
+        writeFile(`post/${channel}/${msgId}/index.html`, pageHtml({
+          title, desc, url, img, ogType: "article", twCard: "summary_large_image",
+          h1: channelName, p: desc,
+          ld: {
+            "@context": "https://schema.org", "@type": "SocialMediaPosting",
+            headline: title, articleBody: rawText.slice(0, 5000),
+            url, inLanguage: "ru",
+            author: { "@type": "Organization", name: channelName },
+            ...(date ? { datePublished: date } : {}),
+            isPartOf: { "@type": "WebSite", name: "Полистай", url: SITE },
+          },
+        }));
+        urls.push({ loc: url, ...(date ? { lastmod: date.slice(0, 10) } : {}) });
+        postCount++;
+      }
+    } catch (error) {
+      console.warn(`[prerender] посты канала ${name} пропущены:`, error.message);
+    }
+  }
+
+  // 4) Карта сайта — настоящий файл.
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((u) => `  <url><loc>${u.loc}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ""}</url>`).join("\n")}
 </urlset>`;
   writeFile("sitemap.xml", sitemap);
 
-  console.log(`[prerender] готово: ${feeds.length} лент, ${chanList.length} каналов, sitemap с ${urls.length} адресами.`);
+  console.log(`[prerender] готово: ${feeds.length} лент, ${chanList.length} каналов, ${postCount} постов, sitemap с ${urls.length} адресами.`);
 }
 
 main().catch((e) => { console.error("[prerender] ошибка:", e); process.exit(1); });
