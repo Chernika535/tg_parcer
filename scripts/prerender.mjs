@@ -207,6 +207,45 @@ async function main() {
   }
 
 
+
+  // SEO-страницы опубликованных материалов блога.
+  urls.push({ loc: SITE + "/blog" });
+  try {
+    const response = await fetch(base.replace(/\\/$/, "") + "/rest/v1/blog_posts?select=*&status=eq.published&order=published_at.desc&limit=100", {
+      headers: { apikey: key, authorization: "Bearer " + key },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const articles = await response.json();
+    const listing = [];
+    for (const a of articles) {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(a.slug || "")) continue;
+      const url = SITE + "/blog/" + a.slug;
+      const desc = a.seo_description || a.excerpt || "";
+      const image = /^https?:\\/\\//.test(a.cover_url || "") ? a.cover_url : DEFAULT_IMG;
+      const body = (a.blocks || []).map((b) => {
+        if (b.type === "heading") return "<h2>" + esc(b.text) + "</h2>";
+        if (b.type === "quote") return "<blockquote>" + esc(b.text) + "</blockquote>";
+        if (b.type === "image" && /^https?:\\/\\//.test(b.url || "")) return '<figure><img src="' + esc(b.url) + '" alt="' + esc(b.caption) + '"/><figcaption>' + esc(b.caption) + '</figcaption></figure>';
+        if (b.type === "video" && /^https?:\\/\\//.test(b.url || "")) return '<p><a href="' + esc(b.url) + '">' + esc(b.caption || "Видео") + "</a></p>";
+        return "<p>" + esc(b.text) + "</p>";
+      }).join("");
+      const html = pageHtml({
+        title:a.seo_title || a.title + " — Блог Полистай", desc, url, img:image,
+        h1:a.title, p:a.excerpt, ogType:"article", twCard:"summary_large_image",
+        ld:{"@context":"https://schema.org","@type":"BlogPosting",headline:a.title,description:desc,url,image,datePublished:a.published_at,inLanguage:"ru",publisher:{"@type":"Organization",name:"Полистай"}},
+      }).replace("</main></div>", body + "</main></div>");
+      writeFile("blog/" + a.slug + "/index.html", html);
+      urls.push({ loc:url, ...(a.published_at ? {lastmod:a.published_at.slice(0,10)} : {}) });
+      listing.push('<article><h2><a href="/blog/' + a.slug + '">' + esc(a.title) + '</a></h2><p>' + esc(a.excerpt) + '</p></article>');
+    }
+    writeFile("blog/index.html", pageHtml({
+      title:"Блог Полистай — статьи и новости",desc:"Журнал проекта Полистай",url:SITE + "/blog",img:DEFAULT_IMG,
+      h1:"Блог Полистай",p:"Статьи о Telegram-каналах и цифровой культуре",
+      ogType:"website",twCard:"summary_large_image",ld:{"@context":"https://schema.org","@type":"Blog",name:"Блог Полистай"}
+    }).replace("</main></div>",listing.join("") + "</main></div>"));
+  } catch (e) { console.warn("[prerender] блог:", e.message); }
+
   // Главная страница: индексируемый HTML с настоящими публичными подборками.
   const homeTitle = "Полистай — находи Telegram-каналы, собирай ленты и делись подборками";
   const homeDesc = "У каждого свой интернет. Находи интересные Telegram-каналы, заглядывай в чужие подборки и собирай собственные ленты. Читай бесплатно прямо в браузере.";
