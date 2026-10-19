@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#dedbcf" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-title" content="Полистай" />
+    <meta name="application-name" content="Полистай" />
+
+    
+    
+    <meta
+      name="keywords"
+      content="телеграм ленты, telegram фид, чтение телеграм каналов, подборки телеграм каналов, телеграм без VPN, агрегатор телеграм, лента телеграм каналов, полистай"
+    />
+    <meta name="author" content="Полистай" />
+    <meta name="robots" content="index, follow" />
+    <meta name="yandex-verification" content="4b39ab5456515d32" />
+    
+
+    <!-- Open Graph (превью ссылок в соцсетях и мессенджерах) -->
+    
+    <meta property="og:site_name" content="Полистай" />
+    
+    
+    
+    
+    <meta property="og:image:alt" content="Полистай — ленты из Telegram-каналов" />
+    <meta property="og:locale" content="ru_RU" />
+
+    <!-- Twitter Card -->
+    
+    
+    
+    
+
+    
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800;900&family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="/assets/index-CUd8czPu.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CEcWIAJr.css">
+  <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script><title>Как один игрок заставил перевезти серверы Люблю искать баги через аналитику. Это допо — Полистай</title>
+<meta name="description" content="Как один игрок заставил перевезти серверы Люблю искать баги через аналитику. Это дополнение к стандартным тестам, которое помогает ловить редкие аномалии. В одном из таких погружений в данные всплыл странный юзер. Явных ошибок в логах нет, но часть игровых событий пропала. Логи идут с 12:00 до 12:10" />
+<link rel="canonical" href="https://polistay.online/post/elena_skripal_gameqa/165" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Как один игрок заставил перевезти серверы Люблю искать баги через аналитику. Это допо — Полистай" />
+<meta property="og:description" content="Как один игрок заставил перевезти серверы Люблю искать баги через аналитику. Это дополнение к стандартным тестам, которое помогает ловить редкие аномалии. В одном из таких погружений в данные всплыл странный юзер. Явных ошибок в логах нет, но часть игровых событий пропала. Логи идут с 12:00 до 12:10" />
+<meta property="og:url" content="https://polistay.online/post/elena_skripal_gameqa/165" />
+<meta property="og:image" content="https://polistay.online/og-cover.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Как один игрок заставил перевезти серверы Люблю искать баги через аналитику. Это допо — Полистай" />
+<meta name="twitter:description" content="Как один игрок заставил перевезти серверы Люблю искать баги через аналитику. Это дополнение к стандартным тестам, которое помогает ловить редкие аномалии. В одном из таких погружений в данные всплыл странный юзер. Явных ошибок в логах нет, но часть игровых событий пропала. Логи идут с 12:00 до 12:10" />
+<meta name="twitter:image" content="https://polistay.online/og-cover.png" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SocialMediaPosting","headline":"Как один игрок заставил перевезти серверы Люблю искать баги через аналитику. Это допо — Полистай","articleBody":"Как один игрок заставил перевезти серверы Люблю искать баги через аналитику. Это дополнение к стандартным тестам, которое помогает ловить редкие аномалии. В одном из таких погружений в данные всплыл странный юзер. Явных ошибок в логах нет, но часть игровых событий пропала. Логи идут с 12:00 до 12:10, а следующая начинается только с 12:20. При этом игрок не выходил из сети. В том кейсе была настроена защита от сбоев, и схема работы с аналитикой выглядела стандартно. Клиент отправлял события батчами, сервер обрабатывал их и пробрасывал в Кафку, которая уже доставляла в базу аналитики. При сбоях, батчи ждали доступности и досылались. Слабое звено тут обычно клиент, но и на нем было кеширование. Собственно, когда в конечной точке событий не досчиталась, пошла смотреть логи сервера. С первого взгляда всё было ок, ошибок ноль. Но сами события в Графане видела, а значит, они где-то «между». Дальше нужно было идти к бэкенду, у них логи были поподробнее. Сначала, конечно, классика: «У нас всё хорошо, ищи проблему на клиенте». Но когда всё-таки вместе зарылись в дебри, то нашли лог Failed to send. Баг оказался простым, как обычно. Сервер отправлял событие в Кафку, та отвечала, что приняла... и тут же отваливалась по таймауту, не успев сохранить данные. В итоге сервер считал, что всё ок, а Кафка эти зависшие события просто теряла. И так как в Кафке их не было, до аналитики они не доходили. Конкретно в тот день пострадало всего три пользователя. За месяц таких потерь набегало штук 10, не критично, никто и не замечал. Игрок набил столько данных, чтобы баг наконец вылез наружу. По итогу пришлось переезжать на Кафку в USA, для этой игры регион оказался стабильнее. Ну и алерты на подтверждение приема тоже немного переделали.","url":"https://polistay.online/post/elena_skripal_gameqa/165","inLanguage":"ru","author":{"@type":"Organization","name":"Елена — QA лид в GameDev"},"datePublished":"2026-03-08T07:50:44.000Z","isPartOf":{"@type":"WebSite","name":"Полистай","url":"https://polistay.online"}}</script>
+</head>
+  <body>
+    <div id="root"><main><h1>Елена — QA лид в GameDev</h1><p>Как один игрок заставил перевезти серверы Люблю искать баги через аналитику. Это дополнение к стандартным тестам, которое помогает ловить редкие аномалии. В одном из таких погружений в данные всплыл странный юзер. Явных ошибок в логах нет, но часть игровых событий пропала. Логи идут с 12:00 до 12:10</p></main></div>
+  </body>
+</html>

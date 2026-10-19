@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#dedbcf" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-title" content="Полистай" />
+    <meta name="application-name" content="Полистай" />
+
+    
+    
+    <meta
+      name="keywords"
+      content="телеграм ленты, telegram фид, чтение телеграм каналов, подборки телеграм каналов, телеграм без VPN, агрегатор телеграм, лента телеграм каналов, полистай"
+    />
+    <meta name="author" content="Полистай" />
+    <meta name="robots" content="index, follow" />
+    <meta name="yandex-verification" content="4b39ab5456515d32" />
+    
+
+    <!-- Open Graph (превью ссылок в соцсетях и мессенджерах) -->
+    
+    <meta property="og:site_name" content="Полистай" />
+    
+    
+    
+    
+    <meta property="og:image:alt" content="Полистай — ленты из Telegram-каналов" />
+    <meta property="og:locale" content="ru_RU" />
+
+    <!-- Twitter Card -->
+    
+    
+    
+    
+
+    
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800;900&family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="/assets/index-CUd8czPu.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CEcWIAJr.css">
+  <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script><title>Как мы дошли до CDN, а потом случайно затёрли прод Одна из наших игр доросла до CDN.  — Полистай</title>
+<meta name="description" content="Как мы дошли до CDN, а потом случайно затёрли прод Одна из наших игр доросла до CDN. Долго сопротивлялись, но контент уже не вмещался. И нужен был CDN для статики. Content Delivery Networ это инфраструктура для раздачи контента. Входящие в состав CDN серверы географически располагаются таким образом" />
+<link rel="canonical" href="https://polistay.online/post/elena_skripal_gameqa/170" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Как мы дошли до CDN, а потом случайно затёрли прод Одна из наших игр доросла до CDN.  — Полистай" />
+<meta property="og:description" content="Как мы дошли до CDN, а потом случайно затёрли прод Одна из наших игр доросла до CDN. Долго сопротивлялись, но контент уже не вмещался. И нужен был CDN для статики. Content Delivery Networ это инфраструктура для раздачи контента. Входящие в состав CDN серверы географически располагаются таким образом" />
+<meta property="og:url" content="https://polistay.online/post/elena_skripal_gameqa/170" />
+<meta property="og:image" content="https://polistay.online/og-cover.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Как мы дошли до CDN, а потом случайно затёрли прод Одна из наших игр доросла до CDN.  — Полистай" />
+<meta name="twitter:description" content="Как мы дошли до CDN, а потом случайно затёрли прод Одна из наших игр доросла до CDN. Долго сопротивлялись, но контент уже не вмещался. И нужен был CDN для статики. Content Delivery Networ это инфраструктура для раздачи контента. Входящие в состав CDN серверы географически располагаются таким образом" />
+<meta name="twitter:image" content="https://polistay.online/og-cover.png" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SocialMediaPosting","headline":"Как мы дошли до CDN, а потом случайно затёрли прод Одна из наших игр доросла до CDN.  — Полистай","articleBody":"Как мы дошли до CDN, а потом случайно затёрли прод Одна из наших игр доросла до CDN. Долго сопротивлялись, но контент уже не вмещался. И нужен был CDN для статики. Content Delivery Networ это инфраструктура для раздачи контента. Входящие в состав CDN серверы географически располагаются таким образом, чтобы сделать время ответа для пользователей минимальным. Есть origin сервер, на котором хранятся исходные файлы или данные, есть точка присутствия , кэширующий сервер в составе CDN, расположенный в определённой географической локации. Перед выкаткой протестировали прерывание соединения, недоступность origin, поведение при cache miss. Всё прошло нормально. Выкатили в прод. В релизе все прошло без проблем. Делали техническую закупку, по аналитике и обращениям - все гуд. В какой-то момент ответственной тестировщице что-то понадобилось проверить на проде. И билд не запускался. По логам не мог скачать какой-то ассет. Что было странно, так как прошло уже три недели с момента релиза, и 1,5 недели назад проблем не было. Начали разбираться, и, конечно же, обновился контент на проде. Обновился по очень тупой причине. Версию контента не поменяли после релиза, а кому-то понадобилось собрать билд с прод настройками. И параметры контента оставили по умолчанию, а по умолчанию все обновляется. Получилось, что продовским билдам отдавался не тот контент. Откатить файлы не получилось, пришлось пересобрать контент. Но починить получилось быстро. Но пайплайн сборок и работу с версиями пришлось менять. Добавился аппрув сборок с prod-параметрами. По дефолту теперь не обновляем контент во время сборки, и после релиза в деве меняем версию сборки и контента сразу.","url":"https://polistay.online/post/elena_skripal_gameqa/170","inLanguage":"ru","author":{"@type":"Organization","name":"Елена — QA лид в GameDev"},"datePublished":"2026-04-27T08:00:58.000Z","isPartOf":{"@type":"WebSite","name":"Полистай","url":"https://polistay.online"}}</script>
+</head>
+  <body>
+    <div id="root"><main><h1>Елена — QA лид в GameDev</h1><p>Как мы дошли до CDN, а потом случайно затёрли прод Одна из наших игр доросла до CDN. Долго сопротивлялись, но контент уже не вмещался. И нужен был CDN для статики. Content Delivery Networ это инфраструктура для раздачи контента. Входящие в состав CDN серверы географически располагаются таким образом</p></main></div>
+  </body>
+</html>
