@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase.ts";
+import { invokeFn } from "../lib/data.ts";
 import { useAuth } from "../lib/auth.tsx";
 import "./Blog.css";
 
@@ -62,7 +63,14 @@ export function BlogEditor(){
   const payload={...post,status,published_at:status==="published"?(post.published_at||new Date().toISOString()):post.published_at};
   const query=slug?supabase().from("blog_posts").update(payload).eq("slug",slug):supabase().from("blog_posts").insert(payload);
   const {error}=await query;
-  setBusy(false);if(error)setMessage(error.message);else nav(status==="published"?`/blog/${post.slug}`:"/blog/editor/"+post.slug);
+  setBusy(false);
+  if(error){setMessage(error.message);return}
+  if(status==="published"){
+   try{await invokeFn("blog-deploy",{slug:post.slug},20000);setMessage("Статья опубликована. SEO-сборка запущена.");}
+   catch(e){setMessage("Статья опубликована, но SEO-сборка не запущена: "+(e as Error).message);}
+   return;
+  }
+  nav("/blog/editor/"+post.slug);
  }
  return <main className="project-blog blog-editor"><Link to="/blog">← Блог</Link><h1>{slug?"Редактировать статью":"Новая статья"}</h1><label>Заголовок<input value={post.title} onChange={e=>change("title",e.target.value)}/></label><label>Адрес (slug)<input value={post.slug} onChange={e=>change("slug",e.target.value.toLowerCase())} placeholder="primer-stati"/></label><label>Анонс<textarea value={post.excerpt} onChange={e=>change("excerpt",e.target.value)}/></label><label>URL обложки<input value={post.cover_url||""} onChange={e=>change("cover_url",e.target.value)}/></label><label>Или загрузить обложку с компьютера<input type="file" accept="image/*" disabled={uploading} onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file,url=>change("cover_url",url));e.target.value=""}} /></label><label>Теги через запятую<input value={post.tags.join(", ")} onChange={e=>change("tags",e.target.value.split(",").map(s=>s.trim()).filter(Boolean))}/></label><h2>Материал</h2>{post.blocks.map((b,i)=><div className="blog-edit-block" key={i}><div><select value={b.type} onChange={e=>updateBlock(i,"type",e.target.value)}><option value="paragraph">Текст</option><option value="heading">Заголовок</option><option value="quote">Цитата</option><option value="image">Изображение</option><option value="video">Видео</option><option value="file">Файл для скачивания</option></select><button onClick={()=>change("blocks",post.blocks.filter((_,n)=>n!==i))}>Удалить</button><button disabled={i===0} onClick={()=>{const a=[...post.blocks];[a[i-1],a[i]]=[a[i],a[i-1]];change("blocks",a)}}>↑</button><button disabled={i===post.blocks.length-1} onClick={()=>{const a=[...post.blocks];[a[i+1],a[i]]=[a[i],a[i+1]];change("blocks",a)}}>↓</button></div>{b.type==="image"||b.type==="video"||b.type==="file"?<><input placeholder="URL медиа" value={b.url||""} onChange={e=>updateBlock(i,"url",e.target.value)}/><label>Загрузить с компьютера<input type="file" accept={b.type==="image"?"image/*":b.type==="video"?"video/*":undefined} disabled={uploading} onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file,url=>{updateBlock(i,"url",url);if(b.type==="file")updateBlock(i,"caption",file.name)});e.target.value=""}} /></label><input placeholder={b.type==="image"?"Подпись / alt-текст":b.type==="file"?"Название файла":"Подпись к видео"} value={b.caption||""} onChange={e=>updateBlock(i,"caption",e.target.value)}/></>:<textarea rows={b.type==="paragraph"?7:3} value={b.text||""} onChange={e=>updateBlock(i,"text",e.target.value)}/>}</div>)}<button className="blog-action" onClick={()=>change("blocks",[...post.blocks,{type:"paragraph",text:""}])}>+ Добавить блок</button><h2>SEO</h2><label>SEO title<input value={post.seo_title||""} onChange={e=>change("seo_title",e.target.value)}/></label><label>SEO description<textarea value={post.seo_description||""} onChange={e=>change("seo_description",e.target.value)}/></label><div className="blog-save"><button disabled={busy||uploading} onClick={()=>save("draft")}>Сохранить черновик</button><button disabled={busy||uploading} onClick={()=>save("published")}>Опубликовать</button></div>{uploading&&<p role="status">Загружаем файл…</p>}{message&&<p role="alert">{message}</p>}</main>;
 }
