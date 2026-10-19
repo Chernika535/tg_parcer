@@ -206,6 +206,39 @@ async function main() {
     }
   }
 
+
+  // Главная страница: индексируемый HTML с настоящими публичными подборками.
+  const homeTitle = "Полистай — находи Telegram-каналы, собирай ленты и делись подборками";
+  const homeDesc = "У каждого свой интернет. Находи интересные Telegram-каналы, заглядывай в чужие подборки и собирай собственные ленты. Читай бесплатно прямо в браузере.";
+  const homeSections = [
+    ["А что листают другие?", "Чужие интересы — отдельный вид искусства. Загляни в готовые подборки Telegram-каналов."],
+    ["Твой вкус. Твои правила.", "Собери любимые публичные Telegram-каналы в одну ленту. Назови её, выбери обложку и поделись ссылкой."],
+    ["Можно к тебе в голову?", "Чужой интернет — публичные подборки людей и редакции Полистай."],
+    ["Меньше переключений. Больше интересного.", "Одна лента вместо двадцати каналов. Избранное и папки. Читай Telegram-каналы прямо в браузере."],
+    ["Куда занесёт сегодня?", "Искусство, книги, дизайн, мода, кино и другие темы."],
+    ["Не только листать. Ещё и писать.", "Для авторов доступны редактор постов, медиа и отложенная публикация через Telegram-бота."],
+    ["Ладно, а как это работает?", "Полистай — независимый бесплатный веб-сервис для публичного Telegram-контента, не связанный с Telegram."],
+    ["Ну что, покажешь?", "Не держи хороший интернет при себе. Создай собственную подборку или посмотри чужие."],
+  ];
+  const homeFeeds = feeds.filter((f) => !f.adult).slice(0, 24);
+  const homeMarkup = `<main><h1>У каждого свой интернет.</h1><p>А какой у тебя? Кто-то залипает в искусство, кто-то ищет музыку, следит за модой или собирает находки со всего интернета. Полистай — место, где можно находить Telegram-каналы, собирать их в свои ленты и заглядывать в подборки других людей.</p><p><a href="/feeds">Заглянуть в чужой интернет</a> · <a href="/my/new">Собрать свой</a></p>${homeSections.map(([heading, body]) => `<section><h2>${esc(heading)}</h2><p>${esc(body)}</p></section>`).join("")}<section><h2>Реальные подборки</h2>${homeFeeds.map((f) => `<article><h3><a href="/feed/${encodeURIComponent(String(f.id))}">${esc(f.title || "Подборка")}</a></h3><p>${esc(f.description || "")} · ${(f.channels || []).length} каналов</p></article>`).join("")}</section><nav><a href="/feeds">Подборки</a> <a href="/tags">Темы</a> <a href="/author">Для авторов</a> <a href="/privacy">Политика конфиденциальности</a></nav></main>`;
+  const homeTags = [
+    `<title>${esc(homeTitle)}</title>`,
+    `<meta name="description" content="${esc(homeDesc)}" />`,
+    `<meta property="og:title" content="${esc(homeTitle)}" />`,
+    `<meta property="og:description" content="${esc(homeDesc)}" />`,
+    `<meta name="twitter:title" content="${esc(homeTitle)}" />`,
+    `<meta name="twitter:description" content="${esc(homeDesc)}" />`,
+  ].join("\n");
+  const homeHtml = appHtml
+    .replace(/<title>[\\s\\S]*?<\\/title>/i, "")
+    .replace(/<meta\\s+name="description"[\\s\\S]*?\\/>/i, "")
+    .replace(/<meta\\s+property="og:(?:title|description)"[\\s\\S]*?\\/>/gi, "")
+    .replace(/<meta\\s+name="twitter:(?:title|description)"[\\s\\S]*?\\/>/gi, "")
+    .replace("</head>", homeTags + "\n</head>")
+    .replace(/<div id="root">[\\s\\S]*?<\\/div>/, `<div id="root">${homeMarkup}</div>`);
+  writeFile("index.html", homeHtml);
+
   // 4) Карта сайта — настоящий файл.
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
