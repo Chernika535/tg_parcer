@@ -231,12 +231,12 @@ async function main() {
     `<meta name="twitter:description" content="${esc(homeDesc)}" />`,
   ].join("\n");
   const homeHtml = appHtml
-    .replace(/<title>[\\s\\S]*?<\\/title>/i, "")
-    .replace(/<meta\\s+name="description"[\\s\\S]*?\\/>/i, "")
-    .replace(/<meta\\s+property="og:(?:title|description)"[\\s\\S]*?\\/>/gi, "")
-    .replace(/<meta\\s+name="twitter:(?:title|description)"[\\s\\S]*?\\/>/gi, "")
+    .replace(/<title>[\s\S]*?<\/title>/i, "")
+    .replace(/<meta\s+name="description"[\s\S]*?\/>/i, "")
+    .replace(/<meta\s+property="og:(?:title|description)"[\s\S]*?\/>/gi, "")
+    .replace(/<meta\s+name="twitter:(?:title|description)"[\s\S]*?\/>/gi, "")
     .replace("</head>", homeTags + "\n</head>")
-    .replace(/<div id="root">[\\s\\S]*?<\\/div>/, `<div id="root">${homeMarkup}</div>`);
+    .replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root">${homeMarkup}</div>`);
   writeFile("index.html", homeHtml);
 
   // 4) Карта сайта — настоящий файл.
