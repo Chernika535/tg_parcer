@@ -178,14 +178,14 @@ async function main() {
         const channel = normCh(post.channel);
         const msgId = Number(post.msgId);
         if (channel !== name || !Number.isSafeInteger(msgId) || msgId <= 0) continue;
-        const rawText = String(post.text || "").replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ").trim();
+        const rawText = String(post.text || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
         const channelName = String(post.channelTitle || infoByName[name]?.title || `@${name}`);
         const title = (rawText ? rawText.slice(0, 85) : `Публикация канала ${channelName}`) + " — Полистай";
         const desc = (rawText || `Пост Telegram-канала ${channelName} на сервисе «Полистай».`).slice(0, 300);
         const url = `${SITE}/post/${channel}/${msgId}`;
-        const imageMedia = Array.isArray(post.media) ? post.media.find((m) => m?.type === "photo" && /^https?:\\/\\//.test(m.url || "")) : null;
+        const imageMedia = Array.isArray(post.media) ? post.media.find((m) => m?.type === "photo" && /^https?:\/\//.test(m.url || "")) : null;
         const img = imageMedia?.url || DEFAULT_IMG;
-        const date = typeof post.postedAt === "string" && /^\\d{4}-\\d{2}-\\d{2}/.test(post.postedAt) ? post.postedAt : undefined;
+        const date = typeof post.postedAt === "string" && /^\d{4}-\d{2}-\d{2}/.test(post.postedAt) ? post.postedAt : undefined;
         writeFile(`post/${channel}/${msgId}/index.html`, pageHtml({
           title, desc, url, img, ogType: "article", twCard: "summary_large_image",
           h1: channelName, p: desc,
