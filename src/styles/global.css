@@ -772,3 +772,59 @@ input[type="datetime-local"] { font-weight: 700; color-scheme: light; }
 .theme-swatch-bimbo {background:linear-gradient(135deg,#ffe1f3 50%,#f3319c 50%);}
 .theme-swatch-genshin {background:linear-gradient(135deg,#f3e8ce 50%,#d6b675 50%);}
 .theme-swatch-manga {background:linear-gradient(135deg,#fff 50%,#111 50%);}
+
+
+/* GENSHIN / ADVENTURER'S JOURNAL — layered atlas, gilded UI and elemental motifs */
+:root[data-theme="genshin"]{
+ --paper:#e9dfc5;--ink:#344650;--text:#344650;--muted:#66737b;
+ --surface:#fdf8e9;--surface-2:#ece2c8;--lime:#c8ab6b;--pink:#668f9c;
+ --cyan:#83a6a7;--accent:#c8ab6b;--accent-2:#6b929f;
+ --border:#aa966c;--on-accent:#273a44;
+ --shadow:0 7px 20px rgba(54,56,49,.15);--shadow-sm:0 3px 12px rgba(54,56,49,.12);
+ --r:12px;--r-sm:8px;--head:Georgia,"Times New Roman",serif;
+}
+:root[data-theme="genshin"] body{
+ background-color:#e9dfc5;
+ background-image:
+ radial-gradient(ellipse at 12% 12%,rgba(255,255,255,.55),transparent 42%),
+ radial-gradient(ellipse at 84% 70%,rgba(148,160,143,.18),transparent 38%),
+ repeating-linear-gradient(25deg,transparent 0 83px,rgba(123,111,77,.045) 84px 85px),
+ repeating-linear-gradient(115deg,transparent 0 119px,rgba(123,111,77,.035) 120px 121px);
+ background-size:auto;background-attachment:fixed;
+}
+:root[data-theme="genshin"] .app{position:relative}
+:root[data-theme="genshin"] .app::before{content:"✦   ◇   ✧   ◈   ✧   ◇   ✦";position:absolute;top:8px;left:50%;transform:translateX(-50%);font:18px Georgia,serif;letter-spacing:14px;color:#b6a075;opacity:.6;pointer-events:none;white-space:nowrap}
+:root[data-theme="genshin"] .card,:root[data-theme="genshin"] .feed-card,:root[data-theme="genshin"] .land-block{
+ position:relative;background:linear-gradient(140deg,#fffdf3,#f5eddb);
+ border:1px solid #c4ae7f;border-radius:10px;
+ box-shadow:0 0 0 4px rgba(255,250,229,.85),0 0 0 5px #b6a075,0 10px 28px rgba(44,55,59,.14);
+}
+:root[data-theme="genshin"] .card::before,:root[data-theme="genshin"] .feed-card::before{
+ content:"✦";position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#fdf8e9;padding:0 9px;color:#b29a60;font:17px Georgia,serif;z-index:1;pointer-events:none;
+}
+:root[data-theme="genshin"] .topbar{background:linear-gradient(90deg,#344c59,#536d74 55%,#344c59);border:0;border-bottom:3px double #d4bc82;box-shadow:0 5px 16px rgba(27,40,48,.25);color:#fff8e6}
+:root[data-theme="genshin"] .topbar h1,:root[data-theme="genshin"] .topbar-sub{color:#f9eac4}
+:root[data-theme="genshin"] .topbar h1::after{background:#c6a969;opacity:.5}
+:root[data-theme="genshin"] .btn{background:linear-gradient(#f3e4ba,#c8a86a);color:#31434b;border:1px solid #a88b52;border-radius:7px;box-shadow:inset 0 1px #fff8df,0 3px 0 #9c8458,0 6px 14px #35465022;font-family:Georgia,serif;letter-spacing:.03em}
+:root[data-theme="genshin"] .btn:hover{box-shadow:inset 0 1px #fff8df,0 3px 0 #9c8458,0 8px 18px #35465033}
+:root[data-theme="genshin"] .btn.secondary{background:linear-gradient(#fffdf2,#e9e0ca)}
+:root[data-theme="genshin"] .chip,:root[data-theme="genshin"] .theme-option{background:#f8f0da;border:1px solid #bca676;border-radius:6px;box-shadow:inset 0 0 0 2px #fff8e8}
+:root[data-theme="genshin"] .tabbar{background:linear-gradient(110deg,#2d4653,#526a74,#2d4653);border:2px solid #bba16c;border-radius:12px;box-shadow:0 0 0 3px #f1e3c4,0 7px 22px #263a4644}
+:root[data-theme="genshin"] .tabbar::before{content:"✧";position:absolute;top:-15px;left:50%;transform:translateX(-50%);color:#d9c28a;text-shadow:0 1px 2px #273c48;font-size:20px}
+:root[data-theme="genshin"] .tabbar a.active{background:linear-gradient(#f7e7b9,#d0b474);color:#30454d}
+:root[data-theme="genshin"] .tabbar a.tab-cloud{background:radial-gradient(circle,#cbd9d3,#73999e);border:2px solid #d9bd82;color:#29414b}
+:root[data-theme="genshin"] .burger{background:radial-gradient(circle at 30% 25%,#688e98,#344f60);border:2px solid #d1b77c;box-shadow:0 0 0 3px #f4e9d0,0 4px 15px #2e424b55;color:#fff6df}
+:root[data-theme="genshin"] .drawer{background:linear-gradient(135deg,#f9f3e2,#e5d7b8);border-left:4px double #ae945c;box-shadow:inset 12px 0 25px #9d8d6a22}
+:root[data-theme="genshin"] .drawer-head{padding-bottom:12px;border-bottom:1px solid #b49a69}
+:root[data-theme="genshin"] .drawer-brand{font:700 23px Georgia,serif;letter-spacing:.07em}
+:root[data-theme="genshin"] .drawer-item{border-radius:5px;font-family:Georgia,serif;font-size:16px}
+:root[data-theme="genshin"] .drawer-item:hover{background:#fff8e9;border:1px solid #bea777;box-shadow:none}
+:root[data-theme="genshin"] .drawer-sep{height:1px;background:linear-gradient(90deg,transparent,#b79b64,transparent);position:relative}
+:root[data-theme="genshin"] .drawer-sep::after{content:"✧";position:absolute;left:50%;top:-11px;transform:translateX(-50%);background:#eee2c8;color:#aa905d;padding:0 8px}
+:root[data-theme="genshin"] .sec-title,:root[data-theme="genshin"] h1,:root[data-theme="genshin"] h2{font-family:Georgia,serif;letter-spacing:.01em}
+:root[data-theme="genshin"] .cloud-tag{background:radial-gradient(circle at 35% 20%,#fdf8e7,#d2bb89);border:2px solid #b9a16e;box-shadow:0 0 0 4px #f6edd8,0 4px 14px #4e625633;color:#344650}
+:root[data-theme="genshin"] .cloud-tag:nth-child(3n){background:radial-gradient(circle at 35% 20%,#edf2e8,#92b3aa);color:#344650}
+:root[data-theme="genshin"] .cloud-tag:nth-child(3n+1){background:radial-gradient(circle at 35% 20%,#eef3f5,#a5bbc6);color:#344650}
+:root[data-theme="genshin"] input,:root[data-theme="genshin"] textarea,:root[data-theme="genshin"] select{background:#fffbf0;border:1px solid #b8a276;border-radius:6px;box-shadow:inset 0 2px 6px #8b7c6122}
+:root[data-theme="genshin"] .theme-swatch-genshin{background:conic-gradient(#c5ab74 0 20%,#496574 20% 40%,#e8dec1 40% 60%,#84a8a3 60% 80%,#b7a1d1 80%)}
+@media(prefers-reduced-motion:no-preference){:root[data-theme="genshin"] .card:hover,:root[data-theme="genshin"] .feed-card:hover{transition:box-shadow .25s;box-shadow:0 0 0 4px #fff9e9,0 0 0 5px #b6a075,0 12px 30px #344c5940}}
