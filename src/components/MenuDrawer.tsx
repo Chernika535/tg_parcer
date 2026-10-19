@@ -13,8 +13,7 @@ export default function MenuDrawer() {
   const { session, isAdmin, signOut } = useAuth();
   const nav = useNavigate();
 
-  function toggleTheme() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
+  function chooseTheme(next: Theme) {
     setTheme(next);
     setThemeState(next);
   }
@@ -67,10 +66,23 @@ export default function MenuDrawer() {
             </nav>
 
             <div className="drawer-sep" />
-            <button className="drawer-item" onClick={toggleTheme}>
-              <span aria-hidden style={{ fontSize: 18, width: 18, textAlign: "center" }}>{theme === "dark" ? "☀️" : "🌙"}</span>
-              <span>{theme === "dark" ? "Светлая тема" : "Тёмная тема"}</span>
-            </button>
+            <div className="theme-picker" role="group" aria-label="Тема оформления">
+              <span className="theme-picker-title">Оформление</span>
+              {([
+                ["light", "Светлая"],
+                ["dark", "Тёмная"],
+                ["bimbo", "Бимбо"],
+                ["genshin", "Геншин"],
+                ["manga", "Манга"],
+              ] as const).map(([id, label]) => (
+                <button key={id} type="button"
+                  className={"theme-option" + (theme === id ? " selected" : "")}
+                  aria-pressed={theme === id} onClick={() => chooseTheme(id)}>
+                  <span className={"theme-swatch theme-swatch-" + id} aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
 
             {session && (
               <>
