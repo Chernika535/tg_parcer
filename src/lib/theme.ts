@@ -1,24 +1,19 @@
-// Тема оформления: светлая / тёмная. Храним выбор в localStorage; если выбора
-// нет — берём системную настройку. Применяется через data-theme на <html>.
-export type Theme = "light" | "dark";
-
+export type Theme = "light" | "dark" | "bimbo" | "genshin" | "manga";
 const KEY = "tf_theme";
-
+const allowed: Theme[] = ["light", "dark", "bimbo", "genshin", "manga"];
 export function getTheme(): Theme {
   try {
-    const s = localStorage.getItem(KEY);
-    if (s === "dark" || s === "light") return s;
-  } catch { /* приватный режим */ }
+    const saved = localStorage.getItem(KEY);
+    if (allowed.includes(saved as Theme)) return saved as Theme;
+  } catch {}
   return typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
-
-export function applyTheme(t: Theme): void {
-  document.documentElement.dataset.theme = t;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", t === "dark" ? "#17171c" : "#dedbcf");
+export function applyTheme(theme: Theme): void {
+  document.documentElement.dataset.theme = theme;
+  const colors: Record<Theme, string> = { light: "#dedbcf", dark: "#17171c", bimbo: "#ffe1f3", genshin: "#f3e8ce", manga: "#f8f8f5" };
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", colors[theme]);
 }
-
-export function setTheme(t: Theme): void {
-  try { localStorage.setItem(KEY, t); } catch { /* игнор */ }
-  applyTheme(t);
+export function setTheme(theme: Theme): void {
+  try { localStorage.setItem(KEY, theme); } catch {}
+  applyTheme(theme);
 }
