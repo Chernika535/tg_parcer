@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import App from "./App.tsx";
 import { initApp } from "./lib/supabase.ts";
 import { AuthProvider } from "./lib/auth.tsx";
@@ -17,11 +17,23 @@ import "./styles/global.css";
   // Страницу восстановления НЕ редиректим: кэш лент лежит в localStorage того
   // домена, где ленту открывали (localStorage у каждого домена свой). Так можно
   // зайти на старый домен и достать из него данные.
-  const recover = location.hash.includes("recover") || location.search.includes("nored");
+  const recover = location.pathname.includes("/recover") || location.hash.includes("recover") || location.search.includes("nored");
   if (h && h !== PRIMARY && !local && !recover) {
     location.replace("https://" + PRIMARY + location.pathname + location.search + location.hash);
   }
 })();
+
+// Перенос старых hash-маршрутов без потери query-параметров.
+// Не меняем URL для служебных hash-фрагментов (например, токенов авторизации).
+if (location.hash.startsWith("#/")) {
+  const oldRoute = location.hash.slice(1);
+  const [pathname, hashQuery = ""] = oldRoute.split("?");
+  if (pathname.startsWith("/") && !pathname.startsWith("//")) {
+    const params = new URLSearchParams(location.search);
+    new URLSearchParams(hashQuery).forEach((value, key) => params.append(key, value));
+    location.replace(pathname + (params.size ? "?" + params : ""));
+  }
+}
 
 // Тема — до первого рендера, чтобы не мигало светлым.
 applyTheme(getTheme());
@@ -53,11 +65,11 @@ initApp().then((res) => {
   }
   root.render(
     <React.StrictMode>
-      <HashRouter>
+      <BrowserRouter>
         <AuthProvider>
           <App />
         </AuthProvider>
-      </HashRouter>
+      </BrowserRouter>
     </React.StrictMode>,
   );
 });
