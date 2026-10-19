@@ -1,55 +1,87 @@
 <!doctype html>
 <html lang="ru">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Gamedev suffering — канал в «Полистай»</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#dedbcf" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-title" content="Полистай" />
+    <meta name="application-name" content="Полистай" />
+
+    
+    
+    <meta
+      name="keywords"
+      content="телеграм ленты, telegram фид, чтение телеграм каналов, подборки телеграм каналов, телеграм без VPN, агрегатор телеграм, лента телеграм каналов, полистай"
+    />
+    <meta name="author" content="Полистай" />
+    <meta name="robots" content="index, follow" />
+    <meta name="yandex-verification" content="4b39ab5456515d32" />
+    
+
+    <!-- Open Graph (превью ссылок в соцсетях и мессенджерах) -->
+    
+    <meta property="og:site_name" content="Полистай" />
+    
+    
+    
+    
+    <meta property="og:image:alt" content="Полистай — ленты из Telegram-каналов" />
+    <meta property="og:locale" content="ru_RU" />
+
+    <!-- Twitter Card -->
+    
+    
+    
+    
+
+    
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800;900&family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="/assets/index-BHfeBmJB.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-bn1FElvV.css">
+  <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script><title>Gamedev suffering — канал в «Полистай»</title>
 <meta name="description" content="Авторский блог Андрея Апанасика о разработке игр и индустрии.
+
+Пилю игру про котика 😺: https://store.steampowered.com/app/4865920
 
 Разрабытываю сервис для оперирования LiveOps: [https://balancy.co](https://balancy.co/)
 
-Мысли про другие вещи мне интересные: [@apanasik_jobless](https://t.me/apanasik_jobless)
-
-Реклама: https://t.me/gamedev_suffering/2202 Читайте посты" />
-<meta name="robots" content="index, follow" />
+Реклама: https://t.me/gamedev_suffering/2202 Читайте посты канала и добавляйте " />
 <link rel="canonical" href="https://polistay.online/channel/gamedev_suffering" />
 <meta property="og:type" content="profile" />
-<meta property="og:site_name" content="Полистай" />
 <meta property="og:title" content="Gamedev suffering — канал в «Полистай»" />
 <meta property="og:description" content="Авторский блог Андрея Апанасика о разработке игр и индустрии.
 
+Пилю игру про котика 😺: https://store.steampowered.com/app/4865920
+
 Разрабытываю сервис для оперирования LiveOps: [https://balancy.co](https://balancy.co/)
 
-Мысли про другие вещи мне интересные: [@apanasik_jobless](https://t.me/apanasik_jobless)
-
-Реклама: https://t.me/gamedev_suffering/2202 Читайте посты" />
+Реклама: https://t.me/gamedev_suffering/2202 Читайте посты канала и добавляйте " />
 <meta property="og:url" content="https://polistay.online/channel/gamedev_suffering" />
-<meta property="og:image" content="https://kklxahjnptrgnwcrpauh.supabase.co/functions/v1/img?u=https%3A%2F%2Fcdn4.telesco.pe%2Ffile%2FXH7a-RzsNhjy41uwG0W6MJNIevHQhrThvmhDx1LKAPMwcE43_nlFnmeFhEuySoFL-b7R1uD1sqToysy5WqZo6cbyuVQkNgdmDmmCNQeyKY1F6XSsfqKSB_h2-BGxbQKrBOuCw97HwTBhDLiPriv61z1D5E7QBQVBcPNh0urL_r1p3IvXsqGZuUQcMUiFjSkr5nLtO6z2ZmggvDTBL7u_VEnsN4T_1-abFAr-pnWg69vAmgwvYiPdr_FCOO0b8NBNxFyboLKApphVx26OGigp10Zq94YNWeSCPuJSfRrftR81isfBMHRoVVeKNU-2xuDV9zst6cfWtScMcUrhrTIgbQ.jpg" />
-<meta property="og:locale" content="ru_RU" />
+<meta property="og:image" content="https://kklxahjnptrgnwcrpauh.supabase.co/functions/v1/img?u=https%3A%2F%2Fcdn4.telesco.pe%2Ffile%2FU8p_uamr1lzEv_LDluwpx-LQXaMRv_Iayu8Un14cWUdwjke_wKDn_TBaejg63MaXmn5dhzEwatm0l0-9SXxVZ_-WH0vrcdtCmzGl6Y4RxhDW0yoNpEA4kqlTzkyWBbJtVzerFF5uH43978srVf-DeWtTL0IkXEJjx5EgzpFlXkA3PVD1i_gSDBmevhMBcpciP9fmYj0wHX3LQzEcXml1bgkCOWIyFPhLL3wdQQPGtwEIwk61_NI9AGCCKxUyy8gEtzCFWxltcY57iDgG0kr9u5yHmUt_DErPuQJ4xmarmsNchmsmgQbs67Dq4-UHVwzizz7ZdOY9DuE8Ia0QKsfl6A.jpg" />
 <meta name="twitter:card" content="summary" />
 <meta name="twitter:title" content="Gamedev suffering — канал в «Полистай»" />
 <meta name="twitter:description" content="Авторский блог Андрея Апанасика о разработке игр и индустрии.
 
+Пилю игру про котика 😺: https://store.steampowered.com/app/4865920
+
 Разрабытываю сервис для оперирования LiveOps: [https://balancy.co](https://balancy.co/)
 
-Мысли про другие вещи мне интересные: [@apanasik_jobless](https://t.me/apanasik_jobless)
-
-Реклама: https://t.me/gamedev_suffering/2202 Читайте посты" />
-<meta name="twitter:image" content="https://kklxahjnptrgnwcrpauh.supabase.co/functions/v1/img?u=https%3A%2F%2Fcdn4.telesco.pe%2Ffile%2FXH7a-RzsNhjy41uwG0W6MJNIevHQhrThvmhDx1LKAPMwcE43_nlFnmeFhEuySoFL-b7R1uD1sqToysy5WqZo6cbyuVQkNgdmDmmCNQeyKY1F6XSsfqKSB_h2-BGxbQKrBOuCw97HwTBhDLiPriv61z1D5E7QBQVBcPNh0urL_r1p3IvXsqGZuUQcMUiFjSkr5nLtO6z2ZmggvDTBL7u_VEnsN4T_1-abFAr-pnWg69vAmgwvYiPdr_FCOO0b8NBNxFyboLKApphVx26OGigp10Zq94YNWeSCPuJSfRrftR81isfBMHRoVVeKNU-2xuDV9zst6cfWtScMcUrhrTIgbQ.jpg" />
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Gamedev suffering — канал в «Полистай»","description":"Авторский блог Андрея Апанасика о разработке игр и индустрии.\n\nРазрабытываю сервис для оперирования LiveOps: [https://balancy.co](https://balancy.co/)\n\nМысли про другие вещи мне интересные: [@apanasik_jobless](https://t.me/apanasik_jobless)\n\nРеклама: https://t.me/gamedev_suffering/2202 Читайте посты","url":"https://polistay.online/channel/gamedev_suffering","inLanguage":"ru","isPartOf":{"@type":"WebSite","name":"Полистай","url":"https://polistay.online"}}</script>
-<script>location.replace("/#/channel/gamedev_suffering");</script>
-<noscript><meta http-equiv="refresh" content="0; url=/#/channel/gamedev_suffering" /></noscript>
+Реклама: https://t.me/gamedev_suffering/2202 Читайте посты канала и добавляйте " />
+<meta name="twitter:image" content="https://kklxahjnptrgnwcrpauh.supabase.co/functions/v1/img?u=https%3A%2F%2Fcdn4.telesco.pe%2Ffile%2FU8p_uamr1lzEv_LDluwpx-LQXaMRv_Iayu8Un14cWUdwjke_wKDn_TBaejg63MaXmn5dhzEwatm0l0-9SXxVZ_-WH0vrcdtCmzGl6Y4RxhDW0yoNpEA4kqlTzkyWBbJtVzerFF5uH43978srVf-DeWtTL0IkXEJjx5EgzpFlXkA3PVD1i_gSDBmevhMBcpciP9fmYj0wHX3LQzEcXml1bgkCOWIyFPhLL3wdQQPGtwEIwk61_NI9AGCCKxUyy8gEtzCFWxltcY57iDgG0kr9u5yHmUt_DErPuQJ4xmarmsNchmsmgQbs67Dq4-UHVwzizz7ZdOY9DuE8Ia0QKsfl6A.jpg" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Gamedev suffering — канал в «Полистай»","description":"Авторский блог Андрея Апанасика о разработке игр и индустрии.\n\nПилю игру про котика 😺: https://store.steampowered.com/app/4865920\n\nРазрабытываю сервис для оперирования LiveOps: [https://balancy.co](https://balancy.co/)\n\nРеклама: https://t.me/gamedev_suffering/2202 Читайте посты канала и добавляйте ","url":"https://polistay.online/channel/gamedev_suffering","inLanguage":"ru","isPartOf":{"@type":"WebSite","name":"Полистай","url":"https://polistay.online"}}</script>
 </head>
-<body>
-<h1>Gamedev suffering</h1>
-<p>Авторский блог Андрея Апанасика о разработке игр и индустрии.
+  <body>
+    <div id="root"><main><h1>Gamedev suffering</h1><p>Авторский блог Андрея Апанасика о разработке игр и индустрии.
+
+Пилю игру про котика 😺: https://store.steampowered.com/app/4865920
 
 Разрабытываю сервис для оперирования LiveOps: [https://balancy.co](https://balancy.co/)
 
-Мысли про другие вещи мне интересные: [@apanasik_jobless](https://t.me/apanasik_jobless)
-
-Реклама: https://t.me/gamedev_suffering/2202</p>
-<p><a href="/#/channel/gamedev_suffering">Открыть в приложении «Полистай»</a></p>
-</body>
+Реклама: https://t.me/gamedev_suffering/2202</p></main></div>
+  </body>
 </html>
