@@ -1,3 +1,4 @@
+import { initCards, makeCard } from "./social-cards.mjs";
 // Пре-генерация SEO-страниц для СТАТИЧЕСКОГО деплоя (Onreza отдаёт dist/ как есть,
 // сервер не запускает — поэтому серверные маршруты Nitro не работают). Здесь на
 // сборке мы делаем настоящие файлы:
@@ -65,6 +66,9 @@ function pageHtml({ title, desc, url, img, h1, p, ogType, twCard, ld }) {
 }
 
 async function main() {
+  await initCards();
+  let cardCount=0;
+  const MAX_CARDS=450;
   let base = "https://kklxahjnptrgnwcrpauh.supabase.co";
   let key = "";
   try {
@@ -99,7 +103,8 @@ async function main() {
     const descBase = (f.description && f.description.trim())
       || (f.channels?.length ? `Подборка из ${f.channels.length} Telegram-каналов.` : "Подборка Telegram-каналов.");
     const desc = `${descBase} Читайте в одном месте на сервисе «Полистай», без VPN.`.slice(0, 300);
-    const img = f.cover_url && /^https?:\/\//i.test(f.cover_url) ? f.cover_url : DEFAULT_IMG;
+    let img = f.cover_url && /^https?:\/\//i.test(f.cover_url) ? f.cover_url : DEFAULT_IMG;
+    if(cardCount<MAX_CARDS && await makeCard(`og/feed-${id}.png`,{kind:"feed",title:f.title||"Лента Полистай",feed:"Подборка Telegram-каналов",image:f.cover_url||""})){img=`${SITE}/og/feed-${id}.png`;cardCount++;}
     writeFile(`feed/${id}/index.html`, pageHtml({
       title, desc, url, img, ogType: "article", twCard: "summary_large_image",
       h1: f.title || "Лента", p: descBase,
@@ -154,11 +159,12 @@ async function main() {
   // Берём только каналы из одобренных не-18+ лент; не публикуем закрытые источники.
   let postCount = 0;
   const publicChannels = new Set();
+  const feedForChannel = new Map();
   for (const feed of feeds) {
     if (feed.adult) continue;
     for (const raw of feed.channels ?? []) {
       const name = normCh(raw);
-      if (name.length >= 3) publicChannels.add(name);
+      if (name.length >= 3) { publicChannels.add(name); if(!feedForChannel.has(name))feedForChannel.set(name,feed); }
     }
   }
   const MAX_POSTS = 3000;
@@ -184,7 +190,9 @@ async function main() {
         const desc = (rawText || `Пост Telegram-канала ${channelName} на сервисе «Полистай».`).slice(0, 300);
         const url = `${SITE}/post/${channel}/${msgId}`;
         const imageMedia = Array.isArray(post.media) ? post.media.find((m) => m?.type === "photo" && /^https?:\/\//.test(m.url || "")) : null;
-        const img = imageMedia?.url || DEFAULT_IMG;
+        let img = imageMedia?.url || DEFAULT_IMG;
+        const sourceFeed=feedForChannel.get(name);
+        if(cardCount<MAX_CARDS && await makeCard(`og/post-${channel}-${msgId}.png`,{kind:"post",title:rawText||`Публикация канала ${channelName}`,feed:sourceFeed?.title||"Лента Полистай",channel:name,image:imageMedia?.url||""})){img=`${SITE}/og/post-${channel}-${msgId}.png`;cardCount++;}
         const date = typeof post.postedAt === "string" && /^\d{4}-\d{2}-\d{2}/.test(post.postedAt) ? post.postedAt : undefined;
         writeFile(`post/${channel}/${msgId}/index.html`, pageHtml({
           title, desc, url, img, ogType: "article", twCard: "summary_large_image",
