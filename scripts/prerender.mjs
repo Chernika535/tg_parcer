@@ -13,6 +13,11 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 
+if (process.env.SKIP_PRERENDER === "true") {
+  console.log("[prerender] skipped for GitHub Pages test deployment");
+  process.exit(0);
+}
+
 const DIST = resolve(process.cwd(), "dist");
 const SITE = (process.env.SITE_URL || "https://polistay.online").replace(/\/+$/, "");
 const DEFAULT_IMG = SITE + "/og-cover.png";
