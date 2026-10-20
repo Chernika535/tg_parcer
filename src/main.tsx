@@ -15,11 +15,12 @@ import "./styles/global.css";
   const h = location.hostname;
   const local = h === "localhost" || h.startsWith("127.") || h.startsWith("192.168.") || h.endsWith(".local");
   const cloudflarePreview = h === "polistay.pages.dev" || h.endsWith(".polistay.pages.dev");
+  const githubPreview = h === "chernika535.github.io";
   // Страницу восстановления НЕ редиректим: кэш лент лежит в localStorage того
   // домена, где ленту открывали (localStorage у каждого домена свой). Так можно
   // зайти на старый домен и достать из него данные.
   const recover = location.pathname.includes("/recover") || location.hash.includes("recover") || location.search.includes("nored");
-  if (h && h !== PRIMARY && !local && !cloudflarePreview && !recover) {
+  if (h && h !== PRIMARY && !local && !cloudflarePreview && !githubPreview && !recover) {
     location.replace("https://" + PRIMARY + location.pathname + location.search + location.hash);
   }
 })();
@@ -66,7 +67,7 @@ initApp().then((res) => {
   }
   root.render(
     <React.StrictMode>
-      <BrowserRouter>
+      <BrowserRouter basename={location.hostname === "chernika535.github.io" ? "/tg_parcer" : undefined}>
         <AuthProvider>
           <App />
         </AuthProvider>
