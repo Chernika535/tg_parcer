@@ -29,7 +29,7 @@ export function channelUrl(channel: string): string {
 }
 // Ссылка на отдельный пост в приложении.
 export function postUrl(channel: string, msgId: number): string {
-  return `${location.origin}/#/post/${channel}/${msgId}`;
+  return `${location.origin}/post/${encodeURIComponent(channel)}/${msgId}`;
 }
 
 // Пользовательские ссылки «Открыть в Telegram». t.me бывает недоступен в браузере,
