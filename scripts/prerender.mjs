@@ -68,7 +68,7 @@ function pageHtml({ title, desc, url, img, h1, p, ogType, twCard, ld }) {
 async function main() {
   await initCards();
   let cardCount=0;
-  const MAX_CARDS=450;
+  const MAX_CARDS=150;
   let base = "https://kklxahjnptrgnwcrpauh.supabase.co";
   let key = "";
   try {
