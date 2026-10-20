@@ -41,8 +41,8 @@ async function detectBase(directUrl: string): Promise<string> {
 
 export async function initApp(): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}config.json`, { cache: "no-store" });
-    if (!res.ok) return { ok: false, error: `не найден ${import.meta.env.BASE_URL}config.json` };
+    const res = await fetch(`${(location.hostname === "chernika535.github.io" ? "/tg_parcer/" : "/")}config.json`, { cache: "no-store" });
+    if (!res.ok) return { ok: false, error: `не найден ${(location.hostname === "chernika535.github.io" ? "/tg_parcer/" : "/")}config.json` };
     const cfg = (await res.json()) as AppConfig;
     if (!cfg.supabaseUrl || cfg.supabaseUrl.includes("YOUR-PROJECT")) {
       return { ok: false, error: "config.json не настроен (Supabase)" };
