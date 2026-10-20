@@ -4,17 +4,6 @@ import "./Blog.css";
 const SAFE_TAGS = new Set(["P","DIV","BR","H2","H3","B","STRONG","I","EM","U","S","A","UL","OL","LI","BLOCKQUOTE","FIGURE","FIGCAPTION","IMG"]);
 function clean(html: string): string {
  const doc = new DOMParser().parseFromString(html,"text/html");
- function visit(node: Node): void {
-  for (const child of Array.from(node.childNodes)) {
-   if (child.nodeType === Node.COMMENT_NODE) { child.remove(); continue; }
-   if (child.nodeType !== Node.ELEMENT_NODE) continue;
-   const el=child as HTMLElement;
-   if (!SAFE_TAGS.has(el.tagName)) { if(["SCRIPT","STYLE","IFRAME","OBJECT","SVG"].includes(el.tagName)) {el.remove();continue;} visit(el);el.replaceWith(...Array.from(el.childNodes));continue; }
-   for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
-   // Rebuild only vetted URL attributes below, using original parsed markup.
-   visit(el);
-  }
- }
  // Keep link/image URLs only when their schemes are safe.
  function sanitize(node: Element): void {
   for(const el of Array.from(node.children)) {
