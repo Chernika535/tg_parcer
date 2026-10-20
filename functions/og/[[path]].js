@@ -1,4 +1,4 @@
-import initWasm, { Resvg } from "@resvg/resvg-wasm";
+import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import wasm from "@resvg/resvg-wasm/index_bg.wasm";
 import { resolveSocial } from "../_social.js";
 
