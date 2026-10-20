@@ -25,7 +25,7 @@ function spaFallback(): Plugin {
 }
 
 export default defineConfig({
-  base: "/",
+  base: process.env.GITHUB_PAGES === "true" ? "/tg_parcer/" : "/",
   plugins: [
     nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
     react(),
