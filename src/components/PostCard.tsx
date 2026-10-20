@@ -135,6 +135,7 @@ function RAudio({ url }: { url: string }) {
 
 export default function PostCard({
   post,
+  feedId,
   isFav,
   onToggleFav,
   onPin,
@@ -143,6 +144,7 @@ export default function PostCard({
   likeCount,
 }: {
   post: Post;
+  feedId?: number;
   isFav?: boolean;
   onToggleFav?: (post: Post) => void;
   onPin?: (post: Post) => void;
@@ -235,7 +237,7 @@ export default function PostCard({
         <div className="post-actions">
           <button
             className="fav-btn"
-            onClick={() => shareLink(postUrl(post.channel, post.msgId), post.channelTitle || `@${post.channel}`)}
+            onClick={() => shareLink(postUrl(post.channel, post.msgId, feedId), post.channelTitle || `@${post.channel}`)}
             aria-label="Поделиться постом" title="Поделиться"
           >
             <Icon name="share" size={18} />
