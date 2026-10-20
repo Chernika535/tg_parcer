@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import "./Blog.css";
+import "../pages/Blog.css";
 
 const SAFE_TAGS = new Set(["P","DIV","BR","H2","H3","B","STRONG","I","EM","U","S","A","UL","OL","LI","BLOCKQUOTE","FIGURE","FIGCAPTION","IMG"]);
 function clean(html: string): string {
