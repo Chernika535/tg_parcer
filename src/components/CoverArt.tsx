@@ -1,6 +1,18 @@
 // Стильный детерминированный SVG-паттерн (градиент + мягкие фигуры) для обложек
 // лент без своего фото. Никаких букв — только графика.
 
+// Старые ссылки на обложки указывали на прокси /sb старого хостинга Onreza.
+// Публичные файлы covers доступны непосредственно через Supabase Storage.
+function coverUrl(url: string): string {
+  try {
+    const u = new URL(url, window.location.origin);
+    if ((u.hostname === "polistay.online" || u.hostname === "www.polistay.online" || u.hostname.endsWith(".pages.dev")) && u.pathname.startsWith("/sb/storage/v1/object/public/covers/")) {
+      return "https://kklxahjnptrgnwcrpauh.supabase.co" + u.pathname.slice(3) + u.search;
+    }
+  } catch { /* сохраняем исходную ссылку */ }
+  return url;
+}
+
 function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -31,7 +43,7 @@ export default function CoverArt({
   className?: string;
 }) {
   if (src) {
-    return <img className={className} src={src} alt="" loading="lazy" style={{ objectFit: "cover" }} />;
+    return <img className={className} src={coverUrl(src)} alt="" loading="lazy" style={{ objectFit: "cover" }} />;
   }
   const h = hash(seed || "x");
   const pal = PALETTES[h % PALETTES.length];
