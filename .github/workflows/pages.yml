@@ -1,4 +1,4 @@
-name: GitHub Pages (test deployment)
+name: GitHub Pages (polistay.online)
 on:
   workflow_dispatch:
   push:
@@ -26,10 +26,12 @@ jobs:
       - name: Build static website
         run: npm run build:pages
         env:
-          GITHUB_PAGES: "true"
+          GITHUB_PAGES: "false"
           SKIP_PRERENDER: "true"
-      - name: Create SPA fallback
-        run: cp dist/index.html dist/404.html
+      - name: Configure custom domain
+        run: |
+          echo "polistay.online" > dist/CNAME
+          cp dist/index.html dist/404.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
