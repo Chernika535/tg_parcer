@@ -519,6 +519,7 @@ export default function FeedView() {
           <PostCard
             key={`${p.channel}/${p.msgId}`}
             post={p}
+            feedId={feedId}
             isFav={fav.has(p.link)}
             onToggleFav={session ? toggleFav : undefined}
             isLiked={liked.has(p.link)}
