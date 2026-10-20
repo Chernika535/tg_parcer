@@ -31,7 +31,7 @@ function clean(html: string): string {
 }
 export default function BlogWritingEditor({value,onChange,onImageUpload}:{value:string;onChange:(html:string)=>void;onImageUpload:(file:File)=>Promise<string|null>}) {
  const area=useRef<HTMLDivElement>(null),fileInput=useRef<HTMLInputElement>(null),selection=useRef<Range|null>(null);
- useEffect(()=>{if(area.current && area.current.innerHTML!==value)area.current.innerHTML=clean(value||"<p><br></p>");},[]);
+ useEffect(()=>{if(area.current && document.activeElement!==area.current && area.current.innerHTML!==value)area.current.innerHTML=clean(value||"<p><br></p>");},[value]);
  function emit(){if(area.current)onChange(clean(area.current.innerHTML));}
  function remember(){const s=window.getSelection();if(s?.rangeCount && area.current?.contains(s.anchorNode))selection.current=s.getRangeAt(0).cloneRange();}
  function restore(){area.current?.focus();const s=window.getSelection();if(s && selection.current){s.removeAllRanges();s.addRange(selection.current);}}
