@@ -36,7 +36,8 @@ async function fontData(){
 }
 export async function onRequestGet({request,params,waitUntil}){
  const url=new URL(request.url);
- const kind=params.kind, id=params.id, channel=params.channel, msgId=params.msgId;
+ const parts=Array.isArray(params.path)?params.path:String(params.path||'').split('/');
+ const kind=parts[0],id=parts[1],channel=parts[1],msgId=parts[2];
  if(kind!=="feed"&&kind!=="post")return new Response("Not found",{status:404});
  const cacheKey=new Request(request.url,{method:"GET"});
  const cached=await caches.default.match(cacheKey);if(cached)return cached;
