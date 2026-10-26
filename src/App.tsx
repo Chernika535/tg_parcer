@@ -73,9 +73,11 @@ function RequireAuth({ children }: { children: ReactElement }) {
 }
 
 function RequireAdmin({ children }: { children: ReactElement }) {
-  const { session, isAdmin } = useAuth();
+  const { session, isAdmin, loading, profileLoading, profile } = useAuth();
+  if (loading || profileLoading) return <div className="app"><Loading /></div>;
   if (!session) return <Navigate to="/login" replace />;
-  return isAdmin ? children : <Navigate to="/" replace />;
+  if (isAdmin) return children;
+  return <main className="project-blog"><h1>Доступ к редактору блога</h1><p>{profile ? "У этой учётной записи нет прав администратора." : "Не удалось проверить права администратора. Попробуй обновить страницу или войти повторно."}</p></main>;
 }
 
 function TabBar() {
