@@ -27,6 +27,7 @@ type AuthState = {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  profileLoading: boolean;
   isAdmin: boolean;
   loginWithTelegram: (u: TelegramUser) => Promise<void>;
   linkTelegram: (u: TelegramUser) => Promise<void>;
@@ -43,14 +44,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   async function loadProfile(_uid: string) {
+    setProfileLoading(true);
     // Через функцию (по JWT), а не supabase-js REST — стабильнее через прокси.
     try {
       const p = await getMyProfile();
       setProfile((p as Profile) ?? null);
     } catch {
       setProfile(null);
+    } finally {
+      setProfileLoading(false);
     }
   }
 
@@ -147,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         loading,
+        profileLoading,
         isAdmin: profile?.role === "admin",
         loginWithTelegram,
         linkTelegram,
