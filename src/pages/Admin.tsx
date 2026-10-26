@@ -104,6 +104,7 @@ export default function Admin() {
     <>
       <TopBar title="Модерация лент" />
       <div className="content">
+        <button type="button" className="btn" style={{ marginBottom: 12, width: "100%", textAlign: "center" }} onClick={() => nav("/blog/editor")}>Управление блогом — статьи, черновики и разделы →</button>
         <div className="field" style={{ marginBottom: 8 }}>
           <select value={tab} onChange={(e) => setTab(e.target.value as Tab)}>
             <option value="pending">На модерации ({counts.pending})</option>
