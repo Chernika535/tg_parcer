@@ -49,7 +49,33 @@ export function BlogEditor(){
  const [sections,setSections]=useState<Section[]>([]);
  useEffect(()=>{supabase().from("blog_sections").select("*").order("sort_order").then(({data})=>setSections(data||[]));},[]);
  const [post,setPost]=useState<Omit<Article,"id"|"created_at">>(blank()),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[uploading,setUploading]=useState(false),[deploying,setDeploying]=useState(false);
- useEffect(()=>{if(!slug)return;supabase().from("blog_posts").select("*").eq("slug",slug).maybeSingle().then(({data,error})=>{if(error)setMessage(error.message);else if(data){setPost(data);setTagsInput((data.tags||[]).join(", "));}});},[slug]);
+ const draftKey="polistay-blog-autosave:"+ (slug||"new");
+ const [draftReady,setDraftReady]=useState(false);
+ useEffect(()=>{
+  let active=true;
+  setDraftReady(false);
+  const restore=(serverPost?:Article)=>{
+   if(!active)return;
+   let local:{post:Article;tagsInput:string}|null=null;
+   try{const saved=localStorage.getItem(draftKey);if(saved)local=JSON.parse(saved) as {post:Article;tagsInput:string};}catch{/* storage may be disabled */}
+   const selected=local?.post||serverPost||blank();
+   setPost(selected);
+   setTagsInput(local?.tagsInput??(serverPost?.tags||[]).join(", "));
+   setDraftReady(true);
+   if(local)setMessage("Восстановлен автоматически сохранённый текст.");
+  };
+  if(!slug){restore();return()=>{active=false};}
+  supabase().from("blog_posts").select("*").eq("slug",slug).maybeSingle().then(({data,error})=>{
+   if(!active)return;
+   if(error)setMessage(error.message);
+   restore(data||undefined);
+  });
+  return()=>{active=false};
+ },[draftKey,slug]);
+ useEffect(()=>{
+  if(!draftReady)return;
+  try{localStorage.setItem(draftKey,JSON.stringify({post,tagsInput}));}catch{/* storage may be unavailable or full */}
+ },[draftReady,draftKey,post,tagsInput]);
  if(!isAdmin)return <main className="project-blog"><h1>Доступ только администратору Полистай</h1></main>;
  const change=(k:keyof typeof post,v:unknown)=>setPost(p=>({...p,[k]:v}));
 
@@ -84,11 +110,13 @@ export function BlogEditor(){
   const {error}=await query;
   setBusy(false);
   if(error){setMessage(error.message);return}
+  try{localStorage.removeItem(draftKey);}catch{/* ignore */}
+  setDraftReady(false);
   nav("/blog/editor/"+post.slug);
   setMessage(status==="published"?"Статья опубликована. Для обновления SEO запусти деплой.":"Черновик сохранён.");
  }
  if(!slug&&!isNew)return <main className="project-blog blog-editor"><Link to="/blog">← Блог</Link><h1>Управление блогом</h1><p><Link className="blog-action" to="/blog/editor?new=1">+ Новая статья</Link></p>{listError&&<p role="alert">{listError}</p>}<h2>Черновики</h2>{articles.filter(a=>a.status==="draft").length===0&&<p>Черновиков пока нет.</p>}{articles.filter(a=>a.status==="draft").map(a=><p key={a.id}><Link to={`/blog/editor/${a.slug}`}>{a.title}</Link> · <button type="button" onClick={async()=>{if(!confirm("Удалить черновик?"))return;const {error}=await supabase().from("blog_posts").delete().eq("id",a.id);if(error)setListError(error.message);else setArticles(v=>v.filter(x=>x.id!==a.id));}}>Удалить</button></p>)}<h2>Опубликованные</h2>{articles.filter(a=>a.status==="published").map(a=><p key={a.id}><Link to={`/blog/editor/${a.slug}`}>{a.title}</Link> · <Link to={`/blog/${a.slug}`}>Посмотреть</Link> · <button type="button" onClick={async()=>{const {error}=await supabase().from("blog_posts").update({status:"draft"}).eq("id",a.id);if(error)setListError(error.message);else setArticles(v=>v.map(x=>x.id===a.id?{...x,status:"draft"}:x));}}>В черновики</button> · <button type="button" onClick={async()=>{if(!confirm("Удалить опубликованную статью?"))return;const {error}=await supabase().from("blog_posts").delete().eq("id",a.id);if(error)setListError(error.message);else setArticles(v=>v.filter(x=>x.id!==a.id));}}>Удалить</button></p>)}<h2>Разделы</h2><BlogSectionManager sections={sections} onUpdate={()=>supabase().from("blog_sections").select("*").order("sort_order").then(({data})=>setSections(data||[]))}/></main>;
- return <main className="project-blog blog-editor"><Link to="/blog/editor">← Управление блогом</Link><h1>{slug?"Редактировать статью":"Новая статья"}</h1><label>Заголовок<input value={post.title} onChange={e=>change("title",e.target.value)}/></label><label>Адрес (slug)<input value={post.slug} onChange={e=>change("slug",e.target.value.toLowerCase())} placeholder="primer-stati"/></label><label>Анонс<textarea value={post.excerpt} onChange={e=>change("excerpt",e.target.value)}/></label><label>URL обложки<input value={post.cover_url||""} onChange={e=>change("cover_url",e.target.value)}/></label><label>Или загрузить обложку с компьютера<input type="file" accept="image/*" disabled={uploading} onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file,url=>change("cover_url",url));e.target.value=""}} /></label><label>Теги через запятую<input value={tagsInput} onChange={e=>setTagsInput(e.target.value)} placeholder="новости, telegram, подборки"/></label><h2>Материал</h2><BlogWritingEditor key={slug||"new"} value={post.content_html||((post.blocks||[]).map(b=>b.type==="heading"?"<h2>"+(b.text||"")+"</h2>":b.type==="paragraph"?"<p>"+(b.text||"")+"</p>":b.type==="quote"?"<blockquote>"+(b.text||"")+"</blockquote>":b.type==="image"?"<p><img src='"+(b.url||"")+"' alt='"+(b.caption||"")+"'></p>":"").join(""))} onChange={html=>change("content_html",html)} onImageUpload={async file=>{let result:string|null=null;await upload(file,url=>{result=url});return result;}}/><h2>Раздел</h2><label>Основной раздел<select value={post.section_id||""} onChange={e=>change("section_id",Number(e.target.value))}><option value="">Выберите раздел</option>{sections.map(sec=><option key={sec.id} value={sec.id}>{sec.title}</option>)}</select></label><details><summary>Управление разделами</summary><BlogSectionManager sections={sections} onUpdate={()=>supabase().from("blog_sections").select("*").order("sort_order").then(({data})=>setSections(data||[]))}/></details><h2>SEO</h2><label>SEO title<input value={post.seo_title||""} onChange={e=>change("seo_title",e.target.value)}/></label><label>SEO description<textarea value={post.seo_description||""} onChange={e=>change("seo_description",e.target.value)}/></label><div className="blog-save"><button disabled={busy||uploading} onClick={()=>save("draft")}>Сохранить черновик</button><button disabled={busy||uploading} onClick={()=>save("published")}>Опубликовать</button></div><div className="blog-save"><button type="button" disabled={deploying||busy||uploading} onClick={()=>void deploy()}>{deploying?"Создаём коммит…":"Запустить SEO-деплой"}</button></div>{uploading&&<p role="status">Загружаем файл…</p>}{message&&<p role="alert">{message}</p>}</main>;
+ return <main className="project-blog blog-editor"><Link to="/blog/editor">← Управление блогом</Link><h1>{slug?"Редактировать статью":"Новая статья"}</h1><p className="muted">Текст автоматически сохраняется на этом устройстве. Для сохранения на сайте нажми «Сохранить черновик».</p><label>Заголовок<input value={post.title} onChange={e=>change("title",e.target.value)}/></label><label>Адрес (slug)<input value={post.slug} onChange={e=>change("slug",e.target.value.toLowerCase())} placeholder="primer-stati"/></label><label>Анонс<textarea value={post.excerpt} onChange={e=>change("excerpt",e.target.value)}/></label><label>URL обложки<input value={post.cover_url||""} onChange={e=>change("cover_url",e.target.value)}/></label><label>Или загрузить обложку с компьютера<input type="file" accept="image/*" disabled={uploading} onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file,url=>change("cover_url",url));e.target.value=""}} /></label><label>Теги через запятую<input value={tagsInput} onChange={e=>setTagsInput(e.target.value)} placeholder="новости, telegram, подборки"/></label><h2>Материал</h2><BlogWritingEditor key={slug||"new"} value={post.content_html||((post.blocks||[]).map(b=>b.type==="heading"?"<h2>"+(b.text||"")+"</h2>":b.type==="paragraph"?"<p>"+(b.text||"")+"</p>":b.type==="quote"?"<blockquote>"+(b.text||"")+"</blockquote>":b.type==="image"?"<p><img src='"+(b.url||"")+"' alt='"+(b.caption||"")+"'></p>":"").join(""))} onChange={html=>change("content_html",html)} onImageUpload={async file=>{let result:string|null=null;await upload(file,url=>{result=url});return result;}}/><h2>Раздел</h2><label>Основной раздел<select value={post.section_id||""} onChange={e=>change("section_id",Number(e.target.value))}><option value="">Выберите раздел</option>{sections.map(sec=><option key={sec.id} value={sec.id}>{sec.title}</option>)}</select></label><details><summary>Управление разделами</summary><BlogSectionManager sections={sections} onUpdate={()=>supabase().from("blog_sections").select("*").order("sort_order").then(({data})=>setSections(data||[]))}/></details><h2>SEO</h2><label>SEO title<input value={post.seo_title||""} onChange={e=>change("seo_title",e.target.value)}/></label><label>SEO description<textarea value={post.seo_description||""} onChange={e=>change("seo_description",e.target.value)}/></label><div className="blog-save"><button disabled={busy||uploading} onClick={()=>save("draft")}>Сохранить черновик</button><button disabled={busy||uploading} onClick={()=>save("published")}>Опубликовать</button></div><div className="blog-save"><button type="button" disabled={deploying||busy||uploading} onClick={()=>void deploy()}>{deploying?"Создаём коммит…":"Запустить SEO-деплой"}</button></div>{uploading&&<p role="status">Загружаем файл…</p>}{message&&<p role="alert">{message}</p>}</main>;
 }
 
 function BlogSectionManager({sections,onUpdate}:{sections:Section[];onUpdate:()=>void}){
