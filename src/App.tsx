@@ -74,9 +74,11 @@ function RequireAuth({ children }: { children: ReactElement }) {
 
 function RequireAdmin({ children }: { children: ReactElement }) {
   const { session, isAdmin, loading, profileLoading, profile } = useAuth();
+  // Keep the editor mounted during background profile/token refreshes.
+  // Unmounting it on every refresh destroys unsaved contentEditable text.
+  if (session && isAdmin) return children;
   if (loading || profileLoading) return <div className="app"><Loading /></div>;
   if (!session) return <Navigate to="/login" replace />;
-  if (isAdmin) return children;
   return <main className="project-blog"><h1>Доступ к редактору блога</h1><p>{profile ? "У этой учётной записи нет прав администратора." : "Не удалось проверить права администратора. Попробуй обновить страницу или войти повторно."}</p></main>;
 }
 
