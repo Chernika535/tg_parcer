@@ -74,7 +74,8 @@ export function BlogEditor(){
  async function save(status:"draft"|"published"){
   if(!post.title.trim()||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(post.slug)){setMessage("Заполни название и slug латиницей через дефисы.");return}
   setBusy(true);setMessage("");
-  const payload={...post,section_id:post.section_id||sections[0]?.id||null,status,published_at:status==="published"?(post.published_at||new Date().toISOString()):post.published_at};
+  const {id: _id, created_at: _createdAt, ...editablePost} = post as Article;
+  const payload={...editablePost,section_id:post.section_id||sections[0]?.id||null,status,published_at:status==="published"?(post.published_at||new Date().toISOString()):post.published_at};
   const query=slug?supabase().from("blog_posts").update(payload).eq("slug",slug):supabase().from("blog_posts").insert(payload);
   const {error}=await query;
   setBusy(false);
